@@ -1,0 +1,107 @@
+rules_version = '2';
+
+// DeeCee ERP — role-based security.
+// Roles: admin, sales, projects, service, stores, accounts, technician, client
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
+    function profile() { return get(userPath()).data; }
+    function active() { return signedIn() && exists(userPath()) && profile().active != false; }
+    function role() { return profile().role; }
+    function isStaff() { return active() && role() != 'client'; }
+    function isAdmin() { return active() && role() == 'admin'; }
+    function hasRole(roles) { return active() && role() in roles; }
+    function isClient() { return active() && role() == 'client'; }
+    function ownsDoc() { return isClient() && resource.data.clientId == profile().clientId; }
+    function setupDone() { return exists(/databases/$(database)/documents/meta/setup); }
+
+    // ---- First-time setup: the first person to claim it becomes Admin (only once) ----
+    match /meta/setup {
+      allow read: if signedIn();
+      allow create: if signedIn() && !setupDone()
+        && existsAfter(userPath()) && getAfter(userPath()).data.role == 'admin';
+    }
+
+    // ---- Users / logins ----
+    match /users/{uid} {
+      allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
+      allow create: if isAdmin()
+        || (signedIn() && request.auth.uid == uid && request.resource.data.role == 'admin'
+            && !setupDone() && existsAfter(/databases/$(database)/documents/meta/setup));
+      // Admin can edit anyone, but cannot remove their own admin role or disable themselves
+      allow update: if isAdmin() && !(uid == request.auth.uid
+        && (request.resource.data.role != 'admin' || request.resource.data.active == false));
+      allow delete: if false;
+    }
+
+    match /settings/{id} { allow read: if active(); allow write: if isAdmin(); }
+    match /counters/{id} { allow read, write: if active(); }
+    match /audit/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if false; }
+    match /payroll/{id} { allow read, write: if hasRole(['admin', 'accounts']); }
+
+    // ---- Staff-only collections ----
+    match /clients/{id} {
+      allow read: if isStaff();
+      allow create, update: if hasRole(['admin', 'sales', 'projects', 'service', 'accounts']);
+      allow delete: if isAdmin();
+    }
+    match /leads/{id} { allow read: if isStaff(); allow write: if hasRole(['admin', 'sales']); }
+    match /quotations/{id} { allow read: if isStaff(); allow write: if hasRole(['admin', 'sales']); }
+    match /items/{id} { allow read: if isStaff(); allow write: if hasRole(['admin', 'stores']); }
+    match /stockMoves/{id} { allow read: if isStaff(); allow create: if hasRole(['admin', 'stores']); allow update, delete: if false; }
+    match /vendors/{id} { allow read: if isStaff(); allow write: if hasRole(['admin', 'stores']); }
+    match /purchaseOrders/{id} { allow read: if isStaff(); allow write: if hasRole(['admin', 'stores']); }
+    match /dispatches/{id} { allow read: if isStaff(); allow write: if hasRole(['admin', 'stores']); }
+    match /staff/{id} { allow read: if isStaff(); allow write: if hasRole(['admin', 'accounts']); }
+    match /attendance/{id} {
+      allow read: if isStaff();
+      allow write: if hasRole(['admin', 'accounts'])
+        || (isStaff() && request.resource.data.staffId == profile().staffId);
+    }
+
+    // ---- Shared with the client portal (client sees only their own records) ----
+    match /projects/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create, update: if hasRole(['admin', 'sales', 'projects', 'stores', 'accounts']);
+      allow delete: if isAdmin();
+    }
+    match /invoices/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create, update: if hasRole(['admin', 'accounts', 'service']);
+      allow delete: if hasRole(['admin', 'accounts']);
+    }
+    match /payments/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow write: if hasRole(['admin', 'accounts']);
+    }
+    match /amcs/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create, update: if hasRole(['admin', 'service', 'projects']);
+      allow delete: if isAdmin();
+    }
+    match /complaints/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create: if isStaff()
+        || (isClient() && request.resource.data.clientId == profile().clientId && request.resource.data.status == 'Open');
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /visits/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create, update: if isStaff();
+      allow delete: if hasRole(['admin', 'service', 'projects']);
+    }
+    match /activity/{id} {
+      allow read: if isStaff() || (ownsDoc() && resource.data.visibleToClient == true);
+      allow create: if isStaff();
+      allow update, delete: if isAdmin();
+    }
+    match /photos/{id} {
+      allow read: if isStaff() || ownsDoc();
+      allow create: if isStaff() && request.resource.data.data.size() < 900000;
+      allow delete: if hasRole(['admin', 'projects', 'service', 'technician']);
+    }
+  }
+}
