@@ -10,6 +10,7 @@ export const COMPANY_DEFAULTS = {
   state: 'Rajasthan',
   phone: '+91 9837221980',
   website: 'www.deeceeelevators.in',
+  bank: 'DEE CEE ELEVATORS PVT LTD\nINDIAN BANK A/C No. 50156288191, IFSC CODE: IDIB000V520\nBRANCH: VIDHYADHAR NAGAR JAIPUR',
   defaultGst: 18,
   quotePrefix: 'DCEPL',
   quoteNextSerial: 2830,

@@ -291,7 +291,7 @@ export function seedData() {
 
   const settings = {
     company: {
-      ...COMPANY_DEFAULTS, email: 'info@deeceeelevators.in', gstin: '08XXXXXXXXXXXZX', pan: '', bank: 'DEE CEE ELEVATORS PVT LTD\nBANK A/C No. XXXXXXXXXXX, IFSC CODE: XXXX0000000\nBRANCH: (enter in Settings)', defaultGst: 18,
+      ...COMPANY_DEFAULTS, email: 'info@deeceeelevators.in', gstin: '08XXXXXXXXXXXZX', pan: '', defaultGst: 18,
       hsnSupply: '8428', sacService: '9987', quoteTerms: TERMS,
     },
   };
