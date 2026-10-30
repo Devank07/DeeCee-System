@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, Badge, Tabs, useSettings } from '../ui';
 import { setDoc, updateDoc, backend, DEMO, me } from '../data';
 import { ROLES, STATE_NAMES } from '../constants';
-import { downloadFile, fmtDate } from '../utils';
+import { downloadFile, fmtDate, compressImage } from '../utils';
+import { buildRef } from '../proposal';
 
 export default function Settings({ params }) {
   const tab = ['users', 'data'].includes(params[0]) ? params[0] : 'company';
@@ -22,27 +23,48 @@ function Company() {
   return <CompanyForm key={s.id ? 'loaded' : 'empty'} s={s} />;
 }
 function CompanyForm({ s }) {
-  const { f, bind } = useForm({ name: '', tagline: '', address: '', state: '', phone: '', email: '', website: '', gstin: '', pan: '', bank: '', defaultGst: 18, hsnSupply: '', sacService: '', quoteTerms: '', ...s });
-  const save = () => { const { id, ...data } = f; return act(() => setDoc('settings', 'company', data, true, 'Company details'), 'Saved'); };
+  const { f, bind, set } = useForm({ ...s });
+  const save = () => { const { id, createdAt, updatedAt, ...data } = f; return act(() => setDoc('settings', 'company', data, true, 'Company details'), 'Saved'); };
+  const sig = async (e) => { const file = e.target.files[0]; e.target.value = ''; if (file) set('signature', await compressImage(file, 600, 0.85)); };
   return (
-    <Card title="Company details (printed on quotations, invoices, POs & challans)" actions={<button className="btn" onClick={save}>Save</button>}>
-      <div className="form-grid">
-        <Field label="Company name"><input {...bind('name')} /></Field>
-        <Field label="Tagline"><input {...bind('tagline')} /></Field>
-        <Field label="Address" span={2}><textarea rows={2} {...bind('address')} /></Field>
-        <Field label="State (for GST)" hint="Decides CGST+SGST (same state) or IGST (other state)"><Select options={STATE_NAMES} {...bind('state')} /></Field>
-        <Field label="Phone"><input {...bind('phone')} /></Field>
-        <Field label="Email"><input {...bind('email')} /></Field>
-        <Field label="Website"><input {...bind('website')} /></Field>
-        <Field label="GSTIN"><input {...bind('gstin')} /></Field>
-        <Field label="PAN"><input {...bind('pan')} /></Field>
-        <Field label="Default GST %"><input type="number" {...bind('defaultGst', 'number')} /></Field>
-        <Field label="Default HSN for lift supply" hint="Filled into new quotation & invoice lines. Confirm codes with your CA."><input {...bind('hsnSupply')} placeholder="e.g. 8428" /></Field>
-        <Field label="Default SAC for installation / AMC services"><input {...bind('sacService')} placeholder="SAC code" /></Field>
-        <Field label="Bank details (printed on invoices)" span={2}><textarea rows={3} {...bind('bank')} /></Field>
-        <Field label="Default quotation terms" span={2}><textarea rows={5} {...bind('quoteTerms')} /></Field>
-      </div>
-    </Card>
+    <>
+      <Card title="Company details (printed on quotations, invoices, POs & challans)" actions={<button className="btn" onClick={save}>Save</button>}>
+        <div className="form-grid">
+          <Field label="Company name (letterhead)"><input {...bind('name')} /></Field>
+          <Field label="Tagline"><input {...bind('tagline')} /></Field>
+          <Field label="Name for sign-off" hint="“For DEE CEE ELEVATORS (P) LTD”"><input {...bind('shortName')} /></Field>
+          <Field label="Name in letter text"><input {...bind('letterName')} /></Field>
+          <Field label="Address (footer of every page)" span={2}><textarea rows={2} {...bind('address')} /></Field>
+          <Field label="State (for GST)" hint="Same state → CGST+SGST, other states → IGST"><Select options={STATE_NAMES} {...bind('state')} /></Field>
+          <Field label="Phone"><input {...bind('phone')} /></Field>
+          <Field label="Email"><input {...bind('email')} /></Field>
+          <Field label="Website"><input {...bind('website')} /></Field>
+          <Field label="GSTIN"><input {...bind('gstin')} /></Field>
+          <Field label="PAN"><input {...bind('pan')} /></Field>
+          <Field label="Bank details (printed on quotations & invoices)" span={2} hint="One line per row, e.g. DEE CEE ELEVATORS PVT LTD / INDIAN BANK A/C No. …, IFSC … / BRANCH: …"><textarea rows={3} {...bind('bank')} /></Field>
+        </div>
+      </Card>
+      <Card title="Quotation settings" actions={<button className="btn" onClick={save}>Save</button>}>
+        <div className="form-grid">
+          <Field label="Reference prefix"><input {...bind('quotePrefix')} /></Field>
+          <Field label="Next quotation serial no." hint={'Next ref looks like ' + buildRef(f.quotePrefix, 'Uttar Pradesh', 'AG', f.quoteNextSerial)}><input type="number" {...bind('quoteNextSerial', 'number')} /></Field>
+          <Field label="Default note after GST line"><input {...bind('freightNote')} /></Field>
+          <Field label="Default GST %"><input type="number" {...bind('defaultGst', 'number')} /></Field>
+          <Field label="AMC without material (% / year)"><input type="number" {...bind('amcWithout', 'number')} /></Field>
+          <Field label="Comprehensive AMC (% / year)"><input type="number" {...bind('amcComp', 'number')} /></Field>
+          <Field label="Default HSN for lift supply" hint="Confirm codes with your CA"><input {...bind('hsnSupply')} /></Field>
+          <Field label="Default SAC for installation / AMC"><input {...bind('sacService')} /></Field>
+        </div>
+        <div className="field"><span className="field-label">Authorised signatory signature (printed on page 4 and on invoices)</span>
+          <div className="row gap wrap">
+            {f.signature ? <img src={f.signature} alt="Signature" className="sig-preview" /> : <span className="muted small">No signature uploaded</span>}
+            <label className="btn ghost sm file-btn">Upload signature photo<input type="file" accept="image/*" hidden onChange={sig} /></label>
+            {f.signature && <button className="btn ghost sm" onClick={() => set('signature', '')}>Remove</button>}
+          </div>
+          <span className="hint">Sign on white paper, take a clear photo, crop it close. Click Save after uploading.</span>
+        </div>
+      </Card>
+    </>
   );
 }
 

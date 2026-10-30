@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { initBackend, backend, DEMO, setMe } from './data';
 import { NAV, ROLES, OFFICE_ROLES } from './constants';
-import { useRoute, go, Toaster, useSettings, act, useCol } from './ui';
+import { useRoute, go, Toaster, useSettings, act, useCol, logoUrl } from './ui';
 import { openTasks } from './workflow';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
@@ -66,7 +66,7 @@ function Shell({ user }) {
     <div className={'shell' + (tech ? ' tech-shell' : '')}>
       {!tech && (
         <aside className={'sidebar' + (menu ? ' open' : '')}>
-          <div className="brand"><div className="logo">DC</div><div><b>{company.name?.split(' ').slice(0, 2).join(' ') || 'DeeCee'}</b><span>Company OS</span></div></div>
+          <div className="brand"><img src={logoUrl} alt="Dee Cee Elevators" className="brand-logo" /><div><b>Dee Cee Elevators</b><span>Company OS</span></div></div>
           <nav>
             {allowed.map((n) => (
               <a key={n.key} href={'#/' + n.key} className={current === n.key ? 'on' : ''}>
@@ -179,7 +179,7 @@ function Login() {
   return (
     <div className="login">
       <div className="login-card">
-        <div className="brand big"><div className="logo">DC</div><div><b>DeeCee Elevators</b><span>Company OS</span></div></div>
+        <div className="brand big"><img src={logoUrl} alt="Dee Cee Elevators" className="brand-logo" /><div><b>Dee Cee Elevators</b><span>Company OS</span></div></div>
         {DEMO && (
           <div className="demo-pick">
             <p className="muted">Demo mode — tap an account to explore that team's view:</p>

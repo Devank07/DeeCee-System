@@ -1,6 +1,7 @@
 // Sample data for DEMO MODE only (never written to Firebase).
 import { today, addDays, addMonths } from './utils';
 import { SITE_CHECKLIST, INSTALL_STEPS } from './constants';
+import { defaultProposal, specFromProposal, titleFromProposal, COMPANY_DEFAULTS } from './proposal';
 
 // A simple general-arrangement drawing (SVG) used as a sample uploaded file
 function sampleDrawing(title, shaft, pit, oh) {
@@ -157,6 +158,20 @@ export function seedData() {
     }),
   };
 
+
+  // An enquiry in the full DeeCee proposal format (fictional client)
+  const px = { ...defaultProposal(COMPANY_DEFAULTS), persons: 6, capacityKg: 408, travel: '9.3', floors: 'G+1+2', stops: 3, shaftW: 1550, shaftD: 1550, carW: 1000, carD: 1100, architect: 'MR. S. KAUSHAL', buildingType: 'HOUSE', cityCode: 'AG' };
+  px.features['Overwait Protector'] = false;
+  px.clientScope['LANDING SWING DOORS AND FRAME (ALL OPENING)'] = false;
+  px.clientScope['WELDING MACHINE (IF REQUIRED)'] = false;
+  clients.c_gupta = C('MR. RAJESH GUPTA', 'Mr. Rajesh Gupta', '9822200009', '14B Green Park, Kamla Nagar', 'Agra', 'Uttar Pradesh');
+  projects.p9 = base('c_gupta', {
+    quoteNo: 'DCEPL/UP/AG/26/10/2830', siteAddress: '14B GREEN PARK KAMLA NAGAR', siteCity: 'AGRA', siteState: 'Uttar Pradesh', status: 'Enquiry',
+    title: titleFromProposal(px), lifts: 1, liftSpec: specFromProposal(px), proposal: px,
+    quote: { number: 'DCEPL/UP/AG/26/10/2830', refNo: 'DCEPL/UP/AG/26/10/2830', serial: 2830, rev: 0, date: t, validTill: addDays(t, 30), gstRate: 18, discount: 0, items: [{ desc: 'Supply & Installation of Lift', hsn: '8428', qty: 1, rate: 820000 }] },
+    enquiry: { status: 'Quoted', source: 'Architect / Builder', followUpDate: addDays(t, 2), notes: 'Rose gold finish, glass doors.' },
+  });
+
   const inv = (number, clientId, projectId, milestone, desc, amount, date, paid, hsn, extra = {}) => {
     const rate = Math.round((amount / 1.18) * 100) / 100;
     return {
@@ -276,8 +291,7 @@ export function seedData() {
 
   const settings = {
     company: {
-      name: 'DeeCee Elevators Pvt. Ltd.', tagline: 'Elevators · Escalators · Home Lifts', address: 'Your registered office address', state: 'Uttar Pradesh', phone: '+91 00000 00000',
-      email: 'info@deeceeelevators.in', website: 'deeceeelevators.in', gstin: '09XXXXXXXXXXXZX', pan: '', bank: 'Bank: —\nA/c No: —\nIFSC: —', defaultGst: 18,
+      ...COMPANY_DEFAULTS, email: 'info@deeceeelevators.in', gstin: '08XXXXXXXXXXXZX', pan: '', bank: 'DEE CEE ELEVATORS PVT LTD\nBANK A/C No. XXXXXXXXXXX, IFSC CODE: XXXX0000000\nBRANCH: (enter in Settings)', defaultGst: 18,
       hsnSupply: '8428', sacService: '9987', quoteTerms: TERMS,
     },
   };
@@ -288,7 +302,7 @@ export function seedData() {
     complaints: stamp(complaints), visits: stamp(visits), items: stamp(items), vendors: stamp(vendors), files, 'files/f1/chunks': { 0: { d: sampleDrawing('2 x Passenger lifts - Tower B, Green Valley Apartments', '1800 x 1900', '1500', '4200') } },
     'files/f2/chunks': { 0: { d: sampleDrawing('Stretcher lift - New OT Block, City Care Hospital', '2400 x 2700', '1600', '4600') } },
     purchaseOrders: stamp(purchaseOrders), dispatches: stamp(dispatches), stockMoves, activity, attendance, users, settings, photos: {}, audit: {},
-    counters: { 'PRJ_26-27': { n: 3 }, 'INV_26-27': { n: 5 }, 'AMC_26-27': { n: 1 }, 'CMP_26-27': { n: 3 }, 'QT_26-27': { n: 10 }, 'PO_26-27': { n: 3 }, 'DSP_26-27': { n: 4 } },
+    counters: { 'PRJ_26-27': { n: 3 }, 'INV_26-27': { n: 5 }, 'AMC_26-27': { n: 1 }, 'CMP_26-27': { n: 3 }, 'QT_26-27': { n: 10 }, 'PO_26-27': { n: 3 }, 'DSP_26-27': { n: 4 }, QREF: { n: 2830 } },
   };
 }
 

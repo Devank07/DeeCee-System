@@ -159,6 +159,7 @@ function StaffForm({ s, teams, canSeePay, salary, onClose }) {
         {canSeePay && <Field label="Monthly salary (₹)" hint="Only Admin & Accounts can see this"><input type="number" {...bind('salary', 'number')} /></Field>}
         {(f.isTechnician || ['Installation', 'Service'].includes(f.department)) && <Field label="Site team"><Select options={teams.filter((t) => t.active !== false).map((t) => ({ value: t.id, label: t.name }))} placeholder="— Not in a team —" {...bind('teamId')} /></Field>}
         <Field label="Notes (documents, skills, licences)" span={2}><textarea rows={2} {...bind('notes')} /></Field>
+        {['Sales', 'Management'].includes(f.department) && <Field label="Quotation sign-off (page 1)" span={2} hint="One line per row. First two lines print in bold."><textarea rows={5} {...bind('quoteSignature')} placeholder={'VIVEK AGARWAL\nVee Kay Engineers\n2/49 Ram Nagar Colony-AGRA-282002\nMobile: 98xxxxxxxx\nEmail: name@example.com'} /></Field>}
       </div>
       <label className="check"><input type="checkbox" checked={!!f.isTechnician} onChange={(e) => set('isTechnician', e.target.checked)} /> Field technician (works at sites)</label>
       <label className="check"><input type="checkbox" checked={f.active !== false} onChange={(e) => set('active', e.target.checked)} /> Currently working</label>

@@ -349,13 +349,18 @@ input.mini { width: 110px; padding: 5px 8px; }
 .pd-sign > div:first-child { text-align: left; align-self: flex-end; }
 
 @media print {
-  @page { margin: 14mm; }
-  body * { visibility: hidden; }
-  .print-area, .print-area * { visibility: visible; }
-  .print-area { position: absolute; left: 0; top: 0; width: 100%; }
-  .modal-back { position: static; background: none; backdrop-filter: none; padding: 0; }
-  .modal { box-shadow: none; max-height: none; }
-  .modal-body { overflow: visible; }
+  @page { size: A4; margin: 0; }
+  html, body { background: #fff !important; }
+  #root { display: none !important; }
+  body.noscroll { overflow: visible !important; }
+  .print-host .modal-back { position: static; display: block; padding: 0; background: none; backdrop-filter: none; animation: none; }
+  .print-host .modal { box-shadow: none; max-width: none; max-height: none; border-radius: 0; display: block; animation: none; }
+  .print-host .modal-head, .print-host .modal-foot { display: none !important; }
+  .print-host .modal-body { padding: 0; overflow: visible; }
+  .print-area { padding: 12mm 14mm; }
+  .sheets { overflow: visible !important; padding: 0 !important; background: none !important; }
+  .sheet { box-shadow: none !important; margin: 0 !important; break-after: page; page-break-after: always; }
+  .sheet:last-child { break-after: auto; page-break-after: auto; }
 }
 
 /* responsive */
@@ -473,3 +478,84 @@ input.need { border-color: #e8a317; background: #fffaf0; }
   .inline-select { min-width: 0; width: 100%; }
   .file-list li .row { width: 100%; }
 }
+
+/* ===== proposal (quotation) sheets ===== */
+.brand-logo { width: 38px; height: auto; flex-shrink: 0; }
+.brand.big .brand-logo { width: 52px; }
+.pd-head { align-items: flex-start; }
+.pd-logo { width: 54px; height: auto; margin-right: 12px; }
+.pd-left { flex: 1; }
+.pd-sigimg { max-height: 44px; display: block; margin: 4px 0 0 auto; }
+.sig-preview { max-height: 60px; border: 1px solid var(--line); border-radius: 8px; background: #fff; padding: 4px; }
+.field.span3 { grid-column: span 3; }
+.field.span4 { grid-column: span 4; }
+.checks.two { display: grid; grid-template-columns: 1fr 1fr; gap: 2px 16px; }
+.check.struck { color: var(--muted); text-decoration: line-through; }
+.wizard-steps { display: flex; gap: 6px; margin-bottom: 16px; overflow-x: auto; }
+.wizard-steps button { flex: 1; min-width: 120px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--line-2); background: #fff; border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13px; font-weight: 500; color: var(--ink-2); cursor: pointer; }
+.wizard-steps button span { width: 22px; height: 22px; border-radius: 50%; background: var(--grey-soft); display: grid; place-items: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
+.wizard-steps button.on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.wizard-steps button.on span { background: var(--accent); color: #fff; }
+.wizard-steps button.done span { background: var(--green); color: #fff; }
+
+.sheets { background: #e9e9ee; padding: 16px; margin: -18px -20px; overflow-x: auto; }
+.sheet {
+  --pp-blue: #2e6fd1; width: 210mm; min-height: 297mm; margin: 0 auto 16px; background: #fff; color: #111;
+  box-shadow: 0 2px 12px rgba(0,0,0,.12); padding: 9mm 16mm 0; display: flex; flex-direction: column;
+  font-family: Calibri, Carlito, 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; line-height: 1.32;
+}
+.sheet p { margin: 0 0 9pt; }
+.sh-head { display: flex; align-items: flex-start; gap: 8mm; margin-bottom: 4mm; }
+.sh-logo { width: 19mm; height: auto; }
+.sh-co { flex: 1; text-align: center; padding-right: 19mm; }
+.sh-name { color: var(--pp-blue); font-size: 22pt; font-weight: 700; letter-spacing: .01em; line-height: 1.1; }
+.sh-tag { font-style: italic; font-size: 10pt; margin-top: 2pt; }
+.sh-body { flex: 1; }
+.sh-foot { text-align: center; font-size: 8pt; padding: 3mm 0 6mm; }
+.sh-page { margin-bottom: 5mm; }
+.sh-addr { color: #6d8fcf; font-weight: 700; font-size: 8.5pt; }
+.sh-web { font-weight: 700; font-size: 8.5pt; }
+.pp-title { text-align: center; font-weight: 700; text-decoration: underline; font-size: 10.5pt; margin: 1mm 0 11mm; }
+.pp-meta, .pp-client { display: flex; flex-direction: column; }
+.pp-client { margin-bottom: 7mm; }
+.pp-subject { text-align: center; font-weight: 700; margin: 3mm 0 6mm; }
+.pp-tight { margin-bottom: 2pt !important; }
+.pp-ul { margin: 0 0 8pt; padding-left: 9mm; }
+.pp-ul li { margin: 2pt 0; }
+.pp-ul.cols { columns: 2; column-gap: 8mm; }
+.pp-ul.cols li { break-inside: avoid; margin-bottom: 6pt; }
+.pp-ol { margin: 0 0 8pt; padding-left: 9mm; }
+.strike { text-decoration: line-through; }
+.pp-for { display: flex; align-items: center; gap: 6px; margin-top: 4mm; margin-bottom: 4mm !important; }
+.pp-mini-logo { width: 9mm; height: auto; }
+.pp-sign-lines .b { font-weight: 700; }
+.pp-h { font-weight: 700; text-decoration: underline; font-size: 11pt; margin: 6mm 0 3mm; }
+.pp-h:first-child { margin-top: 2mm; }
+.pp-h2 { font-weight: 700; font-size: 11.5pt; margin: 2mm 0 2mm; }
+.pp-h3 { font-weight: 700; margin: 3mm 0 1mm; }
+.pp-two { display: flex; justify-content: space-between; gap: 8mm; padding: 0 5mm; }
+.pp-two .pp-client { margin-bottom: 2mm; }
+.pp-right { text-align: right; display: flex; flex-direction: column; }
+.pp-spec { width: 100%; border-collapse: collapse; margin-bottom: 1mm; }
+.pp-spec td { border: 1px solid #000; padding: 1.2pt 4pt; vertical-align: top; font-size: 10.5pt; }
+.pp-spec td:first-child { width: 36%; }
+.pp-cost { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
+.pp-cost th { text-align: left; font-weight: 700; padding: 2pt 4pt; border-bottom: 0; }
+.pp-cost td { padding: 4pt; vertical-align: middle; }
+.pp-cost td.c { text-align: center; width: 50%; }
+.pp-cost .sm { font-weight: 700; }
+.pp-signoff { display: flex; justify-content: space-between; margin-top: 4mm; }
+.pp-signoff > div { display: flex; flex-direction: column; }
+.pp-signoff .r { text-align: right; }
+.pp-sig { height: 20mm; display: flex; align-items: center; }
+.pp-sig img { max-height: 19mm; max-width: 45mm; }
+.pp-bank { text-align: center; font-weight: 700; margin-top: 4mm; display: flex; flex-direction: column; gap: 2pt; }
+@media (max-width: 640px) {
+  .checks.two { grid-template-columns: 1fr; }
+  .field.span3, .field.span4 { grid-column: auto; }
+  .sheets { margin: -18px -20px; padding: 8px; }
+}
+.sheet th, .sheet td { background: none; color: #111; cursor: default; white-space: normal; border-bottom: 0; }
+.sheet .pp-cost th { font-size: 10.5pt; padding: 2pt 4pt; }
+.pp-lbl { display: flex; align-items: center; gap: 6px; min-height: 10mm; }
+.pp-signoff .r .pp-lbl { justify-content: flex-end; }

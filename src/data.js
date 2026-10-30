@@ -34,8 +34,8 @@ const matches = (doc, filters) =>
 
 /* ---------------- DEMO BACKEND (localStorage) ---------------- */
 function demoBackend() {
-  const KEY = 'deecee_erp_demo_v2';
-  const UKEY = 'deecee_erp_demo_uid_v2';
+  const KEY = 'deecee_erp_demo_v3';
+  const UKEY = 'deecee_erp_demo_uid_v3';
   let mem = null;
   try { mem = JSON.parse(localStorage.getItem(KEY)); } catch { /* storage unavailable */ }
   if (!mem) mem = seedData();
@@ -88,7 +88,7 @@ function demoBackend() {
     async set(col, id, data, merge) { (mem[col] ||= {}); mem[col][id] = merge ? applyPatch(mem[col][id], data) : applyPatch({}, data); persist(col); },
     async update(col, id, patch) { if (!mem[col]?.[id]) throw new Error('Not found'); mem[col][id] = applyPatch(mem[col][id], patch); persist(col); },
     async remove(col, id) { if (mem[col]) delete mem[col][id]; persist(col); },
-    async nextNumber(key) { mem.counters ||= {}; const n = (mem.counters[key]?.n || 0) + 1; mem.counters[key] = { n }; persist('counters'); return n; },
+    async nextNumber(key, start = 1) { mem.counters ||= {}; const n = Math.max((mem.counters[key]?.n || 0) + 1, start); mem.counters[key] = { n }; persist('counters'); return n; },
     onAuth(cb) { authListeners.add(cb); emitAuth(); return () => authListeners.delete(cb); },
     async login(email, password) {
       const entry = Object.entries(mem.users || {}).find(([, u]) => (u.email || '').toLowerCase() === email.trim().toLowerCase());
@@ -161,11 +161,11 @@ async function firebaseBackend() {
     async set(col, id, data, merge) { await fs.setDoc(fs.doc(db, col, id), conv(data), { merge: !!merge }); },
     async update(col, id, patch) { await fs.updateDoc(fs.doc(db, col, id), conv(patch)); },
     async remove(col, id) { await fs.deleteDoc(fs.doc(db, col, id)); },
-    async nextNumber(key) {
+    async nextNumber(key, start = 1) {
       return fs.runTransaction(db, async (t) => {
         const ref = fs.doc(db, 'counters', key);
         const s = await t.get(ref);
-        const n = (s.exists() ? s.data().n : 0) + 1;
+        const n = Math.max((s.exists() ? s.data().n : 0) + 1, start);
         t.set(ref, { n });
         return n;
       });
@@ -262,6 +262,10 @@ function fy() {
   const d = new Date();
   const y = d.getFullYear() % 100;
   return d.getMonth() >= 3 ? `${y}-${y + 1}` : `${y - 1}-${y}`;
+}
+// Running quotation serial (does not reset each year), e.g. 2830, 2831…
+export async function nextSerial(key, start) {
+  try { return await B.nextNumber(key, Number(start) || 1); } catch { return Date.now() % 10000; }
 }
 export async function nextNumber(prefix) {
   const f = fy();

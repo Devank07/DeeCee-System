@@ -5,7 +5,9 @@ import { SITE_CHECKLIST, INSTALL_STEPS, STATE_NAMES } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, num, sum, waLink, mapsLink, daysUntil } from '../utils';
 import { steps, openTasks, nextText, progressPct, quoteTotal, milestoneStatus } from '../workflow';
 import { VisitForm, InvoiceForm, PaymentForm, teamOptions, can } from './shared';
-import { QuoteEditor, ConfirmOrder, EnquiryStatus } from './Enquiries';
+import { ConfirmOrder, EnquiryStatus } from './Enquiries';
+import ProposalForm from './ProposalForm';
+import ProposalDoc from './ProposalDoc';
 import { SiteForm, InstallForm } from './siteForms';
 import { DispatchForm } from './Inventory';
 
@@ -281,10 +283,10 @@ function ClientTab({ id, user }) {
 
       {isAdmin && <p className="r"><button className="link danger" onClick={() => setModal({ t: 'delete' })}>Delete this client tab</button></p>}
 
-      {modal?.t === 'quote' && <QuoteEditor p={p} onClose={close} />}
+      {modal?.t === 'quote' && <ProposalForm p={p} onClose={close} />}
       {modal?.t === 'confirm' && <ConfirmOrder p={p} onClose={close} />}
       {modal?.t === 'enq' && <EnquiryStatus p={p} onClose={close} />}
-      {modal?.t === 'print' && <PrintDoc kind="Quotation" company={company} onClose={close} doc={{ ...p.quote, number: p.quoteNo, clientName: p.clientName, clientContact: p.contactPerson, phone: p.contactPhone, address: p.siteAddress, liftSpec: p.liftSpec, lifts: p.lifts }} />}
+      {modal?.t === 'print' && <ProposalDoc p={p} onClose={close} />}
       {modal?.t === 'pay' && <PaymentForm project={p} milestone={modal.milestone} confirmAdvance={modal.confirmAdvance} onClose={close} />}
       {modal?.t === 'invoice' && <InvoiceForm onClose={close}
         initial={{ clientId: p.clientId, projectId: p.id, milestone: modal.i, placeOfSupply: p.siteState || '', items: [{ desc: `${modal.m.name} (${modal.m.percent}%) — ${p.title}`, hsn: company.hsnSupply || '', qty: 1, rate: Math.round((num(modal.m.amount) / 1.18) * 100) / 100 }], gstRate: 18 }}
@@ -312,17 +314,20 @@ function ClientTab({ id, user }) {
 function QuoteCard({ p, user, setModal, qTotal, compact }) {
   const sales = can(user, 'sales');
   return (
-    <Card title={<>Quotation {p.quoteNo}{p.quote?.rev ? ` R${p.quote.rev}` : ''}</>} className={!compact && qTotal <= 0 ? 'attn-card' : ''} actions={<>
+    <Card title={<>Quotation <span className="muted small">{p.quote?.refNo || p.quoteNo}</span></>} className={!compact && qTotal <= 0 ? 'attn-card' : ''} actions={<>
       <button className="btn ghost sm" onClick={() => setModal({ t: 'print' })}>Print / PDF</button>
-      {sales && <button className={'btn sm' + (qTotal > 0 || compact ? ' ghost' : '')} onClick={() => setModal({ t: 'quote' })}>{p.orderConfirmedAt ? 'View' : qTotal > 0 ? 'Edit quotation' : 'Enter price'}</button>}
+      {sales && <button className={'btn sm' + (qTotal > 0 || compact ? ' ghost' : '')} onClick={() => setModal({ t: 'quote' })}>{p.orderConfirmedAt ? 'View details' : qTotal > 0 ? 'Edit quotation' : 'Enter price'}</button>}
     </>}>
+      {!compact && p.proposal && (
+        <p className="small muted">{p.proposal.origin} {p.proposal.liftKind} · {p.proposal.drive} · {p.proposal.persons} persons / {p.proposal.capacityKg} kg · {p.proposal.floors} · {p.proposal.color} · {p.proposal.door}</p>
+      )}
       {!compact && (
         <ul className="list">{(p.quote?.items || []).map((it, i) => <li key={i}><span className="small">{it.desc}</span><span className="nowrap">{num(it.rate) ? `${it.qty} × ${inr(it.rate)}` : <Badge tone="red">Price?</Badge>}</span></li>)}</ul>
       )}
       <div className="row between mt"><span className="muted">Total incl. GST</span><b className="big-num">{qTotal > 0 ? inr(qTotal) : '—'}</b></div>
       {!p.orderConfirmedAt && p.status === 'Enquiry' && sales && (
         <div className="row gap mt wrap">
-          {p.contactPhone && qTotal > 0 && <a className="btn ghost sm" target="_blank" rel="noreferrer" href={waLink(p.contactPhone, `Dear ${p.contactPerson || p.clientName}, please find our quotation ${p.quoteNo} for ${p.title} — total ${inr(qTotal)} incl. GST. — DeeCee Elevators`)}>Send on WhatsApp</a>}
+          {p.contactPhone && qTotal > 0 && <a className="btn ghost sm" target="_blank" rel="noreferrer" href={waLink(p.contactPhone, `Dear ${p.contactPerson || p.clientName}, thank you for your enquiry. Our proposal ${p.quote?.refNo || p.quoteNo} for ${p.title} is ready. I am sharing the PDF with you. — Dee Cee Elevators`)}>Send on WhatsApp</a>}
           <button className="btn sm" disabled={qTotal <= 0} title={qTotal <= 0 ? 'Enter the price first' : ''} onClick={() => setModal({ t: 'confirm' })}>Order confirmed →</button>
         </div>
       )}

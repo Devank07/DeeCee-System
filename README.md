@@ -15,7 +15,7 @@ Built with **React + Firebase** (Authentication + Firestore). Live at **https://
 
 | Step | Who | What they do | Unlocks when |
 |---|---|---|---|
-| **Quotation** | Sales | *Enquiries → + New client enquiry*: enter client details and lift requirement. The client tab and a quotation (supply, installation, ARD lines) are created automatically — Sales only enters the prices. Print / WhatsApp the quote, revise it (R1, R2…). | — |
+| **Quotation** | Sales | *Enquiries → + New client enquiry*: a 4-step form (client & site → lift & shaft → car & finish → price & terms) with DeeCee's usual values pre-filled. It creates the client tab and the quotation in the DeeCee 4-page proposal format (letter, technical specifications, cost summary + AMC + commercial terms, scope + T&C + bank) with Ref No. like DCEPL/UP/AG/26/10/2830. *Print / PDF* saves it as a PDF named after the client. | — |
 | **Order Confirmed** | Sales | *Order confirmed →*: final value, client PO no., payment milestones (40/40/15/5 by default), target date, installation team. The tab now appears in **Orders** for every team. | Quotation has a price |
 | **Advance Received** | Material / Accounts | *Confirm advance received*: records the payment and releases the order to Drawing and Material. | Order confirmed |
 | **Drawing Issued** | Drawing team | *+ Upload drawing* (PDF/image, Rev 0, Rev 1…). Everyone — office, the site team and the client — can open and download it. *Approved by client* when signed off. | Advance received |
@@ -66,6 +66,8 @@ firebase deploy --only firestore,hosting
 `firestore` deploys both the security rules and the database indexes the team views need. The indexes take a few minutes to build after the first deploy — if a list looks empty right after deploying, wait 5 minutes and refresh.
 
 ## First-time setup checklist
+1. **Settings → Company & Quotation settings**: check the letterhead details, paste your **bank details**, upload the **authorised signatory's signature**, and set the **next quotation serial no.** (e.g. 2830).
+2. **Staff directory**: for each salesperson, fill in *Quotation sign-off* (name, firm, address, mobile, email) — it prints on page 1.
 1. **Settings → Company**: address, **state**, GSTIN, bank details, default **HSN/SAC** codes (confirm with your CA), quotation terms.
 2. **Staff & Teams → Staff directory**: add everyone. Tick *Field technician* for fitters/helpers/service engineers.
 3. **Staff & Teams → Site teams**: create e.g. *Installation Team A*, *Installation Team B*, *Service Team* and add members.

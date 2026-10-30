@@ -2,6 +2,10 @@ import React, { createContext, useContext, useEffect, useMemo, useRef, useState 
 import { subscribe, subscribeDoc, addDoc, deleteDoc, updateDoc, me, uploadFile, fetchFileBlob, deleteFile, MAX_FILE_MB } from './data';
 import { calcTotals, compressImage, downloadFile, toCSV, inr, fmtDate, amountInWords, num, fmtDateTime } from './utils';
 import { stateCode } from './constants';
+import { COMPANY_DEFAULTS } from './proposal';
+import logoUrl from './assets/logo.png';
+import { createPortal } from 'react-dom';
+export { logoUrl };
 import { steps as pipelineSteps } from './workflow';
 
 /* ---------- routing (hash based) ---------- */
@@ -36,7 +40,9 @@ export function useDoc(col, id) {
 }
 export function useSettings() {
   const d = useDoc('settings', 'company');
-  return d || { name: 'DeeCee Elevators Pvt. Ltd.', defaultGst: 18 };
+  const out = { ...COMPANY_DEFAULTS };
+  Object.entries(d || {}).forEach(([k, v]) => { if (v !== '' && v != null) out[k] = v; });
+  return out;
 }
 
 /* ---------- toast ---------- */
@@ -467,11 +473,12 @@ export function PrintDoc({ kind, doc, company, onClose }) {
   const intra = pos && company.state ? pos === company.state : (company.gstin || '').slice(0, 2) === (doc.clientGstin || company.gstin || '').slice(0, 2);
   const showHsn = (doc.items || []).some((i) => i.hsn);
   return (
-    <Modal title={kind} onClose={onClose} wide footer={<><button className="btn ghost" onClick={onClose}>Close</button><button className="btn" onClick={() => window.print()}>Print / Save as PDF</button></>}>
+    <PrintFrame title={kind} fileName={`${kind} ${doc.number || ''} ${doc.clientName || ''}`} onClose={onClose}>
       <div className="print-area">
         {doc.status === 'Cancelled' && <div className="pd-cancel">CANCELLED</div>}
         <div className="pd-head">
-          <div>
+          <img src={logoUrl} alt="" className="pd-logo" />
+          <div className="pd-left">
             <div className="pd-co">{company.name}</div>
             {company.tagline && <div className="pd-small">{company.tagline}</div>}
             <div className="pd-small pre">{company.address}{company.state ? ', ' + company.state : ''}</div>
@@ -528,9 +535,27 @@ export function PrintDoc({ kind, doc, company, onClose }) {
         {isInvoice && company.bank && <div className="pd-terms"><b>Bank details</b><div className="pre">{company.bank}</div></div>}
         <div className="pd-sign">
           {isChallan ? <div>Receiver's signature</div> : <div />}
-          <div>For {company.name}<br /><br /><br />Authorised Signatory</div>
+          <div>For {company.name}<br />{company.signature ? <img src={company.signature} alt="" className="pd-sigimg" /> : <><br /><br /></>}<br />Authorised Signatory</div>
         </div>
       </div>
-    </Modal>
+    </PrintFrame>
+  );
+}
+
+/* Print / PDF window: rendered outside the app so only the document prints */
+export function PrintFrame({ title, fileName, onClose, children }) {
+  const print = () => {
+    const old = document.title;
+    if (fileName) document.title = fileName.replace(/[\\/:*?"<>|]+/g, ' ').trim();
+    window.print();
+    setTimeout(() => { document.title = old; }, 1500);
+  };
+  return createPortal(
+    <div className="print-host">
+      <Modal title={title} onClose={onClose} wide footer={<><button className="btn ghost" onClick={onClose}>Close</button><button className="btn" onClick={print}>Print / Save as PDF</button></>}>
+        {children}
+      </Modal>
+    </div>,
+    document.body,
   );
 }

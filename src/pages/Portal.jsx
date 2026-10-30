@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useCol, Card, Badge, Empty, Pipeline, ActivityFeed, Modal, Field, Select, useForm, act, PrintDoc, useSettings, Tabs, ProgressBar, FileList } from '../ui';
+import { logoUrl, useCol, Card, Badge, Empty, Pipeline, ActivityFeed, Modal, Field, Select, useForm, act, PrintDoc, useSettings, Tabs, ProgressBar, FileList } from '../ui';
 import { addDoc, nextNumber, backend } from '../data';
 import { inr, fmtDate, fmtDateTime, num, sum, daysUntil, waLink } from '../utils';
 import { steps, progressPct, milestoneStatus } from '../workflow';
@@ -24,7 +24,7 @@ export default function Portal({ user }) {
   return (
     <div className="portal">
       <header className="portal-head">
-        <div className="brand"><div className="logo">DC</div><div><b>{company.name}</b><span>Customer portal</span></div></div>
+        <div className="brand"><img src={logoUrl} alt="" className="brand-logo" /><div><b>Dee Cee Elevators</b><span>Customer portal</span></div></div>
         <div className="row gap">
           {company.phone && <a className="btn ghost sm" href={'tel:' + company.phone}>Call us</a>}
           <button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button>

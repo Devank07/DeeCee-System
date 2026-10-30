@@ -5,6 +5,8 @@ import { ENQ_STATUSES, LEAD_SOURCES, LIFT_TYPES, DOOR_TYPES, DRIVES, DEFAULT_MIL
 import { inr, fmtDate, today, addDays, num, sum, calcTotals } from '../utils';
 import { quoteTotal } from '../workflow';
 import { teamOptions } from './shared';
+import ProposalForm from './ProposalForm';
+import { DEFAULT_PAY_TERMS } from '../proposal';
 
 export const BLANK_SPEC = { type: 'Passenger', capacity: '', stops: '', speed: '1.0 m/s', drive: 'MRL (Gearless)', doorType: 'Auto Centre Opening', cabin: 'SS Hairline' };
 
@@ -36,7 +38,7 @@ export default function Enquiries({ user, params }) {
   };
   return (
     <div className="page">
-      <PageHeader title="Enquiries & Quotations" sub="Add a new client — the quotation is created for you. Enter the price, send it, and confirm the order when the client agrees." actions={<button className="btn" onClick={() => go('enquiries/new')}>+ New client enquiry</button>} />
+      <PageHeader title="Enquiries & Quotations" sub="Add a new client — the system asks for the lift details and makes the quotation in the DeeCee proposal format. Send it, and confirm the order when the client agrees." actions={<button className="btn" onClick={() => go('enquiries/new')}>+ New client enquiry</button>} />
       <div className="chips">
         {Object.entries(groups).map(([k, v]) => <button key={k} className={'chip' + (filter === k ? ' on' : '')} onClick={() => setFilter(k)}>{k} <span>{v.length}</span></button>)}
       </div>
@@ -54,127 +56,8 @@ export default function Enquiries({ user, params }) {
         />
       </Card>
       <p className="muted small">Open pipeline value: <b>{inr(sum(open, quoteTotal))}</b></p>
-      {isNew && <NewEnquiry clientId={params[1]} user={user} onClose={() => go('enquiries')} />}
+      {isNew && <ProposalForm clientId={params[1]} onClose={() => go('enquiries')} />}
     </div>
-  );
-}
-
-/* ---------- New client + enquiry: creates the client tab with its quotation ---------- */
-function NewEnquiry({ clientId, onClose }) {
-  const company = useSettings();
-  const clients = useCol('clients');
-  const staff = useCol('staff');
-  const meStaff = me()?.staffId || '';
-  const { f, setF, bind, set } = useForm({
-    existingId: clientId || '', name: '', contactPerson: '', phone: '', email: '', address: '', city: '', state: company.state || '', gstin: '',
-    siteAddress: '', lifts: 1, spec: BLANK_SPEC, source: 'Phone', followUpDate: addDays(today(), 2), salesBy: meStaff, notes: '',
-  });
-  const existing = clients.find((c) => c.id === f.existingId);
-  const spec = (k) => ({ value: f.spec[k] || '', onChange: (e) => setF((p) => ({ ...p, spec: { ...p.spec, [k]: e.target.value } })) });
-  const [busy, setBusy] = useState(false);
-  const save = async () => {
-    if (!existing && (!f.name.trim() || !f.phone.trim())) return act(async () => { throw new Error('Client name and phone are required'); });
-    setBusy(true);
-    try {
-      await act(async () => {
-        let cid = existing?.id;
-        const c = existing || { name: f.name.trim(), contactPerson: f.contactPerson || f.name.trim(), phone: f.phone.trim(), email: f.email, address: f.address, city: f.city, state: f.state || stateFromGstin(f.gstin), gstin: (f.gstin || '').toUpperCase() };
-        if (!cid) cid = await addDoc('clients', c, c.name);
-        const quoteNo = await nextNumber('QT');
-        const sales = staff.find((s) => s.id === f.salesBy);
-        const pid = await addDoc('projects', {
-          quoteNo, clientId: cid, clientName: c.name, contactPerson: c.contactPerson || '', contactPhone: c.phone || '',
-          siteAddress: f.siteAddress || c.address || '', siteState: c.state || company.state || '',
-          title: liftTitle(f.spec, f.lifts), lifts: num(f.lifts) || 1, liftSpec: f.spec, status: 'Enquiry',
-          enquiry: { status: 'New', source: f.source, followUpDate: f.followUpDate, notes: f.notes },
-          salesBy: f.salesBy || '', salesName: sales?.name || me()?.name || '',
-          quote: { number: quoteNo, rev: 0, date: today(), validTill: addDays(today(), 30), items: defaultQuoteItems(f.spec, f.lifts, company), gstRate: company.defaultGst ?? 18, discount: 0, terms: company.quoteTerms || '' },
-        }, quoteNo);
-        go('orders/' + pid);
-      }, 'Client tab created — now enter the quotation price');
-    } finally { setBusy(false); }
-  };
-  return (
-    <Modal title="New client enquiry" wide onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" disabled={busy} onClick={save}>{busy ? 'Creating…' : 'Create client tab & quotation'}</button></>}>
-      <div className="form-grid">
-        <Field label="Existing client?" span={2}><Select options={clients.map((c) => ({ value: c.id, label: c.name }))} placeholder="— No, this is a new client —" {...bind('existingId')} /></Field>
-      </div>
-      {!existing && (<>
-        <h4 className="section-title">Client details</h4>
-        <div className="form-grid">
-          <Field label="Client / building name *"><input {...bind('name')} autoFocus /></Field>
-          <Field label="Contact person"><input {...bind('contactPerson')} /></Field>
-          <Field label="Phone *"><input {...bind('phone')} inputMode="tel" /></Field>
-          <Field label="Email"><input {...bind('email')} type="email" /></Field>
-          <Field label="Address" span={2}><input {...bind('address')} /></Field>
-          <Field label="City"><input {...bind('city')} /></Field>
-          <Field label="State"><Select options={STATE_NAMES} {...bind('state')} /></Field>
-          <Field label="GSTIN (if any)"><input {...bind('gstin')} /></Field>
-        </div>
-      </>)}
-      <h4 className="section-title">Requirement</h4>
-      <div className="form-grid four">
-        <Field label="Lift type"><Select options={LIFT_TYPES} placeholder={false} {...spec('type')} /></Field>
-        <Field label="No. of lifts"><input type="number" min="1" {...bind('lifts', 'number')} /></Field>
-        <Field label="Capacity"><input {...spec('capacity')} placeholder="8 Persons / 544 kg" /></Field>
-        <Field label="Stops / floors"><input {...spec('stops')} placeholder="G+4" /></Field>
-        <Field label="Speed"><input {...spec('speed')} /></Field>
-        <Field label="Drive"><Select options={DRIVES} placeholder={false} {...spec('drive')} /></Field>
-        <Field label="Doors"><Select options={DOOR_TYPES} placeholder={false} {...spec('doorType')} /></Field>
-        <Field label="Cabin finish"><input {...spec('cabin')} /></Field>
-        <Field label="Site address (if different)" span={2}><input {...bind('siteAddress')} placeholder={existing?.address || 'Same as client address'} /></Field>
-        <Field label="Source"><Select options={LEAD_SOURCES} placeholder={false} {...bind('source')} /></Field>
-        <Field label="Next follow-up"><input type="date" {...bind('followUpDate')} /></Field>
-        <Field label="Sales person"><Select options={staff.filter((s) => s.active !== false).map((s) => ({ value: s.id, label: s.name }))} {...bind('salesBy')} /></Field>
-        <Field label="Notes" span={3}><input {...bind('notes')} placeholder="Anything the client mentioned" /></Field>
-      </div>
-      <p className="muted small">A quotation with standard lines (supply, installation, ARD) is created automatically. You only need to enter the prices.</p>
-    </Modal>
-  );
-}
-
-/* ---------- Edit quotation (sales) ---------- */
-export function QuoteEditor({ p, onClose }) {
-  const company = useSettings();
-  const q = p.quote || {};
-  const { f, setF, bind, set } = useForm({ lifts: p.lifts || 1, liftSpec: { ...BLANK_SPEC, ...(p.liftSpec || {}) }, siteAddress: p.siteAddress || '', siteState: p.siteState || '', items: q.items || defaultQuoteItems(p.liftSpec || BLANK_SPEC, p.lifts, company), gstRate: q.gstRate ?? 18, discount: q.discount || 0, terms: q.terms || company.quoteTerms || '', validTill: q.validTill || addDays(today(), 30), date: q.date || today() });
-  const spec = (k) => ({ value: f.liftSpec[k] || '', onChange: (e) => setF((x) => ({ ...x, liftSpec: { ...x.liftSpec, [k]: e.target.value } })) });
-  const locked = !!p.orderConfirmedAt;
-  const save = async (newRev) => {
-    const quote = { ...q, items: f.items, gstRate: num(f.gstRate), discount: num(f.discount), terms: f.terms, validTill: f.validTill, date: newRev ? today() : f.date, rev: (q.rev || 0) + (newRev ? 1 : 0) };
-    const total = calcTotals(quote.items, quote.gstRate, quote.discount).total;
-    const enquiry = { ...(p.enquiry || {}), status: total > 0 && ['New', 'Contacted', 'Site Visit'].includes(p.enquiry?.status) ? 'Quoted' : p.enquiry?.status || 'New' };
-    await act(() => updateDoc('projects', p.id, { quote, lifts: num(f.lifts) || 1, liftSpec: f.liftSpec, title: liftTitle(f.liftSpec, f.lifts), siteAddress: f.siteAddress, siteState: f.siteState, ...(p.status === 'Enquiry' ? { enquiry } : {}) }, p.quoteNo), newRev ? `Saved as revision R${quote.rev}` : 'Quotation saved');
-    onClose();
-  };
-  return (
-    <Modal title={`Quotation ${p.quoteNo}${q.rev ? ' R' + q.rev : ''}`} wide onClose={onClose}
-      footer={<>
-        <span className="spacer" />
-        <button className="btn ghost" onClick={onClose}>Cancel</button>
-        {!locked && q.rev != null && quoteTotal(p) > 0 && <button className="btn ghost" onClick={() => save(true)}>Save as new revision</button>}
-        {!locked && <button className="btn" onClick={() => save(false)}>Save quotation</button>}
-      </>}>
-      {locked && <Note tone="blue">The order is confirmed, so the quotation is locked.</Note>}
-      <fieldset className="plain" disabled={locked}>
-        <div className="form-grid four">
-          <Field label="Lift type"><Select options={LIFT_TYPES} placeholder={false} {...spec('type')} /></Field>
-          <Field label="No. of lifts"><input type="number" {...bind('lifts', 'number')} /></Field>
-          <Field label="Capacity"><input {...spec('capacity')} /></Field>
-          <Field label="Stops"><input {...spec('stops')} /></Field>
-          <Field label="Speed"><input {...spec('speed')} /></Field>
-          <Field label="Drive"><Select options={DRIVES} placeholder={false} {...spec('drive')} /></Field>
-          <Field label="Doors"><Select options={DOOR_TYPES} placeholder={false} {...spec('doorType')} /></Field>
-          <Field label="Cabin"><input {...spec('cabin')} /></Field>
-          <Field label="Site address" span={2}><input {...bind('siteAddress')} /></Field>
-          <Field label="Site state (for GST)"><Select options={STATE_NAMES} {...bind('siteState')} /></Field>
-          <Field label="Valid till"><input type="date" {...bind('validTill')} /></Field>
-        </div>
-        <h4 className="section-title">Price — enter the rate for each line</h4>
-        <LineItems items={f.items} onChange={(v) => set('items', v)} gstRate={f.gstRate} discount={f.discount} onGst={(v) => set('gstRate', v)} onDiscount={(v) => set('discount', v)} defaultHsn={company.hsnSupply || ''} />
-        <Field label="Terms & conditions"><textarea rows={5} {...bind('terms')} /></Field>
-      </fieldset>
-    </Modal>
   );
 }
 
@@ -182,7 +65,8 @@ export function QuoteEditor({ p, onClose }) {
 export function ConfirmOrder({ p, onClose }) {
   const teams = useCol('teams');
   const total = quoteTotal(p);
-  const { f, setF, bind } = useForm({ value: total, orderRef: '', expectedHandover: addDays(today(), 120), teamId: '', milestones: DEFAULT_MILESTONES.map((m) => ({ ...m })) });
+  const terms = p.proposal?.payTerms?.length ? p.proposal.payTerms : DEFAULT_PAY_TERMS;
+  const { f, setF, bind } = useForm({ value: total, orderRef: '', expectedHandover: addDays(today(), 84), teamId: '', milestones: terms.map((t) => ({ name: t.label, percent: num(t.percent) })) });
   const pct = sum(f.milestones, 'percent');
   const ms = (i, k, v) => setF((x) => ({ ...x, milestones: x.milestones.map((m, j) => (j === i ? { ...m, [k]: v } : m)) }));
   const save = async () => {
