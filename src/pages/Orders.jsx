@@ -8,6 +8,9 @@ import { VisitForm, InvoiceForm, PaymentForm, teamOptions, can } from './shared'
 import { ConfirmOrder, EnquiryStatus } from './Enquiries';
 import ProposalForm from './ProposalForm';
 import ProposalDoc from './ProposalDoc';
+import { nextRevRef } from '../proposal';
+import { calcTotals } from '../utils';
+const quoteTotalOf = (q) => calcTotals(q?.items || [], q?.gstRate ?? 18, q?.discount || 0).total;
 import { SiteForm, InstallForm } from './siteForms';
 import { DispatchForm } from './Inventory';
 
@@ -284,6 +287,8 @@ function ClientTab({ id, user }) {
       {isAdmin && <p className="r"><button className="link danger" onClick={() => setModal({ t: 'delete' })}>Delete this client tab</button></p>}
 
       {modal?.t === 'quote' && <ProposalForm p={p} onClose={close} />}
+      {modal?.t === 'revise' && <ProposalForm p={p} revise onClose={close} />}
+      {modal?.t === 'printOld' && <ProposalDoc p={{ ...p, ...modal.snap }} onClose={close} />}
       {modal?.t === 'confirm' && <ConfirmOrder p={p} onClose={close} />}
       {modal?.t === 'enq' && <EnquiryStatus p={p} onClose={close} />}
       {modal?.t === 'print' && <ProposalDoc p={p} onClose={close} />}
@@ -316,7 +321,7 @@ function QuoteCard({ p, user, setModal, qTotal, compact }) {
   return (
     <Card title={<>Quotation <span className="muted small">{p.quote?.refNo || p.quoteNo}</span></>} className={!compact && qTotal <= 0 ? 'attn-card' : ''} actions={<>
       <button className="btn ghost sm" onClick={() => setModal({ t: 'print' })}>Print / PDF</button>
-      {sales && <button className={'btn sm' + (qTotal > 0 || compact ? ' ghost' : '')} onClick={() => setModal({ t: 'quote' })}>{p.orderConfirmedAt ? 'View details' : qTotal > 0 ? 'Edit quotation' : 'Enter price'}</button>}
+      {sales && <button className={'btn sm' + (qTotal > 0 || compact ? ' ghost' : '')} onClick={() => setModal({ t: 'quote' })}>{p.orderConfirmedAt ? 'View details' : qTotal > 0 ? 'Edit (same ref)' : 'Enter price'}</button>}
     </>}>
       {!compact && p.proposal && (
         <p className="small muted">{p.proposal.origin} {p.proposal.liftKind} · {p.proposal.drive} · {p.proposal.persons} persons / {p.proposal.capacityKg} kg · {p.proposal.floors} · {p.proposal.color} · {p.proposal.door}</p>
@@ -325,6 +330,17 @@ function QuoteCard({ p, user, setModal, qTotal, compact }) {
         <ul className="list">{(p.quote?.items || []).map((it, i) => <li key={i}><span className="small">{it.desc}</span><span className="nowrap">{num(it.rate) ? `${it.qty} × ${inr(it.rate)}` : <Badge tone="red">Price?</Badge>}</span></li>)}</ul>
       )}
       <div className="row between mt"><span className="muted">Total incl. GST</span><b className="big-num">{qTotal > 0 ? inr(qTotal) : '—'}</b></div>
+      {!p.orderConfirmedAt && p.status === 'Enquiry' && sales && qTotal > 0 && (
+        <div className="row gap mt wrap"><button className="btn ghost sm" onClick={() => setModal({ t: 'revise' })}>Revise → {nextRevRef(p)}</button><span className="muted small">Keeps {p.quote?.refNo || p.quoteNo} as an old version</span></div>
+      )}
+      {(p.revisions || []).length > 0 && (
+        <div className="mt">
+          <div className="muted small">Earlier versions</div>
+          <ul className="list">{[...p.revisions].reverse().map((r, i) => (
+            <li key={i}><span className="small"><b>{r.refNo}</b> · {fmtDate(r.quote?.date)} · {inr(quoteTotalOf(r.quote))}</span><button className="btn ghost sm" onClick={() => setModal({ t: 'printOld', snap: r })}>View / print</button></li>
+          ))}</ul>
+        </div>
+      )}
       {!p.orderConfirmedAt && p.status === 'Enquiry' && sales && (
         <div className="row gap mt wrap">
           {p.contactPhone && qTotal > 0 && <a className="btn ghost sm" target="_blank" rel="noreferrer" href={waLink(p.contactPhone, `Dear ${p.contactPerson || p.clientName}, thank you for your enquiry. Our proposal ${p.quote?.refNo || p.quoteNo} for ${p.title} is ready. I am sharing the PDF with you. — Dee Cee Elevators`)}>Send on WhatsApp</a>}

@@ -498,64 +498,103 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .wizard-steps button.on span { background: var(--accent); color: #fff; }
 .wizard-steps button.done span { background: var(--green); color: #fff; }
 
+/* ----- printed proposal ----- */
 .sheets { background: #e9e9ee; padding: 16px; margin: -18px -20px; overflow-x: auto; }
 .sheet {
-  --pp-blue: #2e6fd1; width: 210mm; min-height: 297mm; margin: 0 auto 16px; background: #fff; color: #111;
-  box-shadow: 0 2px 12px rgba(0,0,0,.12); padding: 9mm 16mm 0; display: flex; flex-direction: column;
-  font-family: Calibri, Carlito, 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; line-height: 1.32;
+  --pp-blue: #1f5fbf; --pp-blue-2: #e9f0fb; --pp-line: #b9c6dc; --pp-ink: #1a1d24; --pp-mute: #5b6475;
+  width: 210mm; min-height: 297mm; margin: 0 auto 16px; background: #fff; color: var(--pp-ink);
+  box-shadow: 0 2px 12px rgba(0,0,0,.12); padding: 9mm 15mm 0; display: flex; flex-direction: column;
+  font-family: Calibri, Carlito, 'Segoe UI', Arial, sans-serif; font-size: 10.5pt; line-height: 1.38;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
 }
-.sheet p { margin: 0 0 9pt; }
-.sh-head { display: flex; align-items: flex-start; gap: 8mm; margin-bottom: 4mm; }
-.sh-logo { width: 19mm; height: auto; }
-.sh-co { flex: 1; text-align: center; padding-right: 19mm; }
-.sh-name { color: var(--pp-blue); font-size: 22pt; font-weight: 700; letter-spacing: .01em; line-height: 1.1; }
-.sh-tag { font-style: italic; font-size: 10pt; margin-top: 2pt; }
+.sheet p { margin: 0 0 8pt; }
+.sheet b { font-weight: 700; }
+.sheet table { width: auto; }
+.sheet th, .sheet td { background: none; color: inherit; cursor: default; white-space: normal; border: 0; padding: 0; font-size: inherit; text-align: left; font-weight: inherit; }
+.sh-head { display: grid; grid-template-columns: 34mm 1fr 34mm; align-items: center; gap: 4mm; }
+.sh-logo { width: 18mm; height: auto; image-rendering: -webkit-optimize-contrast; }
+.sh-co { text-align: center; }
+.sh-name { color: var(--pp-blue); font-size: 21pt; font-weight: 700; letter-spacing: .02em; line-height: 1.05; }
+.sh-tag { font-style: italic; font-size: 9.5pt; color: var(--pp-mute); margin-top: 2pt; }
+.sh-ref { font-size: 7pt; white-space: nowrap; color: var(--pp-mute); text-align: right; align-self: end; line-height: 1.2; }
+.sh-rule { height: 2.2pt; background: linear-gradient(90deg, var(--pp-blue), #6f9be0); border-radius: 2pt; margin: 3mm 0 5mm; }
+.sh-rule.thin { height: .8pt; margin: 0 0 2.5mm; background: var(--pp-line); }
 .sh-body { flex: 1; }
-.sh-foot { text-align: center; font-size: 8pt; padding: 3mm 0 6mm; }
-.sh-page { margin-bottom: 5mm; }
-.sh-addr { color: #6d8fcf; font-weight: 700; font-size: 8.5pt; }
-.sh-web { font-weight: 700; font-size: 8.5pt; }
-.pp-title { text-align: center; font-weight: 700; text-decoration: underline; font-size: 10.5pt; margin: 1mm 0 11mm; }
-.pp-meta, .pp-client { display: flex; flex-direction: column; }
-.pp-client { margin-bottom: 7mm; }
-.pp-subject { text-align: center; font-weight: 700; margin: 3mm 0 6mm; }
+.sh-foot { padding: 3mm 0 6mm; font-size: 8pt; color: var(--pp-mute); }
+.sh-foot-row { display: flex; justify-content: space-between; gap: 6mm; }
+.sh-page { font-weight: 700; color: var(--pp-ink); white-space: nowrap; }
+
+.pp-title { text-align: center; font-weight: 700; font-size: 12pt; color: var(--pp-ink); margin: 0 0 6mm; text-transform: uppercase; letter-spacing: .02em; }
+.pp-letterhead { display: flex; justify-content: space-between; align-items: flex-start; gap: 8mm; margin-bottom: 6mm; }
+.pp-to { color: var(--pp-mute); margin-bottom: 1mm; }
+.pp-client { display: flex; flex-direction: column; line-height: 1.35; }
+.pp-client b { font-size: 11pt; }
+.pp-refbox, .pp-mini { border-collapse: collapse; font-size: 9.5pt; }
+.pp-refbox th, .pp-mini th { color: var(--pp-mute); padding: 1.5pt 8pt 1.5pt 0; font-weight: 400; white-space: nowrap; }
+.pp-refbox td, .pp-mini td { font-weight: 700; padding: 1.5pt 0; }
+.pp-refbox { border-left: 2.5pt solid var(--pp-blue); padding-left: 3mm; background: var(--pp-blue-2); }
+.pp-refbox tr:first-child th, .pp-refbox tr:first-child td { padding-top: 5pt; }
+.pp-refbox tr:last-child th, .pp-refbox tr:last-child td { padding-bottom: 5pt; }
+.pp-refbox th { padding-left: 8pt; }
+.pp-refbox td { padding-right: 8pt; }
+.pp-subject { font-weight: 700; margin: 0 0 5mm; padding: 2mm 0; border-top: .8pt solid var(--pp-line); border-bottom: .8pt solid var(--pp-line); text-align: center; }
 .pp-tight { margin-bottom: 2pt !important; }
-.pp-ul { margin: 0 0 8pt; padding-left: 9mm; }
-.pp-ul li { margin: 2pt 0; }
-.pp-ul.cols { columns: 2; column-gap: 8mm; }
-.pp-ul.cols li { break-inside: avoid; margin-bottom: 6pt; }
-.pp-ol { margin: 0 0 8pt; padding-left: 9mm; }
-.strike { text-decoration: line-through; }
-.pp-for { display: flex; align-items: center; gap: 6px; margin-top: 4mm; margin-bottom: 4mm !important; }
-.pp-mini-logo { width: 9mm; height: auto; }
+.pp-small { font-size: 9.5pt; color: #333; }
+.pp-note { color: var(--pp-mute); font-size: 9pt; }
+.pp-list { margin: 0 0 8pt; padding-left: 6mm; }
+.pp-list li { margin: 1.5pt 0; }
+.pp-list li::marker { color: var(--pp-blue); }
+.pp-for { margin-top: 3mm; }
+.pp-sign-lines { margin-top: 2mm; line-height: 1.4; }
+.pp-sign-lines .nm { font-weight: 700; font-size: 11pt; }
 .pp-sign-lines .b { font-weight: 700; }
-.pp-h { font-weight: 700; text-decoration: underline; font-size: 11pt; margin: 6mm 0 3mm; }
-.pp-h:first-child { margin-top: 2mm; }
-.pp-h2 { font-weight: 700; font-size: 11.5pt; margin: 2mm 0 2mm; }
-.pp-h3 { font-weight: 700; margin: 3mm 0 1mm; }
-.pp-two { display: flex; justify-content: space-between; gap: 8mm; padding: 0 5mm; }
-.pp-two .pp-client { margin-bottom: 2mm; }
-.pp-right { text-align: right; display: flex; flex-direction: column; }
-.pp-spec { width: 100%; border-collapse: collapse; margin-bottom: 1mm; }
-.pp-spec td { border: 1px solid #000; padding: 1.2pt 4pt; vertical-align: top; font-size: 10.5pt; }
-.pp-spec td:first-child { width: 36%; }
-.pp-cost { width: 100%; border-collapse: collapse; margin-bottom: 6mm; }
-.pp-cost th { text-align: left; font-weight: 700; padding: 2pt 4pt; border-bottom: 0; }
-.pp-cost td { padding: 4pt; vertical-align: middle; }
-.pp-cost td.c { text-align: center; width: 50%; }
-.pp-cost .sm { font-weight: 700; }
-.pp-signoff { display: flex; justify-content: space-between; margin-top: 4mm; }
-.pp-signoff > div { display: flex; flex-direction: column; }
-.pp-signoff .r { text-align: right; }
-.pp-sig { height: 20mm; display: flex; align-items: center; }
-.pp-sig img { max-height: 19mm; max-width: 45mm; }
-.pp-bank { text-align: center; font-weight: 700; margin-top: 4mm; display: flex; flex-direction: column; gap: 2pt; }
+
+.pp-h { margin: 5mm 0 2.5mm; border-bottom: 1pt solid var(--pp-blue); }
+.pp-h:first-child { margin-top: 0; }
+.pp-h span { display: inline-block; background: var(--pp-blue); color: #fff; font-weight: 700; font-size: 9.5pt; letter-spacing: .06em; text-transform: uppercase; padding: 1.5pt 8pt; border-radius: 3pt 3pt 0 0; }
+.pp-h3 { font-weight: 700; color: var(--pp-blue); margin: 2mm 0 1mm; }
+.pp-two { display: flex; justify-content: space-between; gap: 8mm; margin-bottom: 3mm; }
+
+.pp-spec { width: 100% !important; border-collapse: collapse; }
+.pp-spec th, .pp-spec td { border: .8pt solid var(--pp-line); padding: 2.4pt 6pt; vertical-align: top; }
+.pp-spec th { width: 33%; background: var(--pp-blue-2); font-weight: 700; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .02em; color: #24324d; }
+
+.pp-ticks { list-style: none; margin: 0; padding: 0; columns: 2; column-gap: 8mm; }
+.pp-ticks.one { columns: 1; }
+.pp-ticks li { break-inside: avoid; padding-left: 5mm; position: relative; margin: 0 0 3pt; }
+.pp-ticks li::before { content: '✓'; position: absolute; left: 0; color: var(--pp-blue); font-weight: 700; }
+
+.pp-cost { width: 100% !important; border-collapse: collapse; margin-bottom: 2mm; }
+.pp-cost thead th { background: var(--pp-blue); color: #fff; font-weight: 700; padding: 3pt 8pt; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .04em; }
+.pp-cost td { padding: 5pt 8pt; border-bottom: .8pt solid var(--pp-line); }
+.pp-cost .r { text-align: right; white-space: nowrap; }
+.pp-cost tfoot td { background: var(--pp-blue-2); border-bottom: 0; }
+.pp-cost tfoot tr.pp-gst td { background: none; text-align: right; padding-top: 4pt; font-size: 10pt; }
+.pp-words { font-size: 9pt; color: var(--pp-mute); font-style: italic; }
+.pp-big { font-size: 13pt; color: var(--pp-blue); }
+.pp-amc, .pp-pay { border-collapse: collapse; margin-bottom: 2mm; }
+.pp-amc { width: 100% !important; }
+.pp-amc td { padding: 2.5pt 8pt; border-bottom: .8pt solid var(--pp-line); }
+.pp-amc td.r { text-align: right; }
+.pp-pay td { padding: 2pt 0; }
+.pp-pay td.pct { font-weight: 700; color: var(--pp-blue); padding-right: 8pt; width: 12mm; }
+.pp-terms-grid, .pp-scope { display: grid; grid-template-columns: 1fr 1fr; gap: 8mm; }
+.pp-scope { grid-template-columns: 0.8fr 1.2fr; }
+.pp-ol { margin: 0 0 6pt; padding-left: 6mm; font-size: 9.5pt; }
+.pp-ol li { margin: 1pt 0; }
+.pp-ol li::marker { color: var(--pp-blue); font-weight: 700; }
+
+.pp-signoff { display: grid; grid-template-columns: 1fr 1fr; gap: 14mm; margin-top: 6mm; }
+.pp-sbox { display: flex; flex-direction: column; }
+.pp-sbox:last-child { text-align: right; }
+.pp-sig { height: 18mm; display: flex; align-items: flex-end; border-bottom: .8pt solid #555; margin: 1mm 0 1.5mm; }
+.pp-sbox:last-child .pp-sig { justify-content: flex-end; }
+.pp-sig img { max-height: 17mm; max-width: 50mm; }
+.pp-cap { font-size: 9pt; color: var(--pp-mute); }
+.pp-bank { margin-top: 7mm; text-align: center; border: .8pt solid var(--pp-line); border-radius: 4pt; padding: 3mm; font-weight: 700; line-height: 1.5; background: var(--pp-blue-2); }
+.pp-bank-h { color: var(--pp-blue); text-transform: uppercase; letter-spacing: .06em; font-size: 9pt; margin-bottom: 1mm; }
 @media (max-width: 640px) {
   .checks.two { grid-template-columns: 1fr; }
   .field.span3, .field.span4 { grid-column: auto; }
   .sheets { margin: -18px -20px; padding: 8px; }
 }
-.sheet th, .sheet td { background: none; color: #111; cursor: default; white-space: normal; border-bottom: 0; }
-.sheet .pp-cost th { font-size: 10.5pt; padding: 2pt 4pt; }
-.pp-lbl { display: flex; align-items: center; gap: 6px; min-height: 10mm; }
-.pp-signoff .r .pp-lbl { justify-content: flex-end; }

@@ -1,10 +1,10 @@
 import React, { useId, useState } from 'react';
 import { useCol, Modal, Field, Select, act, go, LineItems, useSettings, Note } from '../ui';
-import { addDoc, updateDoc, nextSerial, me } from '../data';
+import { addDoc, updateDoc, nextSerial, postActivity, me } from '../data';
 import { STATE_NAMES, LEAD_SOURCES, stateFromGstin } from '../constants';
 import { num, today, addDays, inr, calcTotals, sum } from '../utils';
 import {
-  defaultProposal, defaultItems, specFromProposal, titleFromProposal, buildRef, cityCode, kgForPersons,
+  defaultProposal, defaultItems, nextRevRef, baseRefOf, specFromProposal, titleFromProposal, buildRef, cityCode, kgForPersons,
   ORIGINS, LIFT_KINDS, DRIVE_KINDS, OPERATIONS, DOORS, COLORS, PANELS, CEILINGS, FLOORINGS, LOPCOP, BUILDING_TYPES, KEY_FEATURES, CLIENT_SCOPE,
 } from '../proposal';
 
@@ -17,7 +17,7 @@ const STEPS = ['Client & site', 'Lift & shaft', 'Car & finish', 'Price & terms']
 
 /* Step-by-step quotation in the DCEPL proposal format.
    p = existing client tab (edit) · clientId = start a new enquiry for an existing client */
-export default function ProposalForm({ p, clientId, onClose }) {
+export default function ProposalForm({ p, clientId, revise, onClose }) {
   const company = useSettings();
   const clients = useCol('clients');
   const staff = useCol('staff');
@@ -72,12 +72,22 @@ export default function ProposalForm({ p, clientId, onClose }) {
         const x = { ...f.x, cityCode: f.cityCode || cityCode(f.siteCity) };
         const spec = specFromProposal(x);
         if (editing) {
-          const quote = { ...(p.quote || {}), items: f.items, gstRate: num(f.gstRate), discount: num(f.discount), validTill: f.validTill, terms: '' };
+          let quote = { ...(p.quote || {}), items: f.items, gstRate: num(f.gstRate), discount: num(f.discount), validTill: f.validTill, terms: '' };
+          const extra = {};
+          if (revise) {
+            // Keep the old version exactly as it was sent, then issue the new one as …A, …B
+            const old = { refNo: p.quote?.refNo || p.quoteNo, rev: Number(p.quote?.rev) || 0, quote: p.quote || {}, proposal: p.proposal || {}, siteAddress: p.siteAddress || '', siteCity: p.siteCity || '', siteState: p.siteState || '', savedAt: Date.now(), by: me()?.name || '' };
+            const rev = (Number(p.quote?.rev) || 0) + 1;
+            const refNo = nextRevRef(p);
+            quote = { ...quote, baseRef: baseRefOf(p), rev, refNo, number: refNo, date: today(), validTill: addDays(today(), 30) };
+            Object.assign(extra, { quoteNo: refNo, revisions: [...(p.revisions || []), old] });
+          }
           const enquiry = { ...(p.enquiry || {}), status: total > 0 && ['New', 'Contacted', 'Site Visit'].includes(p.enquiry?.status) ? 'Quoted' : p.enquiry?.status || 'New' };
           await updateDoc('projects', p.id, {
             proposal: x, quote, liftSpec: spec, lifts: num(x.lifts) || 1, title: titleFromProposal(x),
-            siteAddress: f.siteAddress, siteCity: f.siteCity, siteState: f.siteState, ...(p.status === 'Enquiry' ? { enquiry } : {}),
-          }, p.quoteNo);
+            siteAddress: f.siteAddress, siteCity: f.siteCity, siteState: f.siteState, ...(p.status === 'Enquiry' ? { enquiry } : {}), ...extra,
+          }, extra.quoteNo || p.quoteNo);
+          if (revise) await postActivity({ projectId: p.id, clientId: p.clientId, text: `Quotation revised: ${extra.quoteNo} replaces ${p.quote?.refNo || p.quoteNo} (old version kept).`, visibleToClient: false, kind: 'quote' });
           onClose();
           return;
         }
@@ -97,7 +107,7 @@ export default function ProposalForm({ p, clientId, onClose }) {
         }, refNo);
         onClose();
         go('orders/' + pid);
-      }, editing ? 'Quotation saved' : 'Client tab & quotation created');
+      }, revise ? `Revised quotation ${nextRevRef(p)} created — old version kept` : editing ? 'Quotation saved' : 'Client tab & quotation created');
     } finally { setBusy(false); }
   };
 
@@ -177,7 +187,7 @@ export default function ProposalForm({ p, clientId, onClose }) {
         <Field label="Main power supply" span={2}><input {...bx('powerMain')} /></Field>
         <Field label="Lighting supply" span={2}><input {...bx('powerLight')} /></Field>
       </div>
-      <h4 className="section-title">Key features — untick to show as not included (struck through)</h4>
+      <h4 className="section-title">Key features — untick any that are not included (they won't be printed)</h4>
       <Checks list={KEY_FEATURES} value={f.x.features} onChange={(v) => setX('features', v)} />
     </>,
     /* 4 — price & terms */
@@ -203,7 +213,7 @@ export default function ProposalForm({ p, clientId, onClose }) {
         ))}
       </tbody></table>
       <button className="btn ghost sm" onClick={() => setX('payTerms', [...(f.x.payTerms || []), { percent: 0, label: '' }])}>+ Add payment stage</button>
-      <h4 className="section-title">Client scope — untick what DeeCee will do instead</h4>
+      <h4 className="section-title">Client scope — untick anything DeeCee will do instead (it won't be printed)</h4>
       <Checks list={CLIENT_SCOPE} value={f.x.clientScope} onChange={(v) => setX('clientScope', v)} />
       <div className="form-grid">
         <Field label="Warranty & maintenance (one per line)"><textarea rows={2} value={(f.x.warranty || []).join('\n')} onChange={(e) => setX('warranty', e.target.value.split('\n'))} /></Field>
@@ -214,18 +224,19 @@ export default function ProposalForm({ p, clientId, onClose }) {
   ];
 
   return (
-    <Modal title={editing ? `Quotation ${p.quote?.refNo || p.quoteNo}` : 'New client & quotation'} wide onClose={onClose}
+    <Modal title={revise ? `Revise quotation → ${nextRevRef(p)}` : editing ? `Quotation ${p.quote?.refNo || p.quoteNo}` : 'New client & quotation'} wide onClose={onClose}
       footer={<>
         <span className="muted small">Step {step + 1} of {STEPS.length}</span>
         <span className="spacer" />
         {step > 0 && <button className="btn ghost" onClick={() => setStep(step - 1)}>← Back</button>}
         {step < STEPS.length - 1 && <button className={'btn' + (editing ? ' ghost' : '')} onClick={() => setStep(step + 1)}>Next →</button>}
-        {!locked && (editing || step === STEPS.length - 1) && <button className="btn" disabled={busy} onClick={save}>{busy ? 'Saving…' : editing ? 'Save quotation' : 'Create client tab & quotation'}</button>}
+        {!locked && (editing || step === STEPS.length - 1) && <button className="btn" disabled={busy} onClick={save}>{busy ? 'Saving…' : revise ? `Save as ${nextRevRef(p)}` : editing ? 'Save changes (same ref)' : 'Create client tab & quotation'}</button>}
       </>}>
       <div className="wizard-steps">
         {STEPS.map((s, i) => <button key={s} className={i === step ? 'on' : i < step ? 'done' : ''} onClick={() => setStep(i)}><span>{i + 1}</span>{s}</button>)}
       </div>
       {locked && <Note tone="blue">The order is confirmed, so this quotation is locked. You can still view and print it.</Note>}
+      {revise && <Note tone="blue">Change what the client asked for. Saving creates <b>{nextRevRef(p)}</b> dated today. The current version <b>{p.quote?.refNo || p.quoteNo}</b> stays saved and can still be printed.</Note>}
       <fieldset className="plain" disabled={locked}>{steps[step]}</fieldset>
     </Modal>
   );

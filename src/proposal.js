@@ -137,3 +137,13 @@ export function defaultItems(company = {}) {
 export const wordsUpper = (n) => amountInWords(n).replace(/^Rupees\s*/, '').toUpperCase();
 export const quoteSubtotal = (q) => calcTotals(q?.items || [], 0, q?.discount || 0).taxable;
 export const defaultValidTill = () => addDays(today(), 30);
+
+// Revision suffix: 1 → A, 2 → B … 26 → Z, 27 → AA
+export function revLetter(n) {
+  let s = '';
+  let x = Number(n) || 0;
+  while (x > 0) { x -= 1; s = String.fromCharCode(65 + (x % 26)) + s; x = Math.floor(x / 26); }
+  return s;
+}
+export const baseRefOf = (p) => p.quote?.baseRef || p.quote?.refNo || p.quoteNo;
+export const nextRevRef = (p) => baseRefOf(p) + revLetter((Number(p.quote?.rev) || 0) + 1);
