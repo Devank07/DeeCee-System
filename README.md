@@ -68,11 +68,11 @@ firebase deploy --only firestore,hosting
 ## First-time setup checklist
 1. **Settings → Company & Quotation settings**: check the letterhead details, paste your **bank details**, upload the **authorised signatory's signature**, and set the **next quotation serial no.** (e.g. 2830).
 2. **Staff directory**: for each salesperson, fill in *Quotation sign-off* (name, firm, address, mobile, email) — it prints on page 1.
-1. **Settings → Company**: address, **state**, GSTIN, bank details, default **HSN/SAC** codes (confirm with your CA), quotation terms.
-2. **Staff & Teams → Staff directory**: add everyone. Tick *Field technician* for fitters/helpers/service engineers.
-3. **Staff & Teams → Site teams**: create e.g. *Installation Team A*, *Installation Team B*, *Service Team* and add members.
-4. **Settings → Users & roles → Create login** for each person with their role. Technicians must be linked to their staff record.
-5. For clients who should use the portal: **Clients → open client → Client portal login**.
+3. **Settings → Company**: address, **state**, GSTIN, bank details, default **HSN/SAC** codes (confirm with your CA), quotation terms.
+4. **Staff & Teams → Staff directory**: add everyone. Tick *Field technician* for fitters/helpers/service engineers.
+5. **Staff & Teams → Site teams**: create e.g. *Installation Team A*, *Installation Team B*, *Service Team* and add members.
+6. **Settings → Users & roles → Create login** for each person with their role. Technicians must be linked to their staff record.
+7. For clients who should use the portal: **Clients → open client → Client portal login**.
 
 ## Free-plan notes
 - Drawings and documents are stored inside the database in pieces (max **12 MB** per file) so no paid Storage is needed. Keep drawings as compact PDFs. The free plan has 1 GB in total — enough for several hundred drawings plus all business data. If you outgrow it, Firebase's pay-as-you-go plan can be switched on without code changes.
