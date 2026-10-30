@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { useCol, Card, Badge, Empty, StageStepper, ActivityFeed, Modal, Field, Select, useForm, act, PrintDoc, useSettings, Tabs, ProgressBar } from '../ui';
+import { useCol, Card, Badge, Empty, Pipeline, ActivityFeed, Modal, Field, Select, useForm, act, PrintDoc, useSettings, Tabs, ProgressBar, FileList } from '../ui';
 import { addDoc, nextNumber, backend } from '../data';
-import { PROJECT_STAGES } from '../constants';
 import { inr, fmtDate, fmtDateTime, num, sum, daysUntil, waLink } from '../utils';
+import { steps, progressPct, milestoneStatus } from '../workflow';
 import { invStatus } from './Billing';
 
 export default function Portal({ user }) {
   const cid = user.clientId || '_none_';
   const company = useSettings();
-  const projects = useCol('projects', [['clientId', '==', cid]]);
-  const invoices = useCol('invoices', [['clientId', '==', cid]]);
+  const projects = useCol('projects', [['clientId', '==', cid]]).filter((p) => ['Order', 'Completed', 'On Hold'].includes(p.status));
+  const invoices = useCol('invoices', [['clientId', '==', cid]]).filter((i) => i.status !== 'Cancelled');
+  const payments = useCol('payments', [['clientId', '==', cid]]);
   const amcs = useCol('amcs', [['clientId', '==', cid]]);
   const complaints = useCol('complaints', [['clientId', '==', cid]]);
   const visits = useCol('visits', [['clientId', '==', cid]]);
@@ -32,37 +33,46 @@ export default function Portal({ user }) {
       <div className="portal-body">
         <h1>Welcome, {user.name}</h1>
         <div className="stats">
-          <div className="stat"><span className="stat-label">Projects</span><span className="stat-value">{projects.length}</span></div>
-          <div className={'stat ' + (due > 0 ? 'amber' : 'green')}><span className="stat-label">Amount due</span><span className="stat-value">{inr(due)}</span></div>
+          <div className="stat"><span className="stat-label">Lift projects</span><span className="stat-value">{projects.length}</span></div>
+          <div className={'stat ' + (due > 0 ? 'amber' : 'green')}><span className="stat-label">Invoices due</span><span className="stat-value">{inr(due)}</span></div>
           <div className="stat"><span className="stat-label">Open complaints</span><span className="stat-value">{openC.length}</span></div>
           <div className="stat"><span className="stat-label">AMC</span><span className="stat-value small-v">{amcs.find((a) => daysUntil(a.end) >= 0 && a.status === 'Active') ? 'Active' : amcs.length ? 'Expired' : '—'}</span></div>
         </div>
         <button className="btn danger-btn wide" onClick={() => setRaise(true)}>🚨 Report a lift problem</button>
-        <Tabs value={tab} onChange={setTab} tabs={[{ key: 'projects', label: 'My projects' }, { key: 'payments', label: 'Invoices' }, { key: 'service', label: 'Service & AMC' }, { key: 'updates', label: 'Updates' }]} />
+        <Tabs value={tab} onChange={setTab} tabs={[{ key: 'projects', label: 'My lifts' }, { key: 'payments', label: 'Payments' }, { key: 'service', label: 'Service & AMC' }, { key: 'updates', label: 'Updates' }]} />
 
         {tab === 'projects' && (projects.length === 0 ? <Empty>No projects yet</Empty> : projects.map((p) => {
-          const inv = invoices.filter((i) => i.projectId === p.id);
-          const paid = sum(inv, 'paid');
+          const paid = sum(payments.filter((x) => x.projectId === p.id), 'amount');
+          const paidFor = (i) => sum(payments.filter((x) => x.projectId === p.id && x.milestone === i), 'amount');
+          const current = steps(p).find((s) => !s.done);
           return (
-            <Card key={p.id} title={p.title} actions={<Badge>{p.status}</Badge>}>
+            <Card key={p.id} title={p.title} actions={<Badge>{p.status === 'Order' ? 'In progress' : p.status}</Badge>}>
               <p className="muted small">{p.code} · {p.siteAddress}</p>
-              <StageStepper stage={p.stage} />
-              <p className="mt">Current stage: <b>{PROJECT_STAGES[p.stage]}</b>{p.status === 'Active' && p.expectedHandover && <> · Expected handover <b>{fmtDate(p.expectedHandover)}</b></>}</p>
+              <Pipeline p={p} />
+              <div className="portal-now">
+                <div><span className="muted small">Current stage</span><b>{current ? current.label : 'Handed over'}</b></div>
+                <div><span className="muted small">Overall progress</span><b>{progressPct(p)}%</b></div>
+                {p.status === 'Order' && p.expectedHandover && <div><span className="muted small">Expected handover</span><b>{fmtDate(p.expectedHandover)}</b></div>}
+                {p.install?.progress > 0 && p.install.progress < 100 && <div><span className="muted small">Installation</span><b>{p.install.progress}% done</b></div>}
+              </div>
+              <h4 className="section-title">Drawings</h4>
+              <FileList projectId={p.id} clientId={cid} kind="Drawing" clientView />
+              <h4 className="section-title">Payments</h4>
               <div className="pay-sum">
-                <div><span>Contract value</span><b>{inr(p.contractValue)}</b></div>
+                <div><span>Order value</span><b>{inr(p.contractValue)}</b></div>
                 <div><span>Paid</span><b className="ok-text">{inr(paid)}</b></div>
                 <div><span>Balance</span><b>{inr(num(p.contractValue) - paid)}</b></div>
               </div>
               <ProgressBar value={(paid / (num(p.contractValue) || 1)) * 100} tone="green" />
-              <h4 className="section-title">Payment schedule</h4>
-              <ul className="list">{(p.milestones || []).map((m, i) => <li key={i}><span>{m.name} ({m.percent}%)</span><span>{inr(m.amount)} <Badge>{m.status}</Badge></span></li>)}</ul>
-              <ClientPhotos cid={p.clientId} pid={p.id} />
+              <ul className="list">{(p.milestones || []).map((m, i) => <li key={i}><span>{m.name} ({m.percent}%)</span><span className="nowrap">{inr(m.amount)} <Badge>{milestoneStatus(m, paidFor(i))}</Badge></span></li>)}</ul>
+              <ClientPhotos cid={cid} pid={p.id} />
+              <FileList projectId={p.id} clientId={cid} kind="Document" clientView hideEmpty />
             </Card>
           );
         }))}
 
-        {tab === 'payments' && (
-          <Card pad={false}>
+        {tab === 'payments' && (<>
+          <Card title="Invoices" pad={false}>
             {invoices.length === 0 ? <Empty>No invoices</Empty> : (
               <ul className="list pad">{[...invoices].sort((a, b) => (a.date < b.date ? 1 : -1)).map((i) => (
                 <li key={i.id}>
@@ -73,7 +83,10 @@ export default function Portal({ user }) {
             )}
             {due > 0 && company.bank && <div className="card-body"><b>Pay by bank transfer</b><div className="pre small">{company.bank}</div></div>}
           </Card>
-        )}
+          <Card title="Payments received" pad={false}>
+            {payments.length === 0 ? <Empty>No payments yet</Empty> : <ul className="list pad">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => <li key={x.id}><span>{fmtDate(x.date)} · {x.mode}</span><b>{inr(x.amount)}</b></li>)}</ul>}
+          </Card>
+        </>)}
 
         {tab === 'service' && (<>
           {amcs.map((a) => (
@@ -99,7 +112,7 @@ export default function Portal({ user }) {
           </Card>
         </>)}
 
-        {tab === 'updates' && <Card><ActivityFeed items={activity} showClientFlag={false} /></Card>}
+        {tab === 'updates' && <Card><ActivityFeed items={activity} showFlags={false} limit={60} /></Card>}
       </div>
       {raise && <RaiseComplaint user={user} amcs={amcs} projects={projects} onClose={() => setRaise(false)} />}
       {print && <PrintDoc kind="Tax Invoice" doc={print} company={company} onClose={() => setPrint(null)} />}
@@ -108,12 +121,12 @@ export default function Portal({ user }) {
 }
 
 function ClientPhotos({ cid, pid }) {
-  const photos = useCol('photos', [['clientId', '==', cid], ['projectId', '==', pid]]);
+  const photos = useCol('photos', [['clientId', '==', cid], ['projectId', '==', pid], ['visibleToClient', '==', true]]);
   const [open, setOpen] = useState(null);
   if (!photos.length) return null;
   return (<>
     <h4 className="section-title">Site photos</h4>
-    <div className="photo-grid">{photos.sort((a, b) => b.at - a.at).slice(0, 12).map((p) => <div className="photo" key={p.id}><img src={p.data} alt="Site" onClick={() => setOpen(p)} /></div>)}</div>
+    <div className="photo-grid">{[...photos].sort((a, b) => b.at - a.at).slice(0, 24).map((p) => <div className="photo" key={p.id}><img src={p.data} alt="Site" onClick={() => setOpen(p)} /></div>)}</div>
     {open && <div className="lightbox" onClick={() => setOpen(null)}><img src={open.data} alt="" /><span>{fmtDateTime(open.at)}</span></div>}
   </>);
 }
@@ -122,13 +135,13 @@ function RaiseComplaint({ user, amcs, projects, onClose }) {
   const { f, bind } = useForm({ liftRef: '', issue: '', priority: 'Normal', contactPhone: '' });
   const [done, setDone] = useState(null);
   const save = async () => {
-    if (!f.issue.trim()) return alert('Please describe the problem');
+    if (!f.issue.trim()) return act(async () => { throw new Error('Please describe the problem'); });
     const a = amcs.find((x) => x.status === 'Active' && daysUntil(x.end) >= 0);
     const number = await nextNumber('CMP');
-    await act(() => addDoc('complaints', { ...f, number, clientId: user.clientId, clientName: user.name, amcId: a?.id || null, projectId: a?.projectId || projects[0]?.id || null, status: 'Open', assignedTo: null, reportedVia: 'Client Portal', reportedAt: Date.now() }));
+    await act(() => addDoc('complaints', { ...f, number, clientId: user.clientId, clientName: user.name, amcId: a?.id || null, projectId: a?.projectId || projects[0]?.id || null, status: 'Open', teamId: null, assignedTo: null, reportedVia: 'Client Portal', reportedAt: Date.now() }));
     setDone(number);
   };
-  if (done) return <Modal title="Complaint registered" onClose={onClose} footer={<button className="btn" onClick={onClose}>OK</button>}><p>Your complaint number is <b>{done}</b>. Our service team has been notified and will contact you shortly.</p><p className="muted small">If someone is trapped inside the lift, please also call us immediately.</p></Modal>;
+  if (done) return <Modal title="Complaint registered" onClose={onClose} footer={<button className="btn" onClick={onClose}>OK</button>}><p>Your complaint number is <b>{done}</b>. Our service team has been alerted and will contact you shortly.</p><p className="muted small">If someone is trapped inside the lift, please also call us immediately.</p></Modal>;
   return (
     <Modal title="Report a lift problem" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Submit</button></>}>
       <div className="form-grid">

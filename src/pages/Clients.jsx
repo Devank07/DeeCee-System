@@ -1,14 +1,15 @@
 import React, { useState } from 'react';
-import { useCol, PageHeader, Card, DataTable, Modal, Field, useForm, act, go, Badge, Stat, ActivityFeed, Empty } from '../ui';
+import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Stat, ActivityFeed, Empty, MiniPipeline } from '../ui';
 import { addDoc, updateDoc, deleteDoc, backend } from '../data';
 import { inr, sum, num, fmtDate, waLink, mapsLink, daysUntil } from '../utils';
-import { PROJECT_STAGES } from '../constants';
+import { STATE_NAMES, stateFromGstin } from '../constants';
+import { nextText } from '../workflow';
 
 export function ClientForm({ client, onClose, onSaved }) {
-  const { f, bind } = useForm(client || { name: '', contactPerson: '', phone: '', email: '', address: '', city: '', gstin: '' });
+  const { f, bind } = useForm(client || { name: '', contactPerson: '', phone: '', email: '', address: '', city: '', state: '', gstin: '' });
   const save = async () => {
-    if (!f.name.trim()) return alert('Client name is required');
-    const data = { name: f.name.trim(), contactPerson: f.contactPerson || '', phone: f.phone || '', email: f.email || '', address: f.address || '', city: f.city || '', gstin: (f.gstin || '').toUpperCase(), notes: f.notes || '' };
+    if (!f.name.trim()) return act(async () => { throw new Error('Client name is required'); });
+    const data = { name: f.name.trim(), contactPerson: f.contactPerson || '', phone: f.phone || '', email: f.email || '', address: f.address || '', city: f.city || '', state: f.state || stateFromGstin(f.gstin), gstin: (f.gstin || '').toUpperCase(), notes: f.notes || '' };
     const id = client?.id
       ? (await act(() => updateDoc('clients', client.id, data, data.name), 'Client updated'), client.id)
       : await act(() => addDoc('clients', data, data.name), 'Client added');
@@ -24,8 +25,9 @@ export function ClientForm({ client, onClose, onSaved }) {
         <Field label="Email"><input {...bind('email')} type="email" /></Field>
         <Field label="City"><input {...bind('city')} /></Field>
         <Field label="Address" span={2}><textarea rows={2} {...bind('address')} /></Field>
+        <Field label="State"><Select options={STATE_NAMES} {...bind('state')} /></Field>
         <Field label="GSTIN"><input {...bind('gstin')} /></Field>
-        <Field label="Notes"><input {...bind('notes')} /></Field>
+        <Field label="Notes" span={2}><input {...bind('notes')} /></Field>
       </div>
     </Modal>
   );
@@ -33,8 +35,8 @@ export function ClientForm({ client, onClose, onSaved }) {
 
 export default function Clients({ user, params }) {
   const clients = useCol('clients');
-  const projects = useCol('projects');
-  const invoices = useCol('invoices');
+  const projects = useCol('projects', [['status', 'in', ['Order', 'Completed', 'On Hold', 'Enquiry']]]);
+  const invoices = useCol('invoices', [['status', '==', 'Active']]);
   const amcs = useCol('amcs');
   const [form, setForm] = useState(null);
   const id = params[0];
@@ -76,8 +78,12 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
   const activity = useCol('activity', [['clientId', '==', c.id]]);
   const users = useCol('users', [['clientId', '==', c.id]], user.role === 'admin');
   const [portal, setPortal] = useState(false);
-  const billed = sum(invoices, 'total');
-  const paid = sum(invoices, 'paid');
+  const [del, setDel] = useState(false);
+  const live = invoices.filter((i) => i.status !== 'Cancelled');
+  const orders = projects.filter((p) => ['Order', 'Completed', 'On Hold'].includes(p.status));
+  const orderValue = sum(orders, 'contractValue');
+  const received = sum(payments, 'amount');
+  const invDue = sum(live, (i) => num(i.total) - num(i.paid));
   return (
     <div className="page">
       <PageHeader
@@ -92,10 +98,10 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
         </>}
       />
       <div className="stats">
-        <Stat label="Projects" value={projects.length} />
-        <Stat label="Billed" value={inr(billed)} />
-        <Stat label="Received" value={inr(paid)} tone="green" />
-        <Stat label="Outstanding" value={inr(billed - paid)} tone={billed - paid > 0 ? 'amber' : ''} />
+        <Stat label="Orders" value={orders.length} sub={`${projects.length - orders.length} enquiries`} />
+        <Stat label="Order value" value={inr(orderValue)} />
+        <Stat label="Received" value={inr(received)} tone="green" />
+        <Stat label="Invoices due" value={inr(invDue)} tone={invDue > 0 ? 'amber' : ''} />
       </div>
       <div className="grid-2">
         <Card title="Details">
@@ -103,25 +109,26 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
             <dt>Phone</dt><dd>{c.phone || '—'}</dd>
             <dt>Email</dt><dd>{c.email || '—'}</dd>
             <dt>Address</dt><dd>{c.address ? <a href={mapsLink(c.address)} target="_blank" rel="noreferrer">{c.address}</a> : '—'}</dd>
+            <dt>State</dt><dd>{c.state || '—'}</dd>
             <dt>GSTIN</dt><dd>{c.gstin || '—'}</dd>
             {c.notes && <><dt>Notes</dt><dd>{c.notes}</dd></>}
             {user.role === 'admin' && <><dt>Portal access</dt><dd>{users.length ? users.map((u) => u.email).join(', ') : <span className="muted">Not set up</span>}</dd></>}
           </dl>
         </Card>
-        <Card title="Projects" actions={<button className="btn ghost sm" onClick={() => go('projects/new/' + c.id)}>+ Project</button>}>
+        <Card title="Enquiries & orders" actions={['admin', 'sales'].includes(user.role) && <button className="btn ghost sm" onClick={() => go('enquiries/new/' + c.id)}>+ New enquiry</button>}>
           {projects.length === 0 ? <Empty /> : (
             <ul className="list">{projects.map((p) => (
-              <li key={p.id} onClick={() => go('projects/' + p.id)} className="clickable"><div><b>{p.title}</b><div className="muted small">{p.code} · {PROJECT_STAGES[p.stage]}</div></div><Badge>{p.status}</Badge></li>
+              <li key={p.id} onClick={() => go('orders/' + p.id)} className="clickable"><div><b>{p.title}</b><div className="muted small">{p.code || p.quoteNo} · {nextText(p)}</div></div><span className="row gap"><MiniPipeline p={p} /><Badge>{p.status}</Badge></span></li>
             ))}</ul>
           )}
         </Card>
         <Card title="Invoices & payments">
-          {invoices.length === 0 ? <Empty /> : (
-            <ul className="list">{invoices.map((i) => (
+          {live.length === 0 ? <Empty /> : (
+            <ul className="list">{live.map((i) => (
               <li key={i.id} className="clickable" onClick={() => go('billing/invoices/' + i.id)}><div><b>{i.number}</b><div className="muted small">{fmtDate(i.date)} · {inr(i.total)}</div></div><Badge>{num(i.paid) >= num(i.total) ? 'Paid' : num(i.paid) > 0 ? 'Partly Paid' : 'Unpaid'}</Badge></li>
             ))}</ul>
           )}
-          {payments.length > 0 && <p className="muted small">Last payment: {inr(payments.sort((a, b) => (b.date > a.date ? 1 : -1))[0].amount)} on {fmtDate(payments[0].date)}</p>}
+          {payments.length > 0 && (() => { const last = [...payments].sort((a, b) => (b.date > a.date ? 1 : -1))[0]; return <p className="muted small">Last payment: {inr(last.amount)} on {fmtDate(last.date)}</p>; })()}
         </Card>
         <Card title="AMC & complaints">
           {amcs.map((a) => <div key={a.id} className="list-line clickable" onClick={() => go('service/amc/' + a.id)}><b>{a.number}</b> {a.type} · {fmtDate(a.start)} → {fmtDate(a.end)} <Badge tone={daysUntil(a.end) < 0 ? 'red' : 'green'}>{daysUntil(a.end) < 0 ? 'Expired' : 'Active'}</Badge></div>)}
@@ -133,7 +140,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
       {form && <ClientForm client={form} onClose={() => setForm(null)} />}
       {portal && <PortalLogin client={c} onClose={() => setPortal(false)} />}
       {user.role === 'admin' && !projects.length && !invoices.length && (
-        <p className="r"><button className="link danger" onClick={() => confirm('Delete this client permanently?') && act(() => deleteDoc('clients', c.id, c.name), 'Client deleted').then(() => go('clients'))}>Delete client</button></p>
+        <p className="r">{del ? <button className="btn danger-btn sm" onClick={() => act(() => deleteDoc('clients', c.id, c.name), 'Client deleted').then(() => go('clients'))}>Yes, delete {c.name}</button> : <button className="link danger" onClick={() => setDel(true)}>Delete client</button>}</p>
       )}
     </div>
   );
@@ -142,7 +149,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
 function PortalLogin({ client, onClose }) {
   const { f, bind } = useForm({ email: client.email || '', password: '' });
   const create = async () => {
-    if (!f.email || (f.password || '').length < 6) return alert('Enter an email and a password of at least 6 characters');
+    if (!f.email || (f.password || '').length < 6) return act(async () => { throw new Error('Enter an email and a password of at least 6 characters'); });
     await act(() => backend().createAccount({ email: f.email, password: f.password, name: client.name, role: 'client', clientId: client.id }), 'Portal login created');
     onClose();
   };

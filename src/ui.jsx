@@ -1,7 +1,8 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { subscribe, addDoc, deleteDoc, me } from './data';
+import React, { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { subscribe, subscribeDoc, addDoc, deleteDoc, updateDoc, me, uploadFile, fetchFileBlob, deleteFile, MAX_FILE_MB } from './data';
 import { calcTotals, compressImage, downloadFile, toCSV, inr, fmtDate, amountInWords, num, fmtDateTime } from './utils';
-import { PROJECT_STAGES } from './constants';
+import { stateCode } from './constants';
+import { steps as pipelineSteps } from './workflow';
 
 /* ---------- routing (hash based) ---------- */
 export function useRoute() {
@@ -12,19 +13,30 @@ export function useRoute() {
 }
 export const go = (path) => { location.hash = '#/' + path; };
 
+/* ---------- scope: technicians only see their own team's records ---------- */
+export const Scope = createContext({ teamId: null });
+export const useScope = () => useContext(Scope);
+const scoped = (filters, teamId) => (teamId ? [...filters, ['teamId', '==', teamId]] : filters);
+
 /* ---------- data hooks ---------- */
-export function useCol(col, filters = [], enabled = true) {
-  const key = JSON.stringify(filters);
+export function useCol(col, filters = [], enabled = true, opts) {
+  const key = JSON.stringify([filters, opts || null]);
   const [rows, setRows] = useState(null);
   useEffect(() => {
     if (!enabled) { setRows([]); return; }
-    return subscribe(col, JSON.parse(key), setRows);
+    const [f, o] = JSON.parse(key);
+    return subscribe(col, f, setRows, o || undefined);
   }, [col, key, enabled]);
   return rows || [];
 }
+export function useDoc(col, id) {
+  const [doc, setDoc] = useState(undefined);
+  useEffect(() => { if (!id) { setDoc(null); return; } return subscribeDoc(col, id, setDoc); }, [col, id]);
+  return doc;
+}
 export function useSettings() {
-  const rows = useCol('settings');
-  return rows.find((r) => r.id === 'company') || { name: 'DeeCee Elevators Pvt. Ltd.', defaultGst: 18 };
+  const d = useDoc('settings', 'company');
+  return d || { name: 'DeeCee Elevators Pvt. Ltd.', defaultGst: 18 };
 }
 
 /* ---------- toast ---------- */
@@ -33,12 +45,17 @@ export const toast = (msg, tone = 'ok') => toastFn(msg, tone);
 export function Toaster() {
   const [t, setT] = useState(null);
   useEffect(() => { toastFn = (msg, tone) => { setT({ msg, tone, k: Date.now() }); }; }, []);
-  useEffect(() => { if (!t) return; const h = setTimeout(() => setT(null), 3200); return () => clearTimeout(h); }, [t]);
+  useEffect(() => { if (!t) return; const h = setTimeout(() => setT(null), 3400); return () => clearTimeout(h); }, [t]);
   return t ? <div className={'toast ' + t.tone} key={t.k}>{t.msg}</div> : null;
 }
-// run an async action with error toast
 export async function act(fn, okMsg) {
-  try { const r = await fn(); if (okMsg) toast(okMsg); return r; } catch (e) { console.error(e); toast(e.message || 'Something went wrong', 'err'); throw e; }
+  try { const r = await fn(); if (okMsg) toast(okMsg); return r; } catch (e) { console.error(e); toast(friendlyError(e), 'err'); throw e; }
+}
+function friendlyError(e) {
+  const c = e?.code || '';
+  if (c.includes('permission-denied')) return 'You don\'t have permission to do this. Ask the Admin if you need access.';
+  if (c.includes('unavailable')) return 'No internet connection — the change will sync when you are back online.';
+  return e?.message || 'Something went wrong';
 }
 
 /* ---------- forms ---------- */
@@ -68,13 +85,13 @@ export const Select = ({ options, placeholder, ...p }) => (
 /* ---------- layout bits ---------- */
 export const PageHeader = ({ title, sub, actions }) => (
   <div className="page-head">
-    <div><h1>{title}</h1>{sub && <p className="muted">{sub}</p>}</div>
-    {actions && <div className="row gap">{actions}</div>}
+    <div><h1>{title}</h1>{sub && <div className="muted sub">{sub}</div>}</div>
+    {actions && <div className="row gap wrap">{actions}</div>}
   </div>
 );
-export const Card = ({ title, actions, children, className = '', pad = true }) => (
-  <section className={'card ' + className}>
-    {(title || actions) && <div className="card-head"><h3>{title}</h3><div className="row gap">{actions}</div></div>}
+export const Card = ({ title, actions, children, className = '', pad = true, id }) => (
+  <section className={'card ' + className} id={id}>
+    {(title || actions) && <div className="card-head"><h3>{title}</h3><div className="row gap wrap">{actions}</div></div>}
     <div className={pad ? 'card-body' : ''}>{children}</div>
   </section>
 );
@@ -86,6 +103,7 @@ export const Stat = ({ label, value, sub, tone = '', onClick }) => (
   </button>
 );
 export const Empty = ({ children = 'Nothing here yet' }) => <div className="empty">{children}</div>;
+export const Note = ({ tone = 'amber', children }) => <div className={'note ' + tone}>{children}</div>;
 
 export function Tabs({ tabs, value, onChange }) {
   return (
@@ -100,10 +118,10 @@ export function Tabs({ tabs, value, onChange }) {
 }
 
 const TONES = {
-  green: ['Paid', 'Won', 'Accepted', 'Active', 'Done', 'Resolved', 'Closed', 'Received', 'Delivered', 'Completed', 'P', 'Present'],
-  amber: ['Partly Paid', 'Invoiced', 'Sent', 'Quoted', 'Negotiation', 'Site Visit', 'Assigned', 'In Progress', 'Ordered', 'Scheduled', 'On Hold', 'High', 'Expiring', 'L', 'Leave', 'Dispatched', 'H'],
+  green: ['Paid', 'Won', 'Accepted', 'Active', 'Done', 'Resolved', 'Closed', 'Received', 'Delivered', 'Completed', 'P', 'Present', 'Ready', 'Approved', 'Issued', 'Dispatched', 'Order'],
+  amber: ['Part paid', 'Partly Paid', 'Invoiced', 'Sent', 'Quoted', 'Negotiation', 'Site Visit', 'Assigned', 'In Progress', 'In progress', 'Ordered', 'Scheduled', 'On Hold', 'High', 'Expiring', 'L', 'Leave', 'H', 'Procuring', 'Ready to dispatch', 'Not ready', 'Enquiry'],
   red: ['Overdue', 'Lost', 'Rejected', 'Open', 'Expired', 'Critical (Trapped / Stuck)', 'Cancelled', 'Unpaid', 'A', 'Absent', 'Low stock', 'Disabled'],
-  blue: ['New', 'Draft', 'Contacted', 'Pending', 'Normal'],
+  blue: ['New', 'Draft', 'Contacted', 'Pending', 'Normal', 'Due later', 'Not checked', 'Not started'],
 };
 export function Badge({ children, tone }) {
   const t = tone || Object.keys(TONES).find((k) => TONES[k].includes(children)) || 'grey';
@@ -132,7 +150,7 @@ export function Modal({ title, onClose, children, footer, wide }) {
 /* ---------- data table with search + CSV ---------- */
 export function DataTable({ columns, rows, onRow, csvName, searchable = true, empty, toolbar, initialSort }) {
   const [q, setQ] = useState('');
-  const [sort, setSort] = useState(initialSort || null); // {key, desc}
+  const [sort, setSort] = useState(initialSort || null);
   const filtered = useMemo(() => {
     let r = rows;
     if (q) {
@@ -175,59 +193,71 @@ export function DataTable({ columns, rows, onRow, csvName, searchable = true, em
   );
 }
 
-/* ---------- project stage stepper ---------- */
-export function StageStepper({ stage, compact }) {
+/* ---------- order pipeline ---------- */
+export function Pipeline({ p, compact }) {
+  const list = pipelineSteps(p);
   const ref = useRef(null);
+  const cur = list.findIndex((s) => !s.done);
   useEffect(() => {
     const ol = ref.current;
-    const li = ol?.children[stage];
+    const li = ol?.children[cur];
     if (ol && li && !compact) ol.scrollLeft = Math.max(0, li.offsetLeft - ol.clientWidth / 2 + li.clientWidth / 2);
-  }, [stage, compact]);
+  }, [cur, compact]);
   return (
-    <ol ref={ref} className={'stepper' + (compact ? ' compact' : '')}>
-      {PROJECT_STAGES.map((s, i) => (
-        <li key={s} className={i < stage ? 'done' : i === stage ? 'current' : ''}>
-          <span className="dot">{i < stage ? '✓' : i + 1}</span>
-          <span className="lbl">{s}</span>
+    <ol ref={ref} className={'pipeline' + (compact ? ' compact' : '')}>
+      {list.map((s, i) => (
+        <li key={s.key} className={s.done ? 'done' : s.open ? 'open' : 'wait'}>
+          <span className="dot">{s.done ? '✓' : i + 1}</span>
+          <span className="pl-text">
+            <span className="lbl">{s.label}</span>
+            <span className="team">{s.team}</span>
+            <span className="det">{s.done ? (s.detail || (s.at ? fmtDate(s.at) : 'Done')) : s.open ? (s.detail || 'Action needed') : s.waiting || s.detail}</span>
+          </span>
         </li>
       ))}
     </ol>
   );
 }
+export function MiniPipeline({ p }) {
+  return <span className="mini-pipe" aria-label="Progress">{pipelineSteps(p).map((s) => <i key={s.key} className={s.done ? 'd' : s.open ? 'o' : ''} title={`${s.label}: ${s.done ? 'done' : s.open ? 'action needed' : s.waiting || ''}`} />)}</span>;
+}
 export const ProgressBar = ({ value, tone }) => <div className="progress"><div className={tone || ''} style={{ width: Math.min(100, Math.max(0, value)) + '%' }} /></div>;
 
 /* ---------- line items editor ---------- */
-export function LineItems({ items, onChange, gstRate, discount, onGst, onDiscount, catalog }) {
+export function LineItems({ items, onChange, gstRate, discount, onGst, onDiscount, catalog, hsn = true, defaultHsn = '' }) {
   const upd = (i, k, v) => onChange(items.map((it, j) => (j === i ? { ...it, [k]: v } : it)));
   const t = calcTotals(items, gstRate, discount);
   return (
     <div className="lines">
-      <table className="lines-table">
-        <thead><tr><th>Description</th><th className="r" style={{ width: 80 }}>Qty</th><th className="r" style={{ width: 130 }}>Rate (₹)</th><th className="r" style={{ width: 120 }}>Amount</th><th style={{ width: 36 }} /></tr></thead>
-        <tbody>
-          {items.map((it, i) => (
-            <tr key={i}>
-              <td>
-                <input list={catalog ? 'catalog-list' : undefined} value={it.desc ?? it.name ?? ''} placeholder="Item / service description"
-                  onChange={(e) => {
-                    const c = catalog?.find((x) => x.name === e.target.value);
-                    onChange(items.map((x, j) => (j === i ? { ...x, desc: e.target.value, name: e.target.value, ...(c ? { itemId: c.id, rate: x.rate || c.rate } : {}) } : x)));
-                  }} />
-              </td>
-              <td><input type="number" className="r" value={it.qty} onChange={(e) => upd(i, 'qty', e.target.value)} /></td>
-              <td><input type="number" className="r" value={it.rate} onChange={(e) => upd(i, 'rate', e.target.value)} /></td>
-              <td className="r">{inr(num(it.qty) * num(it.rate))}</td>
-              <td><button className="icon-btn" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label="Remove line">✕</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table className="lines-table">
+          <thead><tr><th>Description</th>{hsn && <th style={{ width: 90 }}>HSN/SAC</th>}<th className="r" style={{ width: 70 }}>Qty</th><th className="r" style={{ width: 120 }}>Rate (₹)</th><th className="r" style={{ width: 110 }}>Amount</th><th style={{ width: 36 }} /></tr></thead>
+          <tbody>
+            {items.map((it, i) => (
+              <tr key={i}>
+                <td>
+                  <input list={catalog ? 'catalog-list' : undefined} value={it.desc ?? it.name ?? ''} placeholder="Item / service description"
+                    onChange={(e) => {
+                      const c = catalog?.find((x) => x.name === e.target.value);
+                      onChange(items.map((x, j) => (j === i ? { ...x, desc: e.target.value, name: e.target.value, ...(c ? { itemId: c.id, rate: x.rate || c.rate } : {}) } : x)));
+                    }} />
+                </td>
+                {hsn && <td><input value={it.hsn || ''} onChange={(e) => upd(i, 'hsn', e.target.value)} /></td>}
+                <td><input type="number" className="r" value={it.qty} onChange={(e) => upd(i, 'qty', e.target.value)} /></td>
+                <td><input type="number" className={'r' + (!num(it.rate) ? ' need' : '')} value={it.rate} onChange={(e) => upd(i, 'rate', e.target.value)} /></td>
+                <td className="r">{inr(num(it.qty) * num(it.rate))}</td>
+                <td><button className="icon-btn" onClick={() => onChange(items.filter((_, j) => j !== i))} aria-label="Remove line">✕</button></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       {catalog && <datalist id="catalog-list">{catalog.map((c) => <option key={c.id} value={c.name} />)}</datalist>}
       <div className="lines-foot">
-        <button className="btn ghost sm" onClick={() => onChange([...items, { desc: '', qty: 1, rate: 0 }])}>+ Add line</button>
+        <button className="btn ghost sm" onClick={() => onChange([...items, { desc: '', hsn: defaultHsn, qty: 1, rate: 0 }])}>+ Add line</button>
         <div className="totals">
           <div><span>Subtotal</span><b>{inr(t.subtotal)}</b></div>
-          {onDiscount && <div><span>Discount</span><input type="number" className="r mini" value={discount} onChange={(e) => onDiscount(e.target.value)} /></div>}
+          {onDiscount && <div><span>Discount (₹)</span><input type="number" className="r mini" value={discount} onChange={(e) => onDiscount(e.target.value)} /></div>}
           {onGst && <div><span>GST %</span><input type="number" className="r mini" value={gstRate} onChange={(e) => onGst(e.target.value)} /></div>}
           <div><span>GST</span><b>{inr(t.gst)}</b></div>
           <div className="grand"><span>Total</span><b>{inr(t.total)}</b></div>
@@ -237,8 +267,8 @@ export function LineItems({ items, onChange, gstRate, discount, onGst, onDiscoun
   );
 }
 
-/* ---------- photos (stored as compressed base64 in 'photos' collection) ---------- */
-export function PhotoUploader({ refId, clientId = null, projectId = null, label = '+ Add photos' }) {
+/* ---------- photos (compressed, stored in Firestore) ---------- */
+export function PhotoUploader({ refId, clientId = null, projectId = null, teamId = null, visibleToClient = true, label = '+ Add photos', onAdded }) {
   const [busy, setBusy] = useState(false);
   const onFiles = async (e) => {
     const files = [...e.target.files];
@@ -246,37 +276,134 @@ export function PhotoUploader({ refId, clientId = null, projectId = null, label 
     if (!files.length) return;
     setBusy(true);
     try {
-      for (const f of files.slice(0, 6)) {
+      for (const f of files.slice(0, 8)) {
         const data = await compressImage(f);
-        await addDoc('photos', { refId, clientId, projectId, data, at: Date.now(), byName: me()?.name || '' }, 'Photo');
+        await addDoc('photos', { refId, clientId, projectId, teamId, visibleToClient, data, at: Date.now(), byName: me()?.name || '' }, 'Photo');
       }
       toast(files.length > 1 ? 'Photos added' : 'Photo added');
-    } catch (err) { toast('Could not add photo: ' + err.message, 'err'); }
+      onAdded?.(files.length);
+    } catch (err) { toast('Could not add photo: ' + friendlyError(err), 'err'); }
     setBusy(false);
   };
   return (
     <label className="btn ghost sm file-btn">
       {busy ? 'Uploading…' : label}
-      <input type="file" accept="image/*" capture="environment" multiple hidden onChange={onFiles} />
+      <input type="file" accept="image/*" multiple hidden onChange={onFiles} />
     </label>
   );
 }
-export function PhotoGrid({ refId, canDelete }) {
-  const photos = useCol('photos', [['refId', '==', refId]], !!refId);
+export function PhotoGrid({ refId, canDelete, canToggleClient }) {
+  const { teamId } = useScope();
+  const photos = useCol('photos', scoped([['refId', '==', refId]], teamId), !!refId);
   const [open, setOpen] = useState(null);
-  if (!photos.length) return null;
+  if (!photos.length) return <p className="muted small">No photos yet</p>;
   return (
     <>
       <div className="photo-grid">
-        {photos.sort((a, b) => a.at - b.at).map((p) => (
+        {[...photos].sort((a, b) => b.at - a.at).map((p) => (
           <div key={p.id} className="photo">
             <img src={p.data} alt="Site photo" onClick={() => setOpen(p)} />
-            {canDelete && <button className="photo-x" onClick={() => confirm('Delete this photo?') && deleteDoc('photos', p.id)} aria-label="Delete photo">✕</button>}
+            {canToggleClient && <button className={'photo-eye' + (p.visibleToClient ? ' on' : '')} title={p.visibleToClient ? 'Client can see this — tap to hide' : 'Hidden from client — tap to show'} onClick={() => updateDoc('photos', p.id, { visibleToClient: !p.visibleToClient })}>{p.visibleToClient ? '👁' : '⊘'}</button>}
+            {canDelete && <button className="photo-x" onClick={() => setOpen({ ...p, confirmDelete: true })} aria-label="Delete photo">✕</button>}
           </div>
         ))}
       </div>
-      {open && <div className="lightbox" onClick={() => setOpen(null)}><img src={open.data} alt="" /><span>{open.byName} · {fmtDateTime(open.at)}</span></div>}
+      {open && !open.confirmDelete && <div className="lightbox" onClick={() => setOpen(null)}><img src={open.data} alt="" /><span>{open.byName} · {fmtDateTime(open.at)}</span></div>}
+      {open?.confirmDelete && (
+        <Modal title="Delete photo?" onClose={() => setOpen(null)} footer={<><button className="btn ghost" onClick={() => setOpen(null)}>Keep</button><button className="btn danger-btn" onClick={() => act(() => deleteDoc('photos', open.id, 'Photo'), 'Photo deleted').then(() => setOpen(null))}>Delete</button></>}>
+          <img src={open.data} alt="" className="confirm-img" />
+        </Modal>
+      )}
     </>
+  );
+}
+
+/* ---------- files: drawings & documents ---------- */
+const fmtSize = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+
+export function FileList({ projectId, kind, canDelete, canToggle, clientView, clientId, hideEmpty }) {
+  const { teamId } = useScope();
+  const base = clientView ? [['clientId', '==', clientId], ['projectId', '==', projectId], ['visibleToClient', '==', true]] : [['projectId', '==', projectId]];
+  const all = useCol('files', scoped(base, teamId), !!projectId);
+  const files = all.filter((f) => !f.uploading && (!kind || f.kind === kind)).sort((a, b) => b.at - a.at);
+  const [busy, setBusy] = useState(null);
+  const [del, setDel] = useState(null);
+  const open = async (f, download) => {
+    setBusy(f.id);
+    try {
+      const blob = await fetchFileBlob(f);
+      const url = URL.createObjectURL(blob);
+      if (download) {
+        const a = document.createElement('a');
+        a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove();
+      } else {
+        window.open(url, '_blank', 'noopener');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) { toast(friendlyError(e), 'err'); }
+    setBusy(null);
+  };
+  if (!files.length) return hideEmpty ? null : <p className="muted small">{kind === 'Drawing' ? 'No drawing uploaded yet' : 'No documents yet'}</p>;
+  return (
+    <>
+      <ul className="file-list">
+        {files.map((f, i) => (
+          <li key={f.id} className={kind === 'Drawing' && i > 0 ? 'old' : ''}>
+            <span className="file-ico">{f.type === 'application/pdf' ? 'PDF' : f.type?.startsWith('image/') ? 'IMG' : 'DOC'}</span>
+            <div className="file-meta">
+              <b>{f.title || f.name}</b>{f.kind === 'Drawing' && <> <Badge tone={i === 0 ? 'green' : 'grey'}>Rev {f.rev}{i === 0 ? ' · latest' : ''}</Badge></>}
+              <div className="muted small">{f.name} · {fmtSize(f.size)} · {f.byName} · {fmtDate(f.at)}
+                {!clientView && <> · {f.visibleToClient ? 'Client can see' : 'Office only'}{f.shareWithTeam ? ' · Site team can see' : ''}</>}
+              </div>
+            </div>
+            <div className="row gap">
+              <button className="btn ghost sm" disabled={busy === f.id} onClick={() => open(f, false)}>{busy === f.id ? 'Opening…' : 'Open'}</button>
+              <button className="btn ghost sm" disabled={busy === f.id} onClick={() => open(f, true)}>Download</button>
+              {canToggle && <button className="btn ghost sm" onClick={() => updateDoc('files', f.id, { visibleToClient: !f.visibleToClient }, f.title)}>{f.visibleToClient ? 'Hide from client' : 'Show to client'}</button>}
+              {canDelete && <button className="icon-btn" aria-label="Delete file" onClick={() => setDel(f)}>✕</button>}
+            </div>
+          </li>
+        ))}
+      </ul>
+      {del && (
+        <Modal title="Delete file?" onClose={() => setDel(null)} footer={<><button className="btn ghost" onClick={() => setDel(null)}>Keep</button><button className="btn danger-btn" onClick={() => act(() => deleteFile(del), 'File deleted').then(() => setDel(null))}>Delete</button></>}>
+          <p>Delete <b>{del.title || del.name}</b>? Everyone will lose access to it.</p>
+        </Modal>
+      )}
+    </>
+  );
+}
+
+export function FileUpload({ project, kind = 'Document', nextRev = 0, onDone, onClose }) {
+  const [file, setFile] = useState(null);
+  const [title, setTitle] = useState(kind === 'Drawing' ? `GA drawing – ${project.title}` : '');
+  const [rev, setRev] = useState(nextRev);
+  const [client, setClient] = useState(kind === 'Drawing');
+  const [team, setTeam] = useState(kind === 'Drawing');
+  const [pct, setPct] = useState(null);
+  const save = async () => {
+    if (!file) return toast('Choose a file first', 'err');
+    setPct(0);
+    try {
+      const id = await uploadFile(file, {
+        projectId: project.id, clientId: project.clientId, kind, title: title || file.name, rev: kind === 'Drawing' ? Number(rev) : null,
+        visibleToClient: client, shareWithTeam: team, teamId: team ? project.teamId || null : null,
+      }, setPct);
+      toast(kind === 'Drawing' ? 'Drawing uploaded' : 'File uploaded');
+      await onDone?.({ id, rev: Number(rev), visibleToClient: client, shareWithTeam: team });
+      onClose();
+    } catch (e) { toast(friendlyError(e), 'err'); setPct(null); }
+  };
+  return (
+    <Modal title={kind === 'Drawing' ? 'Upload drawing' : 'Upload document'} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" disabled={pct !== null} onClick={save}>{pct !== null ? `Uploading ${pct}%` : 'Upload'}</button></>}>
+      <div className="form-grid">
+        <Field label="File" span={2} hint={`PDF or image, up to ${MAX_FILE_MB} MB`}><input type="file" accept=".pdf,image/*,.dwg,.dxf" onChange={(e) => setFile(e.target.files[0] || null)} /></Field>
+        <Field label="Title" span={kind === 'Drawing' ? 1 : 2}><input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Client purchase order" /></Field>
+        {kind === 'Drawing' && <Field label="Revision"><input type="number" value={rev} onChange={(e) => setRev(e.target.value)} /></Field>}
+      </div>
+      <label className="check"><input type="checkbox" checked={client} onChange={(e) => setClient(e.target.checked)} /> Client can see and download it on their portal</label>
+      <label className="check"><input type="checkbox" checked={team} onChange={(e) => setTeam(e.target.checked)} /> Site team can see it on their phones</label>
+    </Modal>
   );
 }
 
@@ -314,14 +441,16 @@ export function SignaturePad({ onSave, onCancel }) {
 }
 
 /* ---------- activity feed ---------- */
-export function ActivityFeed({ items, showClientFlag = true }) {
+export function ActivityFeed({ items, showFlags = true, limit }) {
   if (!items.length) return <Empty>No updates yet</Empty>;
+  const list = [...items].sort((a, b) => b.at - a.at).slice(0, limit || 999);
   return (
     <ul className="feed">
-      {[...items].sort((a, b) => b.at - a.at).map((a) => (
+      {list.map((a) => (
         <li key={a.id}>
-          <div className="feed-meta"><b>{a.byName || 'System'}</b>{a.byRole && <span className="muted"> · {a.byRole}</span>}<span className="muted"> · {fmtDateTime(a.at)}</span>
-            {showClientFlag && a.visibleToClient && <span className="badge blue tiny">Shared with client</span>}</div>
+          <div className="feed-meta"><b>{a.byName || 'System'}</b><span className="muted"> · {fmtDateTime(a.at)}</span>
+            {showFlags && a.visibleToClient && <span className="badge blue tiny">Client sees</span>}
+            {showFlags && a.teamId && <span className="badge grey tiny">Site team sees</span>}</div>
           <div className="feed-text">{a.text}</div>
         </li>
       ))}
@@ -329,38 +458,42 @@ export function ActivityFeed({ items, showClientFlag = true }) {
   );
 }
 
-/* ---------- printable documents (Quotation / Tax Invoice / Delivery Challan / Receipt) ---------- */
+/* ---------- printable documents (Quotation / Tax Invoice / Delivery Challan / PO) ---------- */
 export function PrintDoc({ kind, doc, company, onClose }) {
   const t = calcTotals(doc.items || [], doc.gstRate ?? 0, doc.discount || 0);
   const isInvoice = kind === 'Tax Invoice';
   const isChallan = kind === 'Delivery Challan';
-  const intra = (company.gstin || '').slice(0, 2) && (doc.clientGstin || '').slice(0, 2) ? company.gstin.slice(0, 2) === doc.clientGstin.slice(0, 2) : true;
+  const pos = doc.placeOfSupply || '';
+  const intra = pos && company.state ? pos === company.state : (company.gstin || '').slice(0, 2) === (doc.clientGstin || company.gstin || '').slice(0, 2);
+  const showHsn = (doc.items || []).some((i) => i.hsn);
   return (
     <Modal title={kind} onClose={onClose} wide footer={<><button className="btn ghost" onClick={onClose}>Close</button><button className="btn" onClick={() => window.print()}>Print / Save as PDF</button></>}>
       <div className="print-area">
+        {doc.status === 'Cancelled' && <div className="pd-cancel">CANCELLED</div>}
         <div className="pd-head">
           <div>
             <div className="pd-co">{company.name}</div>
             {company.tagline && <div className="pd-small">{company.tagline}</div>}
-            <div className="pd-small pre">{company.address}</div>
+            <div className="pd-small pre">{company.address}{company.state ? ', ' + company.state : ''}</div>
             <div className="pd-small">{[company.phone, company.email, company.website].filter(Boolean).join(' · ')}</div>
-            {company.gstin && <div className="pd-small">GSTIN: {company.gstin}</div>}
+            {company.gstin && <div className="pd-small">GSTIN: {company.gstin}{company.pan ? ' · PAN: ' + company.pan : ''}</div>}
           </div>
           <div className="pd-title">
             <div>{kind.toUpperCase()}</div>
-            <div className="pd-small">No: <b>{doc.number}</b></div>
+            <div className="pd-small">No: <b>{doc.number}{doc.rev ? ` R${doc.rev}` : ''}</b></div>
             <div className="pd-small">Date: {fmtDate(doc.date)}</div>
             {doc.validTill && <div className="pd-small">Valid till: {fmtDate(doc.validTill)}</div>}
             {doc.dueDate && isInvoice && <div className="pd-small">Due: {fmtDate(doc.dueDate)}</div>}
           </div>
         </div>
         <div className="pd-to">
-          <div className="pd-small muted">{isChallan ? 'Deliver to' : 'Bill to'}</div>
+          <div className="pd-small muted">{isChallan ? 'Deliver to' : kind === 'Purchase Order' ? 'Supplier' : 'Bill to'}</div>
           <b>{doc.clientName}</b>
           {doc.clientContact && <div className="pd-small">{doc.clientContact}</div>}
           <div className="pd-small pre">{doc.address || doc.siteAddress || ''}</div>
           {doc.phone && <div className="pd-small">Ph: {doc.phone}</div>}
           {doc.clientGstin && <div className="pd-small">GSTIN: {doc.clientGstin}</div>}
+          {isInvoice && pos && <div className="pd-small">Place of supply: {pos} ({stateCode(pos)})</div>}
           {isChallan && doc.vehicle && <div className="pd-small">Vehicle: {doc.vehicle} {doc.driver ? '· ' + doc.driver : ''}</div>}
         </div>
         {doc.liftSpec && (
@@ -370,10 +503,10 @@ export function PrintDoc({ kind, doc, company, onClose }) {
           </div>
         )}
         <table className="pd-table">
-          <thead><tr><th>#</th><th>Description</th><th className="r">Qty</th>{!isChallan && <><th className="r">Rate</th><th className="r">Amount</th></>}</tr></thead>
+          <thead><tr><th>#</th><th>Description</th>{showHsn && !isChallan && <th>HSN/SAC</th>}<th className="r">Qty</th>{!isChallan && <><th className="r">Rate</th><th className="r">Amount</th></>}</tr></thead>
           <tbody>
             {(doc.items || []).map((it, i) => (
-              <tr key={i}><td>{i + 1}</td><td>{it.desc || it.name}</td><td className="r">{it.qty}</td>{!isChallan && <><td className="r">{inr(it.rate)}</td><td className="r">{inr(num(it.qty) * num(it.rate))}</td></>}</tr>
+              <tr key={i}><td>{i + 1}</td><td>{it.desc || it.name}</td>{showHsn && !isChallan && <td>{it.hsn}</td>}<td className="r">{it.qty}</td>{!isChallan && <><td className="r">{inr(it.rate)}</td><td className="r">{inr(num(it.qty) * num(it.rate))}</td></>}</tr>
             ))}
           </tbody>
         </table>

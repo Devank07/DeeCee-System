@@ -1,11 +1,12 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { initBackend, backend, DEMO, setMe } from './data';
-import { NAV, ROLES } from './constants';
-import { useRoute, go, Toaster, useSettings, act } from './ui';
+import { NAV, ROLES, OFFICE_ROLES } from './constants';
+import { useRoute, go, Toaster, useSettings, act, useCol } from './ui';
+import { openTasks } from './workflow';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
-import Sales from './pages/Sales';
-import Projects from './pages/Projects';
+import Enquiries from './pages/Enquiries';
+import Orders from './pages/Orders';
 import Billing from './pages/Billing';
 import Service from './pages/Service';
 import Inventory from './pages/Inventory';
@@ -15,7 +16,7 @@ import Portal from './pages/Portal';
 import Audit from './pages/Audit';
 import Settings from './pages/Settings';
 
-const PAGES = { dashboard: Dashboard, clients: Clients, sales: Sales, projects: Projects, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings };
+const PAGES = { dashboard: Dashboard, clients: Clients, enquiries: Enquiries, orders: Orders, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings };
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -32,10 +33,21 @@ export default function App() {
   if (!ready || user === undefined) return <div className="center-screen"><div className="spinner" /></div>;
   return (
     <>
-      {!user ? <Login /> : user.noProfile ? <NoProfile user={user} /> : user.active === false ? <Disabled /> : user.role === 'client' ? <Portal user={user} /> : <Shell user={user} />}
+      {!user ? <Login /> : user.noProfile ? <NoProfile user={user} /> : user.active === false ? <Disabled /> : user.role === 'client' ? <Portal user={user} /> : !ROLES[user.role] ? <Disabled msg="Your login has an unknown role. Ask the Admin to set it in Settings → Users." /> : <Shell user={user} />}
       <Toaster />
     </>
   );
+}
+
+function useBadges(user) {
+  const office = OFFICE_ROLES.includes(user.role);
+  const orders = useCol('projects', [['status', '==', 'Order']], office);
+  const enquiries = useCol('projects', [['status', '==', 'Enquiry']], ['admin', 'sales'].includes(user.role));
+  const today = new Date().toISOString().slice(0, 10);
+  return {
+    orders: orders.filter((p) => openTasks(p, user.role).length).length,
+    enquiries: enquiries.filter((p) => (p.enquiry?.followUpDate && p.enquiry.followUpDate <= today) || !p.quote?.items?.some((i) => Number(i.rate) > 0)).length,
+  };
 }
 
 function Shell({ user }) {
@@ -47,6 +59,7 @@ function Shell({ user }) {
   const current = allowed.find((n) => n.key === page) ? page : home;
   useEffect(() => { if (page !== current) go(current); }, [page, current]);
   useEffect(() => { setMenu(false); }, [page, rest[0]]);
+  const badges = useBadges(user);
   const Page = PAGES[current];
   const tech = user.role === 'technician';
   return (
@@ -56,7 +69,10 @@ function Shell({ user }) {
           <div className="brand"><div className="logo">DC</div><div><b>{company.name?.split(' ').slice(0, 2).join(' ') || 'DeeCee'}</b><span>Company OS</span></div></div>
           <nav>
             {allowed.map((n) => (
-              <a key={n.key} href={'#/' + n.key} className={current === n.key ? 'on' : ''}><span className="ico">{n.icon}</span>{n.label}</a>
+              <a key={n.key} href={'#/' + n.key} className={current === n.key ? 'on' : ''}>
+                <span className="ico">{n.icon}</span><span className="nav-l">{n.label}</span>
+                {badges[n.key] > 0 && <span className="nav-badge" title="Waiting for your team">{badges[n.key]}</span>}
+              </a>
             ))}
           </nav>
           <UserBox user={user} />
@@ -65,11 +81,60 @@ function Shell({ user }) {
       {menu && <div className="scrim" onClick={() => setMenu(false)} />}
       <main className="main">
         {!tech && <div className="topbar"><button className="icon-btn" onClick={() => setMenu(true)} aria-label="Menu">☰</button><b>{allowed.find((n) => n.key === current)?.label}</b><span /></div>}
-        {DEMO && <div className="demo-banner">Demo mode — sample data saved only in this browser. Connect Firebase to go live (see README).</div>}
+        {DEMO && <div className="demo-banner">Demo mode — sample data saved only in this browser.</div>}
+        {['admin', 'service'].includes(user.role) && <ComplaintAlerts />}
         <Page user={user} params={rest} />
       </main>
     </div>
   );
+}
+
+/* New complaints (e.g. from the client portal) pop up for Admin & Service, with a sound and a desktop notification. */
+function ComplaintAlerts() {
+  const open = useCol('complaints', [['status', '==', 'Open']]);
+  const read = () => { try { return JSON.parse(localStorage.getItem('dc_seen_cmp') || '[]'); } catch { return []; } };
+  const [seen, setSeen] = useState(read);
+  const [perm, setPerm] = useState(typeof Notification !== 'undefined' ? Notification.permission : 'unsupported');
+  const prev = useRef(null);
+  const fresh = open.filter((c) => !seen.includes(c.id)).sort((a, b) => b.reportedAt - a.reportedAt);
+  const ids = fresh.map((c) => c.id).join(',');
+  useEffect(() => {
+    document.title = (fresh.length ? `(${fresh.length}) ` : '') + 'DeeCee ERP';
+    if (prev.current !== null) {
+      const brandNew = fresh.filter((c) => !prev.current.includes(c.id));
+      if (brandNew.length) {
+        beep(brandNew.some((c) => c.priority?.startsWith('Critical')));
+        if (perm === 'granted') brandNew.forEach((c) => { try { new Notification('New lift complaint — ' + c.clientName, { body: `${c.priority}: ${c.issue}` }); } catch { /* ignore */ } });
+      }
+    }
+    prev.current = fresh.map((c) => c.id);
+  }, [ids]);
+  const dismiss = (id) => { const s = [...seen, id]; setSeen(s); try { localStorage.setItem('dc_seen_cmp', JSON.stringify(s.slice(-300))); } catch { /* ignore */ } };
+  if (!fresh.length) return null;
+  const c = fresh[0];
+  return (
+    <div className={'alert-bar' + (c.priority?.startsWith('Critical') ? ' critical' : '')} role="alert">
+      <span className="alert-ico">🚨</span>
+      <span className="alert-text"><b>New complaint{fresh.length > 1 ? ` (${fresh.length})` : ''}:</b> {c.clientName} — {c.issue} <span className="muted-inv">· {c.priority}</span></span>
+      <span className="row gap">
+        {perm === 'default' && <button className="btn sm ghost-inv" onClick={() => Notification.requestPermission().then(setPerm)}>Turn on desktop alerts</button>}
+        <button className="btn sm ghost-inv" onClick={() => { dismiss(c.id); go('service/complaints/' + c.id); }}>Open</button>
+        <button className="btn sm ghost-inv" onClick={() => dismiss(c.id)}>Dismiss</button>
+      </span>
+    </div>
+  );
+}
+function beep(urgent) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const times = urgent ? [0, 0.25, 0.5] : [0];
+    times.forEach((t) => {
+      const o = ctx.createOscillator(); const g = ctx.createGain();
+      o.frequency.value = urgent ? 880 : 660; o.connect(g); g.connect(ctx.destination);
+      g.gain.setValueAtTime(0.15, ctx.currentTime + t); g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.2);
+      o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.22);
+    });
+  } catch { /* sound blocked until the user interacts with the page */ }
 }
 
 export function UserBox({ user, compact }) {
@@ -84,13 +149,15 @@ export function UserBox({ user, compact }) {
 
 const DEMO_ACCOUNTS = [
   ['admin@deecee.demo', 'Owner / Admin', 'Sees everything'],
-  ['sales@deecee.demo', 'Sales', 'Leads, quotes, clients'],
-  ['projects@deecee.demo', 'Installation', 'Projects, stages, teams'],
-  ['service@deecee.demo', 'Service & AMC', 'Complaints, AMC, visits'],
-  ['stores@deecee.demo', 'Purchase & Dispatch', 'Stock, POs, dispatch'],
+  ['sales@deecee.demo', 'Sales', 'New clients, quotations, confirm orders'],
+  ['stores@deecee.demo', 'Material & Dispatch', 'Confirm advance, dispatch'],
+  ['drawing@deecee.demo', 'Drawing team', 'Upload drawings'],
+  ['projects@deecee.demo', 'Installation manager', 'Site readiness, teams, handover'],
+  ['tech@deecee.demo', 'Installation technician', 'Team A phone app'],
+  ['servicetech@deecee.demo', 'Service technician', 'Service team phone app'],
+  ['service@deecee.demo', 'Service & AMC', 'Complaints, AMC'],
   ['accounts@deecee.demo', 'Accounts', 'Invoices & payments'],
-  ['tech@deecee.demo', 'Field Technician', 'Phone app for jobs'],
-  ['client@deecee.demo', 'Client Portal', 'What a customer sees'],
+  ['client@deecee.demo', 'Client portal', 'What a customer sees'],
 ];
 
 function Login() {
@@ -169,6 +236,6 @@ function NoProfile({ user }) {
     </div></div>
   );
 }
-function Disabled() {
-  return <div className="login"><div className="login-card stack"><h2>Account disabled</h2><p className="muted">Please contact your administrator.</p><button className="btn" onClick={() => backend().logout()}>Sign out</button></div></div>;
+function Disabled({ msg }) {
+  return <div className="login"><div className="login-card stack"><h2>No access</h2><p className="muted">{msg || 'This account is disabled. Please contact your administrator.'}</p><button className="btn" onClick={() => backend().logout()}>Sign out</button></div></div>;
 }

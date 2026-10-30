@@ -1,119 +1,98 @@
 # DeeCee Elevators — Company OS
 
-One system for the whole company: every client project is shared live between Sales, Installation, Purchase & Dispatch, Service, Accounts, the field technicians on their phones, and the client on their own portal.
+One system for the whole company. Every client gets a **client tab** that moves through the same pipeline, and each team sees only what is waiting for them:
 
-Built with **React + Firebase** (Authentication + Firestore). Runs on Firebase's free Spark plan, works on desktop and phones, and keeps working offline on site (syncs when signal returns).
+```
+Quotation → Order Confirmed → Advance Received → Drawing Issued → Site Ready → Material Dispatched → Installation → Handover
+  Sales        Sales           Material/Accounts     Drawing        Installation      Material          Installation   Installation
+```
+
+Built with **React + Firebase** (Authentication + Firestore). Live at **https://deecee-elevators.web.app**.
 
 ---
 
-## What's inside
+## How the order flow works
 
-| Module | What it does |
-|---|---|
-| **Dashboard** | Money to collect, overdue invoices, open breakdowns, AMC renewals, delayed projects, follow-ups due, low stock, staff present — one "Needs attention" list across all teams |
-| **Clients** | Full 360° view of each customer: projects, invoices, dues, AMC, complaints, timeline. Create their portal login |
-| **Leads & Quotes** | Lead pipeline with follow-up dates, quotation builder with lift specs, GST, print/PDF, WhatsApp share. **Accepted → creates client + project + payment milestones in one click** |
-| **Projects (the hub)** | 10-stage elevator workflow (Order → Survey → Drawing → Civil → Procurement → Dispatch → Installation → Testing → Licence → Handover), payment milestones with "Raise invoice", team, field jobs, material POs/dispatches, site photos, and a shared timeline where any team posts updates (optionally visible to the client) |
-| **Billing & Payments** | GST tax invoices (CGST/SGST or IGST auto), amount in words, payments with UTR/cheque, receivables ageing (0–30/31–60/61–90/90+), WhatsApp payment reminders |
-| **Service & AMC** | Complaints/breakdowns with priority (incl. "Trapped"), assign technician, AMC contracts with renewal alerts, one-click **preventive-maintenance schedule** for the year, AMC billing, visit reports |
-| **Inventory & Purchase** | Stock with minimum levels, purchase orders (receive → stock in), delivery challans to site (stock out + auto project stage update), vendors, full stock ledger |
-| **Staff & Attendance** | Staff records, daily attendance (P / Half / Leave / Absent), monthly paid-days report. Salaries are stored separately and only Admin/Accounts can see them |
-| **Field App** (phones) | Technician's jobs for today, check-in with location, call/navigate, AMC checklist, work notes, parts used, photos, **customer signature**, complete job (auto-resolves the complaint and informs the client) |
-| **Client Portal** | Client sees project stage, expected handover, payment schedule & dues, invoices (print), AMC status, service history, updates — and can **report a lift problem** |
-| **Audit Log** | Who created/changed/deleted what, and when |
-| **Settings** | Company details (printed on all documents), user logins & roles, full data backup |
+| Step | Who | What they do | Unlocks when |
+|---|---|---|---|
+| **Quotation** | Sales | *Enquiries → + New client enquiry*: enter client details and lift requirement. The client tab and a quotation (supply, installation, ARD lines) are created automatically — Sales only enters the prices. Print / WhatsApp the quote, revise it (R1, R2…). | — |
+| **Order Confirmed** | Sales | *Order confirmed →*: final value, client PO no., payment milestones (40/40/15/5 by default), target date, installation team. The tab now appears in **Orders** for every team. | Quotation has a price |
+| **Advance Received** | Material / Accounts | *Confirm advance received*: records the payment and releases the order to Drawing and Material. | Order confirmed |
+| **Drawing Issued** | Drawing team | *+ Upload drawing* (PDF/image, Rev 0, Rev 1…). Everyone — office, the site team and the client — can open and download it. *Approved by client* when signed off. | Advance received |
+| **Site Ready** | Installation (manager or site team on phone) | Site readiness checklist (shaft, pit, hook, openings, power, scaffolding, storage) → *Site is ready* / *Not ready* with notes. Client sees the update. | Order confirmed |
+| **Material Dispatched** | Material | *Procuring → Ready to dispatch → Dispatch to site* (delivery challan, stock reduced, client & site team informed) → *Mark delivered*. | Advance received **and** site ready |
+| **Installation** | Installation / site team | 8-step progress checklist (rails, machine, cabin, doors, wiring, testing…) with % shown to the client. | Material dispatched |
+| **Handover** | Installation manager | Handover date, licence done → order Completed → *Create AMC*. | Installation complete |
 
-Every table has search, sorting and **Export CSV** (opens in Excel).
+Locked steps show *why* they're locked (e.g. "Waiting for site ready"). Only the Admin can override a lock.
 
-### Roles
+## Who sees what
+
 | Role | Sees |
 |---|---|
 | Admin / Owner | Everything |
-| Sales | Dashboard, Clients, Leads & Quotes, Projects, Billing (view) |
-| Installation / Projects | Dashboard, Clients, Projects, Service, Inventory (view), Field App |
-| Service & AMC | Dashboard, Clients, Projects, Service & AMC, Field App |
-| Purchase & Dispatch | Dashboard, Projects, Inventory & Purchase |
-| Accounts | Dashboard, Clients, Projects, Billing, Staff & Attendance |
-| Field Technician | Field App only (their own jobs and sites) |
-| Client | Their own portal only |
+| Sales | Dashboard, Enquiries & Quotes, Orders, Clients |
+| Drawing team | Dashboard, Orders (uploads drawings) |
+| Material & Dispatch | Dashboard, Orders (advance, dispatch), Material & Stock |
+| Installation manager | Dashboard, Orders (site, team, installation, handover), Service, Staff & Teams, Field App |
+| Service & AMC | Dashboard, Clients, Orders, Service & AMC, Staff & Teams, Field App |
+| Accounts | Dashboard, Clients, Orders, Billing, Staff & attendance |
+| **Technician** | **Phone app only — just their own team's sites and jobs**: drawings, site status, installation progress, photos (shared with the client), job reports with customer signature, check-in |
+| Client | Their own portal: live pipeline, drawings, photos, payments, invoices, AMC, report a problem |
 
-These are enforced on the server by `firestore.rules`, not just hidden in the menu.
+This is enforced by the database rules (`firestore.rules`), not just hidden in the menu. A technician's phone cannot load another team's site even if they know the link.
+
+## Other modules
+- **Billing**: GST tax invoices with HSN/SAC per line and *place of supply* (CGST+SGST in your state, IGST outside), amount in words, cancel invoice (number kept), payments by milestone, order balances, invoice ageing, WhatsApp reminders.
+- **Service & AMC**: complaints → assign a service team → visit; AMC contracts, renewal alerts, one-click yearly maintenance schedule, AMC billing.
+- **Alerts**: a new complaint (e.g. from the client portal) shows a red banner with a sound for Admin and Service, plus a desktop notification if turned on. *(Phone push notifications need Firebase's paid plan and are not included yet.)*
+- **Material & Stock**: stock with minimum levels, purchase orders (receive → stock in), dispatch challans, vendors, stock ledger. Stock and payment totals update safely even when two people save at the same moment.
+- **Staff & Teams**: staff records, **site teams** (installation crews, service team), attendance; salaries visible only to Admin & Accounts.
+- **Audit log**, **CSV export** on every table, **full backup** in Settings.
 
 ---
 
-## 1. Try it now (demo mode)
+## Update the live site (after pulling new code)
 
-Needs Node.js 18+.
+On your computer, in the `DeeCee-System` folder:
 
 ```bash
+git pull
 npm install
-npm run dev
-```
-
-Open the link it prints. While `src/firebaseConfig.js` is empty the app runs in **demo mode** with sample data saved only in your browser. Tap any demo account on the login screen (all demo passwords are `demo123`).
-
----
-
-## 2. Go live with Firebase (about 20 minutes)
-
-1. Go to <https://console.firebase.google.com> → **Add project** (e.g. `deecee-erp`). Google Analytics is not needed.
-2. **Build → Authentication → Get started → Email/Password → Enable.**
-3. **Build → Firestore Database → Create database** → *Production mode* → location **asia-south1 (Mumbai)**.
-4. **Project settings (⚙) → Your apps → Web (</>)** → register the app → copy the `firebaseConfig` values into `src/firebaseConfig.js`.
-5. Install the Firebase CLI and deploy the security rules + app:
-   ```bash
-   npm install -g firebase-tools
-   firebase login
-   firebase use --add          # pick your project
-   npm run build
-   firebase deploy --only firestore:rules,hosting
-   ```
-   You'll get a link like `https://deecee-erp.web.app`.
-6. **Become the Admin:** open the link → *First-time setup (owner only)* → enter your email + a password → on the next screen tap **Set up as Admin**. This works only once; after that nobody else can claim Admin.
-7. **Settings → Company**: fill in address, GSTIN, bank details, default quotation terms.
-8. **Staff & Attendance → Add staff** (tick *Field technician* for fitters/service engineers).
-9. **Settings → Users & roles → Create login** for each person, choosing their role and linking them to their staff record. Share the email + temporary password; they can reset it from the login screen.
-10. For each client who should use the portal: **Clients → open client → Client portal login.**
-
-### Use your own domain (optional)
-Firebase console → **Hosting → Add custom domain** → e.g. `erp.deeceeelevators.in` → add the DNS records it shows in your domain's DNS panel. HTTPS is set up automatically.
-
-### Install on phones
-Open the link in Chrome (Android) or Safari (iPhone) → **Add to Home Screen**. It opens full-screen like an app.
-
----
-
-## Updating the app later
-Edit the code, then:
-```bash
 npm run build
-firebase deploy --only hosting           # app changes
-firebase deploy --only firestore:rules   # if you changed firestore.rules
+firebase deploy --only firestore,hosting
 ```
 
-## Backups
-**Settings → Backup → Download full backup** saves everything as one JSON file. Do this monthly and keep a copy on Google Drive. Every table also exports to CSV.
+`firestore` deploys both the security rules and the database indexes the team views need. The indexes take a few minutes to build after the first deploy — if a list looks empty right after deploying, wait 5 minutes and refresh.
 
-## Free-tier capacity
-The Firebase Spark (free) plan allows roughly 50,000 document reads and 20,000 writes per day and 1 GB of stored data. Site photos are compressed to ~100–150 KB each and stored in Firestore (no paid Storage needed), so 1 GB holds several thousand photos alongside all business data. If you outgrow it, switching to the pay-as-you-go Blaze plan needs no code changes.
+## First-time setup checklist
+1. **Settings → Company**: address, **state**, GSTIN, bank details, default **HSN/SAC** codes (confirm with your CA), quotation terms.
+2. **Staff & Teams → Staff directory**: add everyone. Tick *Field technician* for fitters/helpers/service engineers.
+3. **Staff & Teams → Site teams**: create e.g. *Installation Team A*, *Installation Team B*, *Service Team* and add members.
+4. **Settings → Users & roles → Create login** for each person with their role. Technicians must be linked to their staff record.
+5. For clients who should use the portal: **Clients → open client → Client portal login**.
+
+## Free-plan notes
+- Drawings and documents are stored inside the database in pieces (max **12 MB** per file) so no paid Storage is needed. Keep drawings as compact PDFs. The free plan has 1 GB in total — enough for several hundred drawings plus all business data. If you outgrow it, Firebase's pay-as-you-go plan can be switched on without code changes.
+- The JSON backup does not include drawing files — keep originals in the drawing team's folder.
+
+## Try it without touching live data
+`npm run dev` uses the live Firebase project. For a demo with sample data, build with `VITE_DEMO=1 npm run build` (or blank out `apiKey` in `src/firebaseConfig.js`).
 
 ---
 
 ## Project structure
 ```
 src/
-  firebaseConfig.js   ← paste your Firebase config here
-  data.js             ← Firebase / demo data layer, audit trail, document numbering (QT/26-27/0001 …)
-  constants.js        ← roles, menu access, project stages, milestones, checklists, dropdown lists
+  firebaseConfig.js   ← Firebase project settings
+  data.js             ← data layer: Firebase/demo, audit trail, numbering, safe increments, file storage
+  workflow.js         ← the 8-step pipeline: who acts, what unlocks what
+  constants.js        ← roles & menus, checklists, milestones, GST state codes, dropdown lists
   seed.js             ← sample data for demo mode only
-  ui.jsx              ← shared components (tables, modals, print layout, signature pad, photos)
-  App.jsx             ← login, first-time setup, layout, role-based navigation
-  pages/              ← Dashboard, Clients, Sales, Projects, Billing, Service, Inventory, Staff,
-                         FieldApp (technicians), Portal (clients), Audit, Settings
-firestore.rules       ← server-side permissions per role
+  ui.jsx              ← shared components (pipeline, tables, modals, files, photos, print layout)
+  App.jsx             ← login, layout, menu badges, complaint alerts
+  pages/              ← Dashboard, Enquiries, Orders (client tab), Clients, Billing, Service,
+                         Inventory, Staff (teams), FieldApp (technicians), Portal (clients), Audit, Settings
+firestore.rules       ← server-side permissions per role and per team
+firestore.indexes.json← database indexes for team & client views
 ```
-
-### Common customisations
-- **Project stages / default payment milestones / AMC checklist** → `src/constants.js`
-- **Which role sees which menu** → `NAV` in `src/constants.js` (also update `firestore.rules` for write access)
-- **Document number prefixes** (QT, INV, PRJ, AMC, CMP, PO, DSP) → where `nextNumber('…')` is called; numbering resets each Indian financial year (April).

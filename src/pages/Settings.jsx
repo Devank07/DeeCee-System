@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, Badge, Tabs, useSettings } from '../ui';
 import { setDoc, updateDoc, backend, DEMO, me } from '../data';
-import { ROLES } from '../constants';
+import { ROLES, STATE_NAMES } from '../constants';
 import { downloadFile, fmtDate } from '../utils';
 
 export default function Settings({ params }) {
@@ -22,7 +22,7 @@ function Company() {
   return <CompanyForm key={s.id ? 'loaded' : 'empty'} s={s} />;
 }
 function CompanyForm({ s }) {
-  const { f, bind } = useForm({ name: '', tagline: '', address: '', phone: '', email: '', website: '', gstin: '', pan: '', bank: '', defaultGst: 18, quoteTerms: '', ...s });
+  const { f, bind } = useForm({ name: '', tagline: '', address: '', state: '', phone: '', email: '', website: '', gstin: '', pan: '', bank: '', defaultGst: 18, hsnSupply: '', sacService: '', quoteTerms: '', ...s });
   const save = () => { const { id, ...data } = f; return act(() => setDoc('settings', 'company', data, true, 'Company details'), 'Saved'); };
   return (
     <Card title="Company details (printed on quotations, invoices, POs & challans)" actions={<button className="btn" onClick={save}>Save</button>}>
@@ -30,12 +30,15 @@ function CompanyForm({ s }) {
         <Field label="Company name"><input {...bind('name')} /></Field>
         <Field label="Tagline"><input {...bind('tagline')} /></Field>
         <Field label="Address" span={2}><textarea rows={2} {...bind('address')} /></Field>
+        <Field label="State (for GST)" hint="Decides CGST+SGST (same state) or IGST (other state)"><Select options={STATE_NAMES} {...bind('state')} /></Field>
         <Field label="Phone"><input {...bind('phone')} /></Field>
         <Field label="Email"><input {...bind('email')} /></Field>
         <Field label="Website"><input {...bind('website')} /></Field>
         <Field label="GSTIN"><input {...bind('gstin')} /></Field>
         <Field label="PAN"><input {...bind('pan')} /></Field>
         <Field label="Default GST %"><input type="number" {...bind('defaultGst', 'number')} /></Field>
+        <Field label="Default HSN for lift supply" hint="Filled into new quotation & invoice lines. Confirm codes with your CA."><input {...bind('hsnSupply')} placeholder="e.g. 8428" /></Field>
+        <Field label="Default SAC for installation / AMC services"><input {...bind('sacService')} placeholder="SAC code" /></Field>
         <Field label="Bank details (printed on invoices)" span={2}><textarea rows={3} {...bind('bank')} /></Field>
         <Field label="Default quotation terms" span={2}><textarea rows={5} {...bind('quoteTerms')} /></Field>
       </div>
@@ -62,7 +65,7 @@ function Users() {
             { key: 'active', label: 'Status', render: (r) => <Badge>{r.active === false ? 'Disabled' : 'Active'}</Badge>, csv: (r) => (r.active === false ? 'Disabled' : 'Active') },
           ]} />
       </Card>
-      <p className="muted small">Each person gets their own login. Their role decides what they see. Field technicians must be linked to their staff record so their jobs show on their phone. Client logins see only their own projects.</p>
+      <p className="muted small">Each person gets their own login and their role decides what they see. Technicians must be linked to their staff record — they then see only their team's sites and jobs (set teams in Staff & Teams). Client logins see only their own lifts.</p>
       {create && <CreateUser staff={staff} clients={clients} onClose={() => setCreate(false)} />}
       {edit && <EditUser u={edit} staff={staff} clients={clients} onClose={() => setEdit(null)} />}
     </>
@@ -81,9 +84,10 @@ function RoleFields({ f, bind, staff, clients }) {
 function CreateUser({ staff, clients, onClose }) {
   const { f, setF, bind } = useForm({ email: '', password: '', name: '', role: 'technician', staffId: '', clientId: '' });
   const save = async () => {
-    if (!f.email || (f.password || '').length < 6) return alert('Email and a password of at least 6 characters are required');
-    if (f.role === 'technician' && !f.staffId) return alert('Link the technician to their staff record');
-    if (f.role === 'client' && !f.clientId) return alert('Pick the client');
+    const fail = (m) => act(async () => { throw new Error(m); });
+    if (!f.email || (f.password || '').length < 6) return fail('Email and a password of at least 6 characters are required');
+    if (f.role === 'technician' && !f.staffId) return fail('Link the technician to their staff record');
+    if (f.role === 'client' && !f.clientId) return fail('Pick the client');
     const name = f.name || (f.role === 'client' ? clients.find((c) => c.id === f.clientId)?.name : staff.find((s) => s.id === f.staffId)?.name) || f.email;
     await act(() => backend().createAccount({ email: f.email, password: f.password, name, role: f.role, ...(f.role === 'client' ? { clientId: f.clientId } : { staffId: f.staffId || null }) }), 'Login created — share the email & password with them');
     onClose();
@@ -135,10 +139,10 @@ function Data() {
   };
   return (
     <Card title="Backup">
-      <p>Download a complete copy of all company data (clients, projects, invoices, AMC, stock, staff…) as a JSON file. Keep a monthly copy on your computer or Google Drive.</p>
+      <p>Download a complete copy of all company records (clients, orders, invoices, AMC, stock, staff…) as a JSON file. Keep a monthly copy on your computer or Google Drive. Uploaded drawings are not included — keep the original drawing files in your drawing team's folder.</p>
       <div className="row gap">
         <button className="btn" onClick={exportAll} disabled={busy}>{busy ? 'Preparing…' : 'Download full backup'}</button>
-        {DEMO && <button className="btn ghost danger" onClick={() => confirm('Reset demo data to the original samples?') && backend().resetDemo()}>Reset demo data</button>}
+        {DEMO && <button className="btn ghost danger" onClick={() => backend().resetDemo()}>Reset demo data</button>}
       </div>
       <p className="muted small">Every table in the app also has an “Export CSV” button for Excel.</p>
     </Card>

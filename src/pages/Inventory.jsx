@@ -1,40 +1,46 @@
 import React, { useState } from 'react';
-import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, PrintDoc, useSettings } from '../ui';
-import { addDoc, updateDoc, deleteDoc, nextNumber, postActivity } from '../data';
-import { ITEM_CATEGORIES, UNITS, PO_STATUSES, PROJECT_STAGES } from '../constants';
+import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, PrintDoc, useSettings, Note } from '../ui';
+import { addDoc, updateDoc, deleteDoc, nextNumber, postActivity, inc, me } from '../data';
+import { ITEM_CATEGORIES, UNITS, PO_STATUSES } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, addDays, num, sum, calcTotals, waLink } from '../utils';
 
 export default function Inventory({ user, params }) {
   const tab = ['po', 'dispatch', 'vendors', 'ledger'].includes(params[0]) ? params[0] : 'items';
   const items = useCol('items');
-  const pos = useCol('purchaseOrders');
+  const pos = useCol('purchaseOrders', [['status', 'in', ['Draft', 'Ordered']]]);
+  const ready = useCol('projects', [['status', '==', 'Order']]).filter((p) => p.advance?.confirmed && p.site?.status === 'Ready' && !['Dispatched', 'Delivered'].includes(p.material?.status));
   const canWrite = ['admin', 'stores'].includes(user.role);
   return (
     <div className="page">
-      <PageHeader title="Inventory & Purchase" sub="Stock, vendors, purchase orders and material dispatch to sites" />
+      <PageHeader title="Material & Stock" sub="Stock, vendors, purchase orders and dispatch to sites" />
       <div className="stats">
+        <Stat label="Ready to dispatch" value={ready.length} sub="Advance received & site ready" tone={ready.length ? 'amber' : ''} onClick={() => go('orders')} />
         <Stat label="Stock value" value={inr(sum(items, (i) => num(i.stock) * num(i.rate)))} sub={`${items.length} items`} />
         <Stat label="Low stock" value={items.filter((i) => num(i.stock) <= num(i.minStock)).length} tone={items.some((i) => num(i.stock) <= num(i.minStock)) ? 'red' : ''} onClick={() => go('inventory/items')} />
         <Stat label="Open POs" value={pos.filter((p) => p.status === 'Ordered').length} sub={inr(sum(pos.filter((p) => p.status === 'Ordered'), (p) => calcTotals(p.items, p.gstRate).total))} onClick={() => go('inventory/po')} />
       </div>
-      <Tabs value={tab} onChange={(k) => go('inventory/' + k)} tabs={[{ key: 'items', label: 'Stock' }, { key: 'po', label: 'Purchase orders' }, { key: 'dispatch', label: 'Dispatch to site' }, { key: 'vendors', label: 'Vendors' }, { key: 'ledger', label: 'Stock ledger' }]} />
+      {ready.length > 0 && (
+        <Card title="Ready to dispatch — site is ready and advance received">
+          <ul className="list">{ready.map((p) => <li key={p.id} className="clickable" onClick={() => go('orders/' + p.id)}><div><b>{p.clientName}</b><div className="muted small">{p.title} · {p.code} · {p.siteAddress}</div></div><Badge>{p.material?.status || 'Pending'}</Badge></li>)}</ul>
+        </Card>
+      )}
+      <Tabs value={tab} onChange={(k) => go('inventory/' + k)} tabs={[{ key: 'items', label: 'Stock' }, { key: 'po', label: 'Purchase orders' }, { key: 'dispatch', label: 'Dispatch challans' }, { key: 'vendors', label: 'Vendors' }, { key: 'ledger', label: 'Stock ledger' }]} />
       {tab === 'items' && <Items items={items} canWrite={canWrite} />}
-      {tab === 'po' && <POs pos={pos} items={items} canWrite={canWrite} />}
-      {tab === 'dispatch' && <Dispatches items={items} canWrite={canWrite} newFor={params[1] === 'new' ? params[2] || '' : null} />}
+      {tab === 'po' && <POs items={items} canWrite={canWrite} />}
+      {tab === 'dispatch' && <Dispatches canWrite={canWrite} />}
       {tab === 'vendors' && <Vendors canWrite={canWrite} />}
       {tab === 'ledger' && <Ledger />}
     </div>
   );
 }
 
-/* ---------- stock movement helper ---------- */
+/* Stock changes use server-side increments, so two people moving stock at once can't overwrite each other */
 async function moveStock(items, lines, sign, type, ref, projectId) {
   for (const l of lines) {
     const it = items.find((x) => x.id === l.itemId);
     if (!it || !num(l.qty)) continue;
-    await updateDoc('items', it.id, { stock: num(it.stock) + sign * num(l.qty) }, it.name);
-    await addDoc('stockMoves', { itemId: it.id, itemName: it.name, qty: sign * num(l.qty), type, ref, projectId: projectId || null, at: Date.now() }, ref);
-    it.stock = num(it.stock) + sign * num(l.qty); // keep local copy in sync for repeated items
+    await updateDoc('items', it.id, { stock: inc(sign * num(l.qty)) }, it.name);
+    await addDoc('stockMoves', { itemId: it.id, itemName: it.name, qty: sign * num(l.qty), type, ref, projectId: projectId || null, at: Date.now(), byName: me()?.name || '' }, ref);
   }
 }
 
@@ -66,15 +72,16 @@ function Items({ items, canWrite }) {
 }
 function ItemForm({ item, onClose }) {
   const { f, bind } = useForm(item || { code: '', name: '', category: ITEM_CATEGORIES[0], unit: 'Nos', stock: 0, minStock: 0, rate: 0 });
+  const [del, setDel] = useState(false);
   const save = async () => {
-    if (!f.name) return alert('Name required');
+    if (!f.name) return act(async () => { throw new Error('Item name is required'); });
     const data = { code: f.code || '', name: f.name, category: f.category, unit: f.unit, minStock: num(f.minStock), rate: num(f.rate), ...(item ? {} : { stock: num(f.stock) }) };
     if (item) await act(() => updateDoc('items', item.id, data, data.name), 'Item saved');
     else await act(() => addDoc('items', data, data.name), 'Item added');
     onClose();
   };
   return (
-    <Modal title={item ? 'Edit item' : 'New item'} onClose={onClose} footer={<>{item && <button className="btn ghost danger" onClick={() => confirm('Delete item?') && act(() => deleteDoc('items', item.id, item.name), 'Deleted').then(onClose)}>Delete</button>}<span className="spacer" /><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Save</button></>}>
+    <Modal title={item ? 'Edit item' : 'New item'} onClose={onClose} footer={<>{item && (del ? <button className="btn danger-btn" onClick={() => act(() => deleteDoc('items', item.id, item.name), 'Deleted').then(onClose)}>Confirm delete</button> : <button className="btn ghost danger" onClick={() => setDel(true)}>Delete</button>)}<span className="spacer" /><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Save</button></>}>
       <div className="form-grid">
         <Field label="Item name *" span={2}><input {...bind('name')} /></Field>
         <Field label="Code"><input {...bind('code')} /></Field>
@@ -84,7 +91,7 @@ function ItemForm({ item, onClose }) {
         {!item && <Field label="Opening stock"><input type="number" {...bind('stock', 'number')} /></Field>}
         <Field label="Minimum stock (alert)"><input type="number" {...bind('minStock', 'number')} /></Field>
       </div>
-      {item && <p className="muted small">To change stock quantity use “Adjust” so every change is recorded in the stock ledger.</p>}
+      {item && <p className="muted small">To change the quantity use “Adjust”, so every change is recorded in the stock ledger.</p>}
     </Modal>
   );
 }
@@ -93,7 +100,7 @@ function AdjustForm({ item, items, onClose }) {
   const [dir, setDir] = useState('in');
   const [reason, setReason] = useState('');
   const save = async () => {
-    if (!num(qty)) return alert('Enter quantity');
+    if (!num(qty)) return act(async () => { throw new Error('Enter quantity'); });
     await act(() => moveStock(items, [{ itemId: item.id, qty: num(qty) }], dir === 'in' ? 1 : -1, 'Adjustment' + (reason ? ': ' + reason : ''), 'Manual'), 'Stock adjusted');
     onClose();
   };
@@ -109,39 +116,46 @@ function AdjustForm({ item, items, onClose }) {
   );
 }
 
-/* ---------- item line picker (for PO / dispatch) ---------- */
 function ItemLines({ lines, onChange, items, withRate }) {
   const upd = (i, patch) => onChange(lines.map((l, j) => (j === i ? { ...l, ...patch } : l)));
   return (
     <div className="lines">
-      <table className="lines-table">
-        <thead><tr><th>Item</th><th className="r" style={{ width: 90 }}>Qty</th>{withRate && <th className="r" style={{ width: 120 }}>Rate</th>}<th className="r" style={{ width: 90 }}>In stock</th><th style={{ width: 36 }} /></tr></thead>
-        <tbody>
-          {lines.map((l, i) => {
-            const it = items.find((x) => x.id === l.itemId);
-            return (
-              <tr key={i}>
-                <td><Select options={items.map((x) => ({ value: x.id, label: `${x.name}${x.code ? ' (' + x.code + ')' : ''}` }))} value={l.itemId || ''} onChange={(e) => { const x = items.find((y) => y.id === e.target.value); upd(i, { itemId: e.target.value, name: x?.name || '', rate: l.rate || x?.rate || 0 }); }} /></td>
-                <td><input type="number" className="r" value={l.qty} onChange={(e) => upd(i, { qty: e.target.value })} /></td>
-                {withRate && <td><input type="number" className="r" value={l.rate} onChange={(e) => upd(i, { rate: e.target.value })} /></td>}
-                <td className={'r ' + (it && !withRate && num(l.qty) > num(it.stock) ? 'danger-text' : 'muted')}>{it ? it.stock + ' ' + it.unit : '—'}</td>
-                <td><button className="icon-btn" onClick={() => onChange(lines.filter((_, j) => j !== i))}>✕</button></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="table-scroll">
+        <table className="lines-table">
+          <thead><tr><th>Item</th><th className="r" style={{ width: 90 }}>Qty</th>{withRate && <th className="r" style={{ width: 120 }}>Rate</th>}<th className="r" style={{ width: 90 }}>In stock</th><th style={{ width: 36 }} /></tr></thead>
+          <tbody>
+            {lines.map((l, i) => {
+              const it = items.find((x) => x.id === l.itemId);
+              return (
+                <tr key={i}>
+                  <td><Select options={items.map((x) => ({ value: x.id, label: `${x.name}${x.code ? ' (' + x.code + ')' : ''}` }))} value={l.itemId || ''} onChange={(e) => { const x = items.find((y) => y.id === e.target.value); upd(i, { itemId: e.target.value, name: x?.name || '', rate: l.rate || x?.rate || 0 }); }} /></td>
+                  <td><input type="number" className="r" value={l.qty} onChange={(e) => upd(i, { qty: e.target.value })} /></td>
+                  {withRate && <td><input type="number" className="r" value={l.rate} onChange={(e) => upd(i, { rate: e.target.value })} /></td>}
+                  <td className={'r ' + (it && !withRate && num(l.qty) > num(it.stock) ? 'danger-text' : 'muted')}>{it ? it.stock + ' ' + it.unit : '—'}</td>
+                  <td><button className="icon-btn" onClick={() => onChange(lines.filter((_, j) => j !== i))}>✕</button></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
       <button className="btn ghost sm" onClick={() => onChange([...lines, { itemId: '', name: '', qty: 1, rate: 0 }])}>+ Add item</button>
     </div>
   );
 }
 
 /* ---------- PURCHASE ORDERS ---------- */
-function POs({ pos, items, canWrite }) {
+function POs({ items, canWrite }) {
+  const [showAll, setShowAll] = useState(false);
+  const pos = useCol('purchaseOrders', showAll ? [] : [['status', 'in', ['Draft', 'Ordered']]]);
   const [form, setForm] = useState(null);
   return (
     <>
-      {canWrite && <div className="chips"><span className="spacer" /><button className="btn" onClick={() => setForm({})}>+ New purchase order</button></div>}
+      <div className="chips">
+        <button className={'chip' + (!showAll ? ' on' : '')} onClick={() => setShowAll(false)}>Open</button>
+        <button className={'chip' + (showAll ? ' on' : '')} onClick={() => setShowAll(true)}>All</button>
+        <span className="spacer" />{canWrite && <button className="btn" onClick={() => setForm({})}>+ New purchase order</button>}
+      </div>
       <Card pad={false}>
         <DataTable
           csvName="purchase-orders" rows={pos} onRow={(r) => setForm(r)} initialSort={{ key: 'date', desc: true }}
@@ -163,23 +177,27 @@ function POs({ pos, items, canWrite }) {
 function POForm({ po, items, canWrite, onClose }) {
   const company = useSettings();
   const vendors = useCol('vendors');
-  const projects = useCol('projects');
+  const projects = useCol('projects', [['status', '==', 'Order']]);
   const { f, setF, bind } = useForm(po || { vendorId: '', projectId: '', date: today(), expectedDate: addDays(today(), 10), status: 'Draft', items: [{ itemId: '', name: '', qty: 1, rate: 0 }], gstRate: 18, notes: '' });
   const [print, setPrint] = useState(false);
+  const [confirmRecv, setConfirmRecv] = useState(false);
   const locked = po && ['Received', 'Cancelled'].includes(po.status);
   const t = calcTotals(f.items, f.gstRate);
   const save = async (statusOverride) => {
-    if (!f.vendorId) return alert('Select vendor');
+    if (!f.vendorId) return act(async () => { throw new Error('Select vendor'); });
     const v = vendors.find((x) => x.id === f.vendorId);
     const { id, createdAt, createdBy, createdByName, updatedAt, updatedBy, ...data } = f;
     Object.assign(data, { vendorName: v?.name, vendorPhone: v?.phone || '', items: data.items.filter((l) => l.itemId), total: t.total });
     if (statusOverride) data.status = statusOverride;
     if (po) await act(() => updateDoc('purchaseOrders', po.id, data, data.number), 'PO saved');
     else { data.number = await nextNumber('PO'); await act(() => addDoc('purchaseOrders', data, data.number), 'PO created'); }
+    if (statusOverride === 'Ordered' && data.projectId) {
+      const p = projects.find((x) => x.id === data.projectId);
+      if (p && ['Pending', undefined].includes(p.material?.status)) await updateDoc('projects', p.id, { material: { ...(p.material || {}), status: 'Procuring', at: Date.now(), by: me()?.name || '' } }, p.code);
+    }
     onClose();
   };
   const receive = async () => {
-    if (!confirm('Mark as received and add these quantities to stock?')) return;
     await act(async () => {
       await moveStock(items, f.items, 1, 'Purchase', f.number, f.projectId);
       await updateDoc('purchaseOrders', po.id, { status: 'Received', receivedAt: Date.now() }, f.number);
@@ -192,18 +210,18 @@ function POForm({ po, items, canWrite, onClose }) {
     <>
       <Modal title={po ? 'Purchase order ' + po.number : 'New purchase order'} wide onClose={onClose}
         footer={<>
-          {po && canWrite && po.status === 'Draft' && <button className="btn ghost danger" onClick={() => confirm('Delete PO?') && act(() => deleteDoc('purchaseOrders', po.id, po.number), 'Deleted').then(onClose)}>Delete</button>}
+          {po && canWrite && po.status === 'Draft' && <button className="btn ghost danger" onClick={() => act(() => deleteDoc('purchaseOrders', po.id, po.number), 'Deleted').then(onClose)}>Delete draft</button>}
           <span className="spacer" />
           {po && <button className="btn ghost" onClick={() => setPrint(true)}>Print / PDF</button>}
           {po && v?.phone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(v.phone, `Purchase Order ${po.number} from ${company.name}:\n${f.items.map((i) => `• ${i.name} × ${i.qty}`).join('\n')}\nRequired by ${fmtDate(f.expectedDate)}. Please confirm.`)}>WhatsApp vendor</a>}
-          {canWrite && po?.status === 'Ordered' && <button className="btn ghost" onClick={receive}>Mark received → stock</button>}
+          {canWrite && po?.status === 'Ordered' && (confirmRecv ? <button className="btn" onClick={receive}>Yes, add to stock</button> : <button className="btn ghost" onClick={() => setConfirmRecv(true)}>Mark received → stock</button>)}
           {canWrite && !locked && <button className="btn ghost" onClick={() => save()}>Save</button>}
           {canWrite && !locked && f.status === 'Draft' && <button className="btn" onClick={() => save('Ordered')}>Save & mark Ordered</button>}
         </>}>
         <fieldset disabled={locked || !canWrite} className="plain">
           <div className="form-grid four">
             <Field label="Vendor *" span={2}><Select options={vendors.map((x) => ({ value: x.id, label: x.name }))} {...bind('vendorId')} /></Field>
-            <Field label="For project (optional)" span={2}><Select options={projects.filter((p) => p.status === 'Active').map((p) => ({ value: p.id, label: p.code + ' · ' + p.clientName }))} {...bind('projectId')} /></Field>
+            <Field label="For order (optional)" span={2}><Select options={projects.map((p) => ({ value: p.id, label: p.code + ' · ' + p.clientName }))} {...bind('projectId')} /></Field>
             <Field label="PO date"><input type="date" {...bind('date')} /></Field>
             <Field label="Expected delivery"><input type="date" {...bind('expectedDate')} /></Field>
             <Field label="Status"><Select options={PO_STATUSES} placeholder={false} {...bind('status')} /></Field>
@@ -213,6 +231,7 @@ function POForm({ po, items, canWrite, onClose }) {
           <p className="r">Subtotal {inr(t.subtotal)} · GST {inr(t.gst)} · <b>Total {inr(t.total)}</b></p>
           <Field label="Notes / terms"><textarea rows={2} {...bind('notes')} /></Field>
         </fieldset>
+        {confirmRecv && <Note>Received quantities will be added to stock. Click “Yes, add to stock” to confirm.</Note>}
       </Modal>
       {print && <PrintDoc kind="Purchase Order" company={company} onClose={() => setPrint(false)} doc={{ ...f, clientName: v?.name, address: v?.address, phone: v?.phone, clientGstin: v?.gstin, items: f.items.map((i) => ({ ...i, desc: i.name })), terms: f.notes }} />}
     </>
@@ -220,15 +239,15 @@ function POForm({ po, items, canWrite, onClose }) {
 }
 
 /* ---------- DISPATCH ---------- */
-function Dispatches({ items, canWrite, newFor }) {
-  const rows = useCol('dispatches');
-  const [form, setForm] = useState(newFor !== null ? { projectId: newFor } : null);
+function Dispatches({ canWrite }) {
+  const rows = useCol('dispatches', [['date', '>=', addDays(today(), -365)]], true, { orderBy: ['date', 'desc'] });
+  const [view, setView] = useState(null);
   return (
     <>
-      {canWrite && <div className="chips"><span className="spacer" /><button className="btn" onClick={() => setForm({})}>+ New dispatch</button></div>}
+      <p className="muted small">To dispatch material, open the order and use “Dispatch to site” — it unlocks once the advance is received and the site is ready.</p>
       <Card pad={false}>
         <DataTable
-          csvName="dispatches" rows={rows} onRow={(r) => setForm(r)} initialSort={{ key: 'date', desc: true }}
+          csvName="dispatches" rows={rows} onRow={setView} initialSort={{ key: 'date', desc: true }}
           columns={[
             { key: 'number', label: 'Challan' },
             { key: 'date', label: 'Date', value: (r) => fmtDate(r.date), sortValue: (r) => r.date, csv: (r) => r.date },
@@ -239,57 +258,66 @@ function Dispatches({ items, canWrite, newFor }) {
           ]}
         />
       </Card>
-      {form && <DispatchForm key={form.id || 'new'} d={form.id ? form : null} preset={form} items={items} canWrite={canWrite} onClose={() => { setForm(null); if (newFor !== null) go('inventory/dispatch'); }} />}
+      {view && <ChallanView d={view} canWrite={canWrite} onClose={() => setView(null)} />}
     </>
   );
 }
-function DispatchForm({ d, preset, items, canWrite, onClose }) {
+function ChallanView({ d, onClose }) {
   const company = useSettings();
-  const projects = useCol('projects');
-  const { f, setF, bind } = useForm(d || { projectId: preset.projectId || '', date: today(), vehicle: '', driver: '', items: [{ itemId: '', name: '', qty: 1 }], status: 'Dispatched', notes: '' });
-  const [stageUp, setStageUp] = useState(true);
   const [print, setPrint] = useState(false);
+  return (
+    <>
+      <Modal title={'Delivery challan ' + d.number} onClose={onClose} footer={<><button className="btn ghost" onClick={() => go('orders/' + d.projectId)}>Open order</button><button className="btn" onClick={() => setPrint(true)}>Print challan</button></>}>
+        <dl className="dl">
+          <dt>Site</dt><dd>{d.clientName} · {d.siteAddress}</dd>
+          <dt>Date</dt><dd>{fmtDate(d.date)}</dd>
+          <dt>Vehicle</dt><dd>{d.vehicle || '—'} {d.driver && '· ' + d.driver}</dd>
+          <dt>Status</dt><dd><Badge>{d.status}</Badge></dd>
+        </dl>
+        <ul className="list">{d.items.map((i, k) => <li key={k}><span>{i.name}</span><b>{i.qty}</b></li>)}</ul>
+      </Modal>
+      {print && <PrintDoc kind="Delivery Challan" company={company} onClose={() => setPrint(false)} doc={{ ...d, items: d.items.map((i) => ({ ...i, desc: i.name })) }} />}
+    </>
+  );
+}
+
+export function DispatchForm({ preset = {}, onClose }) {
+  const items = useCol('items');
+  const projects = useCol('projects', [['status', '==', 'Order']]);
+  const { f, setF, bind } = useForm({ projectId: preset.projectId || '', date: today(), vehicle: '', driver: '', items: [{ itemId: '', name: '', qty: 1 }], notes: '' });
+  const [shortOk, setShortOk] = useState(false);
   const p = projects.find((x) => x.id === f.projectId);
+  const lines = f.items.filter((l) => l.itemId && num(l.qty) > 0);
+  const short = lines.filter((l) => num(l.qty) > num(items.find((x) => x.id === l.itemId)?.stock));
+  const gateOk = p && p.advance?.confirmed && p.site?.status === 'Ready';
   const save = async () => {
-    if (!p) return alert('Select project');
-    const lines = f.items.filter((l) => l.itemId && num(l.qty) > 0);
-    if (!lines.length) return alert('Add items');
-    const short = lines.filter((l) => num(l.qty) > num(items.find((x) => x.id === l.itemId)?.stock));
-    if (short.length && !confirm(`Not enough stock for: ${short.map((s) => s.name).join(', ')}. Dispatch anyway (stock goes negative)?`)) return;
+    if (!p) return act(async () => { throw new Error('Select the order'); });
+    if (!gateOk && me()?.role !== 'admin') return act(async () => { throw new Error('Dispatch unlocks after the advance is received and the site is marked ready'); });
+    if (!lines.length) return act(async () => { throw new Error('Add the items being sent'); });
+    if (short.length && !shortOk) return act(async () => { throw new Error('Not enough stock for some items — tick the box to dispatch anyway'); });
     await act(async () => {
       const number = await nextNumber('DSP');
-      await addDoc('dispatches', { ...f, items: lines, number, projectCode: p.code, clientName: p.clientName, siteAddress: p.siteAddress }, number);
+      await addDoc('dispatches', { ...f, items: lines, number, projectCode: p.code, clientName: p.clientName, siteAddress: p.siteAddress, status: 'Dispatched' }, number);
       await moveStock(items, lines, -1, 'Dispatch', number, p.id);
-      const dispatchedStage = PROJECT_STAGES.indexOf('Material Dispatched');
-      if (stageUp && p.stage < dispatchedStage) await updateDoc('projects', p.id, { stage: dispatchedStage, stageHistory: [...(p.stageHistory || []), { stage: dispatchedStage, at: Date.now(), by: 'Stores', note: number }] }, p.code);
-      await postActivity({ projectId: p.id, clientId: p.clientId, text: `Material dispatched to site (${number}): ${lines.map((l) => `${l.name} × ${l.qty}`).join(', ')}${f.vehicle ? ' · Vehicle ' + f.vehicle : ''}.`, visibleToClient: true, kind: 'material' });
-    }, 'Dispatch recorded');
+      await updateDoc('projects', p.id, { material: { ...(p.material || {}), status: 'Dispatched', at: Date.now(), by: me()?.name || '', challan: number } }, p.code);
+      await postActivity({ projectId: p.id, clientId: p.clientId, text: `Material dispatched to site (${number}): ${lines.map((l) => `${l.name} × ${l.qty}`).join(', ')}${f.vehicle ? ' · Vehicle ' + f.vehicle : ''}.`, visibleToClient: true, teamId: p.teamId || null, kind: 'material' });
+    }, 'Dispatched — client and site team informed');
     onClose();
   };
   return (
-    <>
-      <Modal title={d ? 'Delivery challan ' + d.number : 'New dispatch to site'} wide onClose={onClose}
-        footer={<>
-          <span className="spacer" />
-          {d && <button className="btn ghost" onClick={() => setPrint(true)}>Print challan</button>}
-          {d && canWrite && d.status !== 'Delivered' && <button className="btn ghost" onClick={() => act(() => updateDoc('dispatches', d.id, { status: 'Delivered', deliveredAt: Date.now() }, d.number), 'Marked delivered').then(onClose)}>Mark delivered</button>}
-          {!d && canWrite && <button className="btn" onClick={save}>Dispatch & reduce stock</button>}
-        </>}>
-        <fieldset disabled={!!d || !canWrite} className="plain">
-          <div className="form-grid four">
-            <Field label="Project *" span={2}><Select options={projects.filter((x) => x.status === 'Active' || x.id === f.projectId).map((x) => ({ value: x.id, label: `${x.code} · ${x.clientName}` }))} {...bind('projectId')} /></Field>
-            <Field label="Date"><input type="date" {...bind('date')} /></Field>
-            <Field label="Vehicle no."><input {...bind('vehicle')} /></Field>
-            <Field label="Driver / transporter" span={2}><input {...bind('driver')} /></Field>
-            <Field label="Notes" span={2}><input {...bind('notes')} /></Field>
-          </div>
-          {p && <p className="muted small">Deliver to: {p.siteAddress} · Current stage: {PROJECT_STAGES[p.stage]}</p>}
-          <ItemLines lines={f.items} onChange={(v) => setF((x) => ({ ...x, items: v }))} items={items} />
-          {!d && <label className="check"><input type="checkbox" checked={stageUp} onChange={(e) => setStageUp(e.target.checked)} /> Move project to “Material Dispatched” stage and notify client</label>}
-        </fieldset>
-      </Modal>
-      {print && <PrintDoc kind="Delivery Challan" company={company} onClose={() => setPrint(false)} doc={{ ...f, items: f.items.map((i) => ({ ...i, desc: i.name })) }} />}
-    </>
+    <Modal title="Dispatch material to site" wide onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Dispatch & reduce stock</button></>}>
+      <div className="form-grid four">
+        <Field label="Order *" span={2}><Select options={projects.map((x) => ({ value: x.id, label: `${x.code} · ${x.clientName}` }))} {...bind('projectId')} /></Field>
+        <Field label="Date"><input type="date" {...bind('date')} /></Field>
+        <Field label="Vehicle no."><input {...bind('vehicle')} /></Field>
+        <Field label="Driver / transporter" span={2}><input {...bind('driver')} /></Field>
+        <Field label="Notes" span={2}><input {...bind('notes')} /></Field>
+      </div>
+      {p && <p className="muted small">Deliver to: {p.siteAddress} · Site team: {p.teamName || 'not assigned'}</p>}
+      {p && !gateOk && <Note tone="red">{!p.advance?.confirmed ? 'Advance is not confirmed yet. ' : ''}{p.site?.status !== 'Ready' ? 'The installation team has not marked the site ready. ' : ''}Only the Admin can dispatch now.</Note>}
+      <ItemLines lines={f.items} onChange={(v) => setF((x) => ({ ...x, items: v }))} items={items} />
+      {short.length > 0 && <label className="check"><input type="checkbox" checked={shortOk} onChange={(e) => setShortOk(e.target.checked)} /> Not enough stock for {short.map((s) => s.name).join(', ')} — dispatch anyway (stock goes negative)</label>}
+    </Modal>
   );
 }
 
@@ -311,13 +339,13 @@ function Vendors({ canWrite }) {
 function VendorForm({ v, onClose }) {
   const { f, bind } = useForm(v || { name: '', contactPerson: '', phone: '', email: '', gstin: '', address: '', supplies: '' });
   const save = async () => {
-    if (!f.name) return alert('Name required');
+    if (!f.name) return act(async () => { throw new Error('Vendor name is required'); });
     const { id, createdAt, createdBy, createdByName, updatedAt, updatedBy, ...data } = f;
     if (v) await act(() => updateDoc('vendors', v.id, data, data.name), 'Saved'); else await act(() => addDoc('vendors', data, data.name), 'Vendor added');
     onClose();
   };
   return (
-    <Modal title={v ? 'Edit vendor' : 'New vendor'} onClose={onClose} footer={<>{v && <button className="btn ghost danger" onClick={() => confirm('Delete vendor?') && act(() => deleteDoc('vendors', v.id, v.name), 'Deleted').then(onClose)}>Delete</button>}<span className="spacer" /><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Save</button></>}>
+    <Modal title={v ? 'Edit vendor' : 'New vendor'} onClose={onClose} footer={<><span className="spacer" /><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Save</button></>}>
       <div className="form-grid">
         <Field label="Vendor name *" span={2}><input {...bind('name')} /></Field>
         <Field label="Contact person"><input {...bind('contactPerson')} /></Field>
@@ -332,7 +360,7 @@ function VendorForm({ v, onClose }) {
 }
 
 function Ledger() {
-  const moves = useCol('stockMoves');
+  const moves = useCol('stockMoves', [], true, { orderBy: ['at', 'desc'], limit: 500 });
   return (
     <Card pad={false}>
       <DataTable csvName="stock-ledger" rows={moves} initialSort={{ key: 'at', desc: true }}
@@ -342,8 +370,9 @@ function Ledger() {
           { key: 'qty', label: 'Qty', align: 'r', render: (r) => <b className={r.qty < 0 ? 'danger-text' : 'ok-text'}>{r.qty > 0 ? '+' : ''}{r.qty}</b>, csv: (r) => r.qty },
           { key: 'type', label: 'Type' },
           { key: 'ref', label: 'Reference' },
-          { key: 'createdByName', label: 'By', value: (r) => r.createdByName || r.byName || '—' },
+          { key: 'byName', label: 'By', value: (r) => r.byName || r.createdByName || '—' },
         ]} />
+      <p className="muted small pad-x">Showing the latest 500 movements.</p>
     </Card>
   );
 }

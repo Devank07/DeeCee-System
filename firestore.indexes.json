@@ -1,0 +1,15 @@
+{
+  "indexes": [
+    { "collectionGroup": "visits", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "teamId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }] },
+    { "collectionGroup": "projects", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "teamId", "order": "ASCENDING" }, { "fieldPath": "status", "order": "ASCENDING" }] },
+    { "collectionGroup": "activity", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "projectId", "order": "ASCENDING" }, { "fieldPath": "teamId", "order": "ASCENDING" }] },
+    { "collectionGroup": "activity", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "clientId", "order": "ASCENDING" }, { "fieldPath": "visibleToClient", "order": "ASCENDING" }] },
+    { "collectionGroup": "photos", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "refId", "order": "ASCENDING" }, { "fieldPath": "teamId", "order": "ASCENDING" }] },
+    { "collectionGroup": "photos", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "clientId", "order": "ASCENDING" }, { "fieldPath": "projectId", "order": "ASCENDING" }, { "fieldPath": "visibleToClient", "order": "ASCENDING" }] },
+    { "collectionGroup": "files", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "projectId", "order": "ASCENDING" }, { "fieldPath": "teamId", "order": "ASCENDING" }] },
+    { "collectionGroup": "files", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "projectId", "order": "ASCENDING" }, { "fieldPath": "kind", "order": "ASCENDING" }] },
+    { "collectionGroup": "files", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "clientId", "order": "ASCENDING" }, { "fieldPath": "projectId", "order": "ASCENDING" }, { "fieldPath": "visibleToClient", "order": "ASCENDING" }] },
+    { "collectionGroup": "attendance", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "date", "order": "ASCENDING" }, { "fieldPath": "staffId", "order": "ASCENDING" }] }
+  ],
+  "fieldOverrides": []
+}
