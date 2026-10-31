@@ -5,9 +5,10 @@ import { AMC_CHECKLIST } from '../constants';
 import { today, fmtDate, mapsLink, fmtDateTime } from '../utils';
 import { UserBox } from '../App';
 import { SiteForm, InstallForm } from './siteForms';
+import { rolesOf } from '../roles';
 
 export default function FieldApp({ user, params }) {
-  const isTech = user.role === 'technician';
+  const isTech = rolesOf(user).includes('technician');
   const meStaff = useDoc('staff', user.staffId || null);
   const teams = useCol('teams');
   const [viewTeam, setViewTeam] = useState('');

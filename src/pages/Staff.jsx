@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, Empty } from '../ui';
-import { addDoc, updateDoc, setDoc } from '../data';
+import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, Empty, toast } from '../ui';
+import { addDoc, updateDoc, setDoc, backend, me, DEMO } from '../data';
 import { DEPARTMENTS, TEAM_TYPES } from '../constants';
 import { inr, fmtDate, today, num } from '../utils';
+import { hasAny, isAdminU, rolesOf, roleLabel } from '../roles';
+import { RoleChecks } from './Access';
 
 const isTechStaff = (s) => s.isTechnician || ['Installation', 'Service'].includes(s.department);
 
 export default function Staff({ user, params }) {
-  const hr = ['admin', 'accounts'].includes(user.role);
+  const hr = hasAny(user, 'accounts');
   const tabs = hr ? [{ key: 'directory', label: 'Staff directory' }, { key: 'teams', label: 'Site teams' }, { key: 'attendance', label: 'Mark attendance' }, { key: 'report', label: 'Monthly report' }] : [{ key: 'teams', label: 'Site teams' }, { key: 'directory', label: 'Staff directory' }];
   const tab = tabs.some((t) => t.key === params[0]) ? params[0] : tabs[0].key;
   const staff = useCol('staff');
@@ -104,8 +106,11 @@ function TeamForm({ team, staff, teams, onClose }) {
 /* ---------- DIRECTORY ---------- */
 function Directory({ staff, user, canEdit }) {
   const teams = useCol('teams');
-  const canSeePay = ['admin', 'accounts'].includes(user.role);
+  const canSeePay = hasAny(user, 'accounts');
+  const admin = isAdminU(user);
   const payroll = useCol('payroll', [], canSeePay);
+  const users = useCol('users', [], admin);
+  const loginOf = (sid) => users.find((u) => u.staffId === sid);
   const [form, setForm] = useState(null);
   const [showInactive, setShowInactive] = useState(false);
   const rows = staff.filter((s) => showInactive || s.active !== false);
@@ -124,23 +129,45 @@ function Directory({ staff, user, canEdit }) {
             { key: 'team', label: 'Team', value: (r) => teams.find((t) => t.id === r.teamId)?.name || (isTechStaff(r) ? 'Not in a team' : '—') },
             { key: 'phone', label: 'Phone', render: (r) => (r.phone ? <a href={'tel:' + r.phone} onClick={(e) => e.stopPropagation()}>{r.phone}</a> : '—'), csv: (r) => r.phone },
             { key: 'joiningDate', label: 'Joined', value: (r) => fmtDate(r.joiningDate), sortValue: (r) => r.joiningDate, csv: (r) => r.joiningDate },
+            ...(admin ? [{ key: 'access', label: 'System access', render: (r) => { const u = loginOf(r.id); return u ? <span className="role-chips">{u.active === false ? <Badge tone="red">Login disabled</Badge> : rolesOf(u).map((x) => <Badge key={x} tone={x === 'admin' ? 'amber' : 'blue'}>{roleLabel({ roles: [x] })}</Badge>)}</span> : <span className="muted small">No login</span>; }, csv: (r) => roleLabel(loginOf(r.id)) || 'No login' }] : []),
             { key: 'active', label: 'Status', render: (r) => <Badge>{r.active === false ? 'Disabled' : 'Active'}</Badge>, csv: (r) => (r.active === false ? 'Left' : 'Active') },
           ]} />
       </Card>
-      {form && <StaffForm s={form.id ? form : null} teams={teams} canSeePay={canSeePay} salary={payroll.find((x) => x.id === form.id)?.salary ?? ''} onClose={() => setForm(null)} />}
+      {form && <StaffForm s={form.id ? form : null} teams={teams} canSeePay={canSeePay} admin={admin} login={form.id ? loginOf(form.id) : null} salary={payroll.find((x) => x.id === form.id)?.salary ?? ''} onClose={() => setForm(null)} />}
     </>
   );
 }
 
-function StaffForm({ s, teams, canSeePay, salary, onClose }) {
+const DEPT_ROLE = { Sales: 'sales', Drawing: 'drawing', 'Material & Dispatch': 'stores', Installation: 'projects', Service: 'service', Accounts: 'accounts', Management: 'admin' };
+
+function StaffForm({ s, teams, canSeePay, admin, login, salary, onClose }) {
   const { f, bind, set } = useForm({ ...(s || { name: '', phone: '', email: '', department: 'Installation', designation: '', joiningDate: today(), dob: '', address: '', emergencyContact: '', bloodGroup: '', isTechnician: false, teamId: '', active: true, notes: '' }), salary });
+  const self = login && login.id === me()?.id;
+  const [acc, setAcc] = useState({ give: !!login, email: login?.email || s?.email || '', password: '', roles: login ? rolesOf(login) : [], active: login ? login.active !== false : true });
+  const setA = (k, v) => setAcc((a) => ({ ...a, [k]: v }));
+  const suggest = () => [...new Set([f.isTechnician ? 'technician' : DEPT_ROLE[f.department]].filter(Boolean))];
   const save = async () => {
-    if (!f.name) return act(async () => { throw new Error('Name is required'); });
+    const fail = (m) => act(async () => { throw new Error(m); });
+    if (!f.name) return fail('Name is required');
+    const wantLogin = admin && (login || acc.give);
+    if (wantLogin) {
+      if (!acc.roles.length) return fail('Tick at least one access area, or untick “Give login”');
+      if (!login && !/^\S+@\S+\.\S+$/.test(acc.email)) return fail('Enter a valid login email');
+      if (!login && acc.password.length < 6) return fail('Temporary password must be at least 6 characters');
+      if (self && !acc.roles.includes('admin')) return fail("You can't remove your own Admin access");
+    }
     const { id, createdAt, createdBy, createdByName, updatedAt, updatedBy, salary: pay, ...data } = f;
     data.teamId = data.teamId || null;
+    if (acc.roles.includes('technician')) data.isTechnician = true;
     let sid = s?.id;
     if (sid) await act(() => updateDoc('staff', sid, data, data.name), 'Saved'); else sid = await act(() => addDoc('staff', data, data.name), 'Staff added');
     if (canSeePay && pay !== '' && pay !== salary) await setDoc('payroll', sid, { salary: num(pay), staffName: data.name }, true, data.name);
+    if (wantLogin) {
+      const roles = acc.roles.includes('admin') ? ['admin', ...acc.roles.filter((r) => r !== 'admin')] : acc.roles;
+      if (login) await act(() => updateDoc('users', login.id, { roles, role: roles[0], name: data.name, staffId: sid, active: self ? true : acc.active }, login.email), 'Access updated');
+      else await act(() => backend().createAccount({ email: acc.email.trim(), password: acc.password, name: data.name, roles, role: roles[0], staffId: sid }), `Login created — give ${data.name} the email and password`);
+      if (roles.includes('technician') && !data.teamId) toast('Add this technician to a site team so jobs show on their phone', 'err');
+    }
     onClose();
   };
   return (
@@ -164,6 +191,32 @@ function StaffForm({ s, teams, canSeePay, salary, onClose }) {
       <label className="check"><input type="checkbox" checked={!!f.isTechnician} onChange={(e) => set('isTechnician', e.target.checked)} /> Field technician (works at sites)</label>
       <label className="check"><input type="checkbox" checked={f.active !== false} onChange={(e) => set('active', e.target.checked)} /> Currently working</label>
       {canSeePay && salary ? <p className="muted small">Salary on record: {inr(salary)} / month</p> : null}
+
+      {admin && (
+        <div className="access-box">
+          <div className="access-head">
+            <h4>System access</h4>
+            {login ? <span className="muted small">Login: <b>{login.email}</b></span>
+              : <label className="check"><input type="checkbox" checked={acc.give} onChange={(e) => { setA('give', e.target.checked); if (e.target.checked && !acc.roles.length) setA('roles', suggest()); if (e.target.checked && !acc.email) setA('email', f.email || ''); }} /> Give {f.name || 'this person'} a login</label>}
+          </div>
+          {(login || acc.give) ? (<>
+            {!login && (
+              <div className="form-grid">
+                <Field label="Login email"><input type="email" value={acc.email} onChange={(e) => setA('email', e.target.value)} placeholder="name@deeceeelevators.in" /></Field>
+                <Field label="Temporary password" hint="At least 6 characters. They can change it from “Forgot password?” on the login page."><input value={acc.password} onChange={(e) => setA('password', e.target.value)} /></Field>
+              </div>
+            )}
+            <p className="muted small">Tick what {f.name || 'this person'} can see and do. You can tick more than one.</p>
+            <RoleChecks value={acc.roles} onChange={(v) => setA('roles', v)} lockAdmin={self} />
+            {login && (
+              <div className="row gap wrap mt">
+                {!self && <label className="check"><input type="checkbox" checked={acc.active} onChange={(e) => setA('active', e.target.checked)} /> Login active (untick to block access immediately)</label>}
+                {!DEMO && <button className="btn ghost sm" onClick={() => act(() => backend().resetPassword(login.email), 'Password reset email sent to ' + login.email)}>Send password reset email</button>}
+              </div>
+            )}
+          </>) : <p className="muted small">No login. This person won't be able to sign in. Tick above to give them access.</p>}
+        </div>
+      )}
     </Modal>
   );
 }

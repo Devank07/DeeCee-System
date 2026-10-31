@@ -14,7 +14,7 @@ export default function Audit() {
         <DataTable csvName="audit-log" rows={rows} initialSort={{ key: 'at', desc: true }}
           columns={[
             { key: 'at', label: 'When', value: (r) => fmtDateTime(r.at), sortValue: (r) => r.at, csv: (r) => new Date(r.at).toISOString() },
-            { key: 'name', label: 'User', render: (r) => <>{r.name}<div className="muted small">{ROLES[r.role]}</div></>, csv: (r) => r.name },
+            { key: 'name', label: 'User', render: (r) => <>{r.name}<div className="muted small">{String(r.role || '').split(',').map((x) => ROLES[x] || x).join(' · ')}</div></>, csv: (r) => r.name },
             { key: 'action', label: 'Action' },
             { key: 'col', label: 'Record', value: (r) => LABEL[r.col] || r.col },
             { key: 'label', label: 'Detail' },

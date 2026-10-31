@@ -71,7 +71,7 @@ firebase deploy --only firestore,hosting
 3. **Settings → Company**: address, **state**, GSTIN, bank details, default **HSN/SAC** codes (confirm with your CA), quotation terms.
 4. **Staff & Teams → Staff directory**: add everyone. Tick *Field technician* for fitters/helpers/service engineers.
 5. **Staff & Teams → Site teams**: create e.g. *Installation Team A*, *Installation Team B*, *Service Team* and add members.
-6. **Settings → Users & roles → Create login** for each person with their role. Technicians must be linked to their staff record.
+6. Give logins from the same staff form: open the person → **System access** → tick *Give a login*, enter email + temporary password, and tick what they can access (Sales, Drawing, Material & Dispatch, Installation manager, Service & AMC, Accounts, Technician, Admin — several allowed). Change or block access later from the same place. All logins are also listed in **Settings → Logins & access**.
 7. For clients who should use the portal: **Clients → open client → Client portal login**.
 
 ## Free-plan notes

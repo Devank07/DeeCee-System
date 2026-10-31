@@ -598,3 +598,15 @@ input.need { border-color: #e8a317; background: #fffaf0; }
   .field.span3, .field.span4 { grid-column: auto; }
   .sheets { margin: -18px -20px; padding: 8px; }
 }
+
+/* access / roles */
+.access-box { margin-top: 14px; border: 1px solid var(--line-2); border-radius: 14px; padding: 14px; background: #fafbfd; display: flex; flex-direction: column; gap: 8px; }
+.access-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.access-head h4 { font-size: 15px; }
+.role-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.role-opt { display: flex; gap: 10px; align-items: flex-start; border: 1px solid var(--line-2); border-radius: 12px; padding: 10px 12px; background: #fff; cursor: pointer; }
+.role-opt input { margin-top: 3px; width: 18px; height: 18px; }
+.role-opt > span { display: flex; flex-direction: column; gap: 2px; }
+.role-opt.on { border-color: var(--accent); background: var(--accent-soft); }
+.role-opt.locked { opacity: .75; cursor: default; }
+.role-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }

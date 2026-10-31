@@ -283,7 +283,7 @@ export function seedData() {
     u_store: { name: 'Vikas Tyagi', email: 'stores@deecee.demo', role: 'stores', staffId: 's_vikas', active: true },
     u_proj: { name: 'Amit Verma', email: 'projects@deecee.demo', role: 'projects', staffId: 's_amit', active: true },
     u_serv: { name: 'Neha Gupta', email: 'service@deecee.demo', role: 'service', staffId: 's_neha', active: true },
-    u_acc: { name: 'Pooja Jain', email: 'accounts@deecee.demo', role: 'accounts', staffId: 's_pooja', active: true },
+    u_acc: { name: 'Pooja Jain', email: 'accounts@deecee.demo', role: 'accounts', roles: ['accounts', 'stores'], staffId: 's_pooja', active: true },
     u_tech: { name: 'Sunil Yadav', email: 'tech@deecee.demo', role: 'technician', staffId: 's_sunil', active: true },
     u_stech: { name: 'Ravi Kumar', email: 'servicetech@deecee.demo', role: 'technician', staffId: 's_ravi', active: true },
     u_client: { name: 'Green Valley RWA', email: 'client@deecee.demo', role: 'client', clientId: 'c_green', active: true },

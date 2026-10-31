@@ -4,6 +4,7 @@ import { addDoc, updateDoc, deleteDoc, nextNumber, postActivity, getOne } from '
 import { COMPLAINT_STATUSES, PRIORITIES, AMC_TYPES, AMC_CHECKLIST } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, addDays, addMonths, daysUntil, waLink, sum } from '../utils';
 import { VisitForm, InvoiceForm, teamOptions } from './shared';
+import { hasAny, isAdminU } from '../roles';
 
 const OPEN_C = ['Open', 'Assigned', 'In Progress'];
 
@@ -118,7 +119,7 @@ function ComplaintView({ id, user, onClose }) {
     <>
       <Modal title={`${c.number} · ${c.clientName}`} onClose={onClose}
         footer={<>
-          {user.role === 'admin' && (del ? <button className="btn danger-btn" onClick={() => act(() => deleteDoc('complaints', c.id, c.number), 'Deleted').then(onClose)}>Confirm delete</button> : <button className="btn ghost danger" onClick={() => setDel(true)}>Delete</button>)}
+          {isAdminU(user) && (del ? <button className="btn danger-btn" onClick={() => act(() => deleteDoc('complaints', c.id, c.number), 'Deleted').then(onClose)}>Confirm delete</button> : <button className="btn ghost danger" onClick={() => setDel(true)}>Delete</button>)}
           <span className="spacer" />
           {c.contactPhone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(c.contactPhone, `Dear Sir/Madam, your complaint ${c.number} has been registered with DeeCee Elevators.${c.teamName ? ` Our ${c.teamName} will attend.` : ' We will assign a team shortly.'}`)}>WhatsApp client</a>}
           <button className="btn ghost" onClick={() => setSchedule(true)}>Assign team & schedule visit</button>
@@ -153,7 +154,7 @@ function Amcs({ rows, openId, newFromProject, user }) {
   const [create, setCreate] = useState(null);
   const fromProject = useDoc('projects', newFromProject || null);
   const open = openId && openId !== 'new' && rows.find((a) => a.id === openId);
-  const canWrite = ['admin', 'service'].includes(user.role);
+  const canWrite = hasAny(user, 'service');
   return (
     <>
       <div className="chips"><span className="spacer" />{canWrite && <button className="btn" onClick={() => setCreate({})}>+ New AMC</button>}</div>
@@ -325,7 +326,7 @@ export function VisitReport({ id, user, onClose }) {
     <>
       <Modal title={v.title} onClose={onClose}
         footer={<>
-          {['admin', 'service', 'projects'].includes(user.role) && (del ? <button className="btn danger-btn" onClick={() => act(() => deleteDoc('visits', v.id, v.title), 'Deleted').then(onClose)}>Confirm delete</button> : <button className="btn ghost danger" onClick={() => setDel(true)}>Delete</button>)}
+          {hasAny(user, 'service', 'projects') && (del ? <button className="btn danger-btn" onClick={() => act(() => deleteDoc('visits', v.id, v.title), 'Deleted').then(onClose)}>Confirm delete</button> : <button className="btn ghost danger" onClick={() => setDel(true)}>Delete</button>)}
           <span className="spacer" />
           {v.status !== 'Done' && <button className="btn ghost" onClick={() => setEdit(true)}>Edit / reassign</button>}
           {v.status !== 'Done' && <button className="btn" onClick={() => go('tech/' + v.id)}>Open in Field App</button>}

@@ -4,10 +4,11 @@ import { addDoc, updateDoc, nextNumber, postActivity, getOne, inc, me } from '..
 import { VISIT_TYPES, PAY_MODES, STATE_NAMES, stateFromGstin } from '../constants';
 import { today, addDays, calcTotals, num, inr, sum } from '../utils';
 import { milestoneStatus } from '../workflow';
+import { hasAny } from '../roles';
 
 export const teamOptions = (teams, type) => teams.filter((t) => t.active !== false && (!type || t.type === type)).map((t) => ({ value: t.id, label: `${t.name} (${t.type})` }));
 export const teamMembers = (staff, teamId) => staff.filter((s) => s.teamId === teamId && s.active !== false);
-export const can = (user, ...roles) => user.role === 'admin' || roles.includes(user.role);
+export const can = (user, ...roles) => hasAny(user, ...roles);
 
 /* -------- Schedule a field job (installation work / AMC visit / breakdown) for a team -------- */
 export function VisitForm({ initial = {}, onClose }) {

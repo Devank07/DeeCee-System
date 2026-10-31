@@ -3,13 +3,14 @@ import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act
 import { addDoc, updateDoc, deleteDoc, nextNumber, postActivity, inc, me } from '../data';
 import { ITEM_CATEGORIES, UNITS, PO_STATUSES } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, addDays, num, sum, calcTotals, waLink } from '../utils';
+import { hasAny, isAdminU } from '../roles';
 
 export default function Inventory({ user, params }) {
   const tab = ['po', 'dispatch', 'vendors', 'ledger'].includes(params[0]) ? params[0] : 'items';
   const items = useCol('items');
   const pos = useCol('purchaseOrders', [['status', 'in', ['Draft', 'Ordered']]]);
   const ready = useCol('projects', [['status', '==', 'Order']]).filter((p) => p.advance?.confirmed && p.site?.status === 'Ready' && !['Dispatched', 'Delivered'].includes(p.material?.status));
-  const canWrite = ['admin', 'stores'].includes(user.role);
+  const canWrite = hasAny(user, 'stores');
   return (
     <div className="page">
       <PageHeader title="Material & Stock" sub="Stock, vendors, purchase orders and dispatch to sites" />
@@ -292,7 +293,7 @@ export function DispatchForm({ preset = {}, onClose }) {
   const gateOk = p && p.advance?.confirmed && p.site?.status === 'Ready';
   const save = async () => {
     if (!p) return act(async () => { throw new Error('Select the order'); });
-    if (!gateOk && me()?.role !== 'admin') return act(async () => { throw new Error('Dispatch unlocks after the advance is received and the site is marked ready'); });
+    if (!gateOk && !isAdminU(me())) return act(async () => { throw new Error('Dispatch unlocks after the advance is received and the site is marked ready'); });
     if (!lines.length) return act(async () => { throw new Error('Add the items being sent'); });
     if (short.length && !shortOk) return act(async () => { throw new Error('Not enough stock for some items — tick the box to dispatch anyway'); });
     await act(async () => {

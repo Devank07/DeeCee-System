@@ -4,13 +4,15 @@ import { setDoc, updateDoc, backend, DEMO, me } from '../data';
 import { ROLES, STATE_NAMES } from '../constants';
 import { downloadFile, fmtDate, compressImage } from '../utils';
 import { buildRef } from '../proposal';
+import { rolesOf, roleLabel } from '../roles';
+import { RoleChecks } from './Access';
 
 export default function Settings({ params }) {
   const tab = ['users', 'data'].includes(params[0]) ? params[0] : 'company';
   return (
     <div className="page">
       <PageHeader title="Settings" sub="Company details, user logins and data backup" />
-      <Tabs value={tab} onChange={(k) => (location.hash = '#/settings/' + k)} tabs={[{ key: 'company', label: 'Company' }, { key: 'users', label: 'Users & roles' }, { key: 'data', label: 'Backup' }]} />
+      <Tabs value={tab} onChange={(k) => (location.hash = '#/settings/' + k)} tabs={[{ key: 'company', label: 'Company' }, { key: 'users', label: 'Logins & access' }, { key: 'data', label: 'Backup' }]} />
       {tab === 'company' && <Company />}
       {tab === 'users' && <Users />}
       {tab === 'data' && <Data />}
@@ -76,75 +78,80 @@ function Users() {
   const [edit, setEdit] = useState(null);
   return (
     <>
-      <div className="chips"><span className="spacer" /><button className="btn" onClick={() => setCreate(true)}>+ Create login</button></div>
+      <div className="chips"><p className="muted small">Tip: the easiest way to add a person is <b>Staff &amp; Teams → Staff directory → + Add staff</b>, which creates their staff record and login together.</p><span className="spacer" /><button className="btn" onClick={() => setCreate(true)}>+ Create login</button></div>
       <Card pad={false}>
-        <DataTable csvName="users" rows={users} onRow={setEdit} initialSort={{ key: 'role' }}
+        <DataTable csvName="users" rows={users} onRow={setEdit} initialSort={{ key: 'name' }}
           columns={[
             { key: 'name', label: 'Name' },
             { key: 'email', label: 'Login email' },
-            { key: 'role', label: 'Role', value: (r) => ROLES[r.role] },
+            { key: 'role', label: 'Access', render: (r) => <span className="role-chips">{rolesOf(r).map((x) => <Badge key={x} tone={x === 'admin' ? 'amber' : x === 'client' ? 'green' : 'blue'}>{ROLES[x] || x}</Badge>)}</span>, csv: (r) => roleLabel(r) },
             { key: 'link', label: 'Linked to', value: (r) => (r.staffId ? staff.find((s) => s.id === r.staffId)?.name : r.clientId ? clients.find((c) => c.id === r.clientId)?.name : '—') || '—' },
             { key: 'active', label: 'Status', render: (r) => <Badge>{r.active === false ? 'Disabled' : 'Active'}</Badge>, csv: (r) => (r.active === false ? 'Disabled' : 'Active') },
           ]} />
       </Card>
-      <p className="muted small">Each person gets their own login and their role decides what they see. Technicians must be linked to their staff record — they then see only their team's sites and jobs (set teams in Staff & Teams). Client logins see only their own lifts.</p>
-      {create && <CreateUser staff={staff} clients={clients} onClose={() => setCreate(false)} />}
+      {create && <CreateUser staff={staff} clients={clients} users={users} onClose={() => setCreate(false)} />}
       {edit && <EditUser u={edit} staff={staff} clients={clients} onClose={() => setEdit(null)} />}
     </>
   );
 }
 
-function RoleFields({ f, bind, staff, clients }) {
-  return (<>
-    <Field label="Role"><Select options={Object.entries(ROLES).map(([value, label]) => ({ value, label }))} placeholder={false} {...bind('role')} /></Field>
-    {f.role === 'client'
-      ? <Field label="Client"><Select options={clients.map((c) => ({ value: c.id, label: c.name }))} {...bind('clientId')} /></Field>
-      : <Field label="Staff record"><Select options={staff.map((s) => ({ value: s.id, label: s.name }))} {...bind('staffId')} /></Field>}
-  </>);
-}
-
-function CreateUser({ staff, clients, onClose }) {
-  const { f, setF, bind } = useForm({ email: '', password: '', name: '', role: 'technician', staffId: '', clientId: '' });
+function CreateUser({ staff, clients, users, onClose }) {
+  const [kind, setKind] = useState('staff');
+  const { f, setF, bind } = useForm({ email: '', password: '', staffId: '', clientId: '' });
+  const [roles, setRoles] = useState([]);
+  const free = staff.filter((s) => !users.some((u) => u.staffId === s.id));
   const save = async () => {
     const fail = (m) => act(async () => { throw new Error(m); });
     if (!f.email || (f.password || '').length < 6) return fail('Email and a password of at least 6 characters are required');
-    if (f.role === 'technician' && !f.staffId) return fail('Link the technician to their staff record');
-    if (f.role === 'client' && !f.clientId) return fail('Pick the client');
-    const name = f.name || (f.role === 'client' ? clients.find((c) => c.id === f.clientId)?.name : staff.find((s) => s.id === f.staffId)?.name) || f.email;
-    await act(() => backend().createAccount({ email: f.email, password: f.password, name, role: f.role, ...(f.role === 'client' ? { clientId: f.clientId } : { staffId: f.staffId || null }) }), 'Login created — share the email & password with them');
+    if (kind === 'staff' && !f.staffId) return fail('Pick the staff member');
+    if (kind === 'staff' && !roles.length) return fail('Tick at least one access area');
+    if (kind === 'client' && !f.clientId) return fail('Pick the client');
+    const r = kind === 'client' ? ['client'] : roles;
+    const name = kind === 'client' ? clients.find((c) => c.id === f.clientId)?.name : staff.find((s) => s.id === f.staffId)?.name;
+    await act(() => backend().createAccount({ email: f.email, password: f.password, name: name || f.email, roles: r, role: r[0], ...(kind === 'client' ? { clientId: f.clientId } : { staffId: f.staffId }) }), 'Login created — share the email & password with them');
     onClose();
   };
   return (
-    <Modal title="Create login" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Create</button></>}>
+    <Modal title="Create login" wide onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Create</button></>}>
+      <div className="seg-choice"><button className={kind === 'staff' ? 'on ok' : ''} onClick={() => setKind('staff')}>Staff member</button><button className={kind === 'client' ? 'on ok' : ''} onClick={() => setKind('client')}>Client (portal)</button></div>
       <div className="form-grid">
-        <RoleFields f={f} bind={bind} staff={staff} clients={clients} />
-        <Field label="Display name (optional)"><input {...bind('name')} /></Field>
-        <Field label="Login email"><input type="email" {...bind('email')} onFocus={() => { if (!f.email) { const s = staff.find((x) => x.id === f.staffId); if (s?.email) setF((p) => ({ ...p, email: s.email })); } }} /></Field>
-        <Field label="Temporary password" hint="At least 6 characters. They can reset it from the login screen."><input {...bind('password')} /></Field>
+        {kind === 'staff'
+          ? <Field label="Staff member"><Select options={free.map((s) => ({ value: s.id, label: `${s.name} — ${s.department}` }))} value={f.staffId} onChange={(e) => { const st = staff.find((x) => x.id === e.target.value); setF((p) => ({ ...p, staffId: e.target.value, email: p.email || st?.email || '' })); }} /></Field>
+          : <Field label="Client"><Select options={clients.map((c) => ({ value: c.id, label: c.name }))} {...bind('clientId')} /></Field>}
+        <Field label="Login email"><input type="email" {...bind('email')} /></Field>
+        <Field label="Temporary password" hint="At least 6 characters"><input {...bind('password')} /></Field>
       </div>
+      {kind === 'staff' && <><h4 className="section-title">Access</h4><RoleChecks value={roles} onChange={setRoles} /></>}
     </Modal>
   );
 }
 
 function EditUser({ u, staff, clients, onClose }) {
-  const { f, bind } = useForm({ role: u.role, staffId: u.staffId || '', clientId: u.clientId || '', name: u.name || '', active: u.active !== false });
+  const [roles, setRoles] = useState(rolesOf(u));
+  const [name, setName] = useState(u.name || '');
+  const [staffId, setStaffId] = useState(u.staffId || '');
   const self = u.id === me()?.id;
+  const client = rolesOf(u).includes('client');
   const save = async (patch = {}) => {
-    await act(() => updateDoc('users', u.id, { name: f.name, role: f.role, staffId: f.role === 'client' ? null : f.staffId || null, clientId: f.role === 'client' ? f.clientId : null, ...patch }, u.email), 'User updated');
+    if (!client && !roles.length) return act(async () => { throw new Error('Tick at least one access area'); });
+    const r = client ? ['client'] : roles.includes('admin') ? ['admin', ...roles.filter((x) => x !== 'admin')] : roles;
+    await act(() => updateDoc('users', u.id, { name, roles: r, role: r[0], ...(client ? {} : { staffId: staffId || null }), ...patch }, u.email), 'Login updated');
     onClose();
   };
   return (
-    <Modal title={u.email} onClose={onClose} footer={<>
+    <Modal title={u.email} wide onClose={onClose} footer={<>
       {!self && <button className="btn ghost danger" onClick={() => save({ active: !(u.active !== false) })}>{u.active === false ? 'Re-enable login' : 'Disable login'}</button>}
       <span className="spacer" />
       {!DEMO && <button className="btn ghost" onClick={() => act(() => backend().resetPassword(u.email), 'Password reset email sent')}>Send password reset</button>}
-      <button className="btn" onClick={() => save()} disabled={self && f.role !== 'admin'}>Save</button>
+      <button className="btn" onClick={() => save()}>Save</button>
     </>}>
       <div className="form-grid">
-        <Field label="Display name"><input {...bind('name')} /></Field>
-        <RoleFields f={f} bind={bind} staff={staff} clients={clients} />
+        <Field label="Display name"><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        {client ? <Field label="Client"><input disabled value={clients.find((c) => c.id === u.clientId)?.name || ''} /></Field>
+          : <Field label="Staff record"><Select options={staff.map((s) => ({ value: s.id, label: s.name }))} value={staffId} onChange={(e) => setStaffId(e.target.value)} /></Field>}
       </div>
-      {self && <p className="muted small">You can't remove your own Admin role or disable yourself.</p>}
+      {!client && <><h4 className="section-title">Access</h4><RoleChecks value={roles} onChange={setRoles} lockAdmin={self} /></>}
+      {self && <p className="muted small">You can't remove your own Admin access or disable yourself.</p>}
       {u.createdAt && <p className="muted small">Created {fmtDate(u.createdAt)}</p>}
     </Modal>
   );

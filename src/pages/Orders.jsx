@@ -13,6 +13,7 @@ import { calcTotals } from '../utils';
 const quoteTotalOf = (q) => calcTotals(q?.items || [], q?.gstRate ?? 18, q?.discount || 0).total;
 import { SiteForm, InstallForm } from './siteForms';
 import { DispatchForm } from './Inventory';
+import { hasAny, rolesOf, isAdminU, isOfficeU } from '../roles';
 
 export default function Orders({ user, params }) {
   if (params[0]) return <ClientTab id={params[0]} user={user} />;
@@ -21,9 +22,9 @@ export default function Orders({ user, params }) {
 
 function OrderList({ user }) {
   const projects = useCol('projects', [['status', 'in', ['Order', 'On Hold', 'Completed']]]);
-  const payments = useCol('payments', [], ['admin', 'accounts', 'stores', 'sales'].includes(user.role));
-  const mine = projects.filter((p) => p.status === 'Order' && openTasks(p, user.role).length);
-  const [tab, setTab] = useState(user.role === 'admin' ? 'Active' : 'mine');
+  const payments = useCol('payments', [], hasAny(user, 'accounts', 'stores', 'sales'));
+  const mine = projects.filter((p) => p.status === 'Order' && openTasks(p, rolesOf(user)).length);
+  const [tab, setTab] = useState(isAdminU(user) ? 'Active' : 'mine');
   const groups = {
     mine: mine,
     Active: projects.filter((p) => p.status === 'Order'),
@@ -32,14 +33,14 @@ function OrderList({ user }) {
     All: projects,
   };
   const received = (pid) => sum(payments.filter((x) => x.projectId === pid), 'amount');
-  const showMoney = payments.length > 0 || ['admin', 'accounts', 'stores', 'sales'].includes(user.role);
+  const showMoney = payments.length > 0 || hasAny(user, 'accounts', 'stores', 'sales');
   return (
     <div className="page">
       <PageHeader title="Orders" sub="Every confirmed order from advance to handover. Each team sees what is waiting for them." />
       <div className="chips">
         {Object.entries(groups).map(([k, v]) => (
           <button key={k} className={'chip' + (tab === k ? ' on' : '') + (k === 'mine' && v.length ? ' attn' : '')} onClick={() => setTab(k)}>
-            {k === 'mine' ? (user.role === 'admin' ? 'Needs action' : 'Waiting for my team') : k} <span>{v.length}</span>
+            {k === 'mine' ? (isAdminU(user) ? 'Needs action' : 'Waiting for my team') : k} <span>{v.length}</span>
           </button>
         ))}
       </div>
@@ -65,7 +66,7 @@ function OrderList({ user }) {
 function ClientTab({ id, user }) {
   const p = useDoc('projects', id);
   const company = useSettings();
-  const office = user.role !== 'technician';
+  const office = isOfficeU(user);
   const moneyRoles = can(user, 'stores', 'accounts', 'sales');
   const payments = useCol('payments', [['projectId', '==', id]], moneyRoles);
   const invoices = useCol('invoices', [['projectId', '==', id]], moneyRoles);
@@ -91,8 +92,8 @@ function ClientTab({ id, user }) {
   const paidFor = (i) => sum(payments.filter((x) => x.milestone === i), 'amount');
   const qTotal = quoteTotal(p);
   const nextRev = drawings.length ? Math.max(...drawings.map((d) => num(d.rev))) + 1 : 0;
-  const isAdmin = user.role === 'admin';
-  const myTasks = openTasks(p, user.role);
+  const isAdmin = isAdminU(user);
+  const myTasks = openTasks(p, rolesOf(user));
   const close = () => setModal(null);
 
   const setMaterial = (status) => act(async () => {
@@ -135,7 +136,7 @@ function ClientTab({ id, user }) {
 
       <Card><Pipeline p={p} /></Card>
       {myTasks.length > 0 && p.status !== 'Lost' && (
-        <Note tone="blue"><b>Waiting for {user.role === 'admin' ? 'action' : 'your team'}:</b> {myTasks.map((s) => s.label).join(', ')}</Note>
+        <Note tone="blue"><b>Waiting for {isAdmin ? 'action' : 'your team'}:</b> {myTasks.map((s) => s.label).join(', ')}</Note>
       )}
 
       {enquiry && (
@@ -390,7 +391,7 @@ function EditOrder({ p, user, onClose }) {
         <Field label="Site contact person"><input {...bind('contactPerson')} /></Field>
         <Field label="Site contact phone"><input {...bind('contactPhone')} /></Field>
         <Field label="Sales person"><Select options={staff.map((s) => ({ value: s.id, label: s.name }))} {...bind('salesBy')} /></Field>
-        {user.role === 'admin' && p.status !== 'Enquiry' && p.status !== 'Lost' && <Field label="Status"><Select options={['Order', 'On Hold', 'Completed', 'Cancelled']} placeholder={false} {...bind('status')} /></Field>}
+        {isAdminU(user) && p.status !== 'Enquiry' && p.status !== 'Lost' && <Field label="Status"><Select options={['Order', 'On Hold', 'Completed', 'Cancelled']} placeholder={false} {...bind('status')} /></Field>}
       </div>
     </Modal>
   );

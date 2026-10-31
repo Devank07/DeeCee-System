@@ -3,6 +3,7 @@ import { initBackend, backend, DEMO, setMe } from './data';
 import { NAV, ROLES, OFFICE_ROLES } from './constants';
 import { useRoute, go, Toaster, useSettings, act, useCol, logoUrl } from './ui';
 import { openTasks } from './workflow';
+import { rolesOf, hasAny, isOfficeU, isClientU, techOnly, roleLabel } from './roles';
 import Dashboard from './pages/Dashboard';
 import Clients from './pages/Clients';
 import Enquiries from './pages/Enquiries';
@@ -33,19 +34,19 @@ export default function App() {
   if (!ready || user === undefined) return <div className="center-screen"><div className="spinner" /></div>;
   return (
     <>
-      {!user ? <Login /> : user.noProfile ? <NoProfile user={user} /> : user.active === false ? <Disabled /> : user.role === 'client' ? <Portal user={user} /> : !ROLES[user.role] ? <Disabled msg="Your login has an unknown role. Ask the Admin to set it in Settings → Users." /> : <Shell user={user} />}
+      {!user ? <Login /> : user.noProfile ? <NoProfile user={user} /> : user.active === false ? <Disabled /> : isClientU(user) ? <Portal user={user} /> : !rolesOf(user).some((r) => ROLES[r]) ? <Disabled msg="Your login has an unknown role. Ask the Admin to set it in Settings → Users." /> : <Shell user={user} />}
       <Toaster />
     </>
   );
 }
 
 function useBadges(user) {
-  const office = OFFICE_ROLES.includes(user.role);
+  const office = isOfficeU(user);
   const orders = useCol('projects', [['status', '==', 'Order']], office);
-  const enquiries = useCol('projects', [['status', '==', 'Enquiry']], ['admin', 'sales'].includes(user.role));
+  const enquiries = useCol('projects', [['status', '==', 'Enquiry']], hasAny(user, 'sales'));
   const today = new Date().toISOString().slice(0, 10);
   return {
-    orders: orders.filter((p) => openTasks(p, user.role).length).length,
+    orders: orders.filter((p) => openTasks(p, rolesOf(user)).length).length,
     enquiries: enquiries.filter((p) => (p.enquiry?.followUpDate && p.enquiry.followUpDate <= today) || !p.quote?.items?.some((i) => Number(i.rate) > 0)).length,
   };
 }
@@ -54,14 +55,14 @@ function Shell({ user }) {
   const [page, ...rest] = useRoute();
   const company = useSettings();
   const [menu, setMenu] = useState(false);
-  const allowed = NAV.filter((n) => n.roles.includes(user.role));
-  const home = user.role === 'technician' ? 'tech' : 'dashboard';
+  const allowed = NAV.filter((n) => n.roles.some((r) => rolesOf(user).includes(r)));
+  const home = techOnly(user) ? 'tech' : 'dashboard';
   const current = allowed.find((n) => n.key === page) ? page : home;
   useEffect(() => { if (page !== current) go(current); }, [page, current]);
   useEffect(() => { setMenu(false); }, [page, rest[0]]);
   const badges = useBadges(user);
   const Page = PAGES[current];
-  const tech = user.role === 'technician';
+  const tech = techOnly(user);
   return (
     <div className={'shell' + (tech ? ' tech-shell' : '')}>
       {!tech && (
@@ -82,7 +83,7 @@ function Shell({ user }) {
       <main className="main">
         {!tech && <div className="topbar"><button className="icon-btn" onClick={() => setMenu(true)} aria-label="Menu">☰</button><b>{allowed.find((n) => n.key === current)?.label}</b><span /></div>}
         {DEMO && <div className="demo-banner">Demo mode — sample data saved only in this browser.</div>}
-        {['admin', 'service'].includes(user.role) && <ComplaintAlerts />}
+        {hasAny(user, 'service') && <ComplaintAlerts />}
         <Page user={user} params={rest} />
       </main>
     </div>
@@ -141,7 +142,7 @@ export function UserBox({ user, compact }) {
   return (
     <div className={'userbox' + (compact ? ' compact' : '')}>
       <div className="avatar">{(user.name || user.email || '?').slice(0, 1).toUpperCase()}</div>
-      <div className="ub-text"><b>{user.name || user.email}</b><span>{ROLES[user.role]}</span></div>
+      <div className="ub-text"><b>{user.name || user.email}</b><span>{roleLabel(user)}</span></div>
       <button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button>
     </div>
   );

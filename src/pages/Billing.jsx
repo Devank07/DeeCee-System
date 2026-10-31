@@ -3,6 +3,7 @@ import { useCol, useDoc, PageHeader, Card, DataTable, Modal, act, go, Badge, Tab
 import { updateDoc, getOne } from '../data';
 import { inr, fmtDate, today, num, sum, waLink, daysUntil, addDays } from '../utils';
 import { InvoiceForm, PaymentForm } from './shared';
+import { hasAny } from '../roles';
 
 export const invStatus = (i) => {
   if (i.status === 'Cancelled') return 'Cancelled';
@@ -19,7 +20,7 @@ export default function Billing({ user, params }) {
   const payments = useCol('payments', [['date', '>=', addDays(today(), -400)]], true, { orderBy: ['date', 'desc'] });
   const [newInv, setNewInv] = useState(false);
   const openId = params[0] === 'invoices' && params[1];
-  const canWrite = ['admin', 'accounts'].includes(user.role);
+  const canWrite = hasAny(user, 'accounts');
   const due = invoices.filter((i) => live(i) && invStatus(i) !== 'Paid');
   const month = today().slice(0, 7);
   return (

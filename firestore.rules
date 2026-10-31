@@ -1,8 +1,8 @@
 rules_version = '2';
 
 // DeeCee Company OS — server-side permissions.
-// Roles: admin, sales, drawing, stores (material & dispatch), projects (installation manager),
-//        service, accounts, technician (site team), client.
+// Roles (a person can have several): admin, sales, drawing, stores (material & dispatch),
+//        projects (installation manager), service, accounts, technician (site team), client.
 // Technicians can only see records stamped with THEIR team (staff/{id}.teamId).
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -11,12 +11,13 @@ service cloud.firestore {
     function userPath() { return /databases/$(database)/documents/users/$(request.auth.uid); }
     function profile() { return get(userPath()).data; }
     function active() { return signedIn() && exists(userPath()) && profile().active != false; }
-    function role() { return profile().role; }
-    function isAdmin() { return active() && role() == 'admin'; }
-    function hasRole(roles) { return active() && (role() == 'admin' || role() in roles); }
-    function isOffice() { return active() && role() in ['admin', 'sales', 'drawing', 'stores', 'projects', 'service', 'accounts']; }
-    function isTech() { return active() && role() == 'technician'; }
-    function isClient() { return active() && role() == 'client'; }
+    // A login can have several roles (roles: [...]); older logins have a single 'role'
+    function myRoles() { return profile().get('roles', [profile().role]); }
+    function isAdmin() { return active() && myRoles().hasAny(['admin']); }
+    function hasRole(roles) { return active() && myRoles().hasAny(['admin'].concat(roles)); }
+    function isOffice() { return active() && myRoles().hasAny(['admin', 'sales', 'drawing', 'stores', 'projects', 'service', 'accounts']); }
+    function isTech() { return active() && myRoles().hasAny(['technician']) && !isOffice(); }
+    function isClient() { return active() && myRoles().hasAny(['client']) && !isOffice(); }
     function isStaff() { return isOffice() || isTech(); }
     function myTeam() { return get(/databases/$(database)/documents/staff/$(profile().staffId)).data.teamId; }
     function teamDoc() { return isTech() && resource.data.teamId != null && resource.data.teamId == myTeam(); }
@@ -39,7 +40,7 @@ service cloud.firestore {
             && !setupDone() && existsAfter(/databases/$(database)/documents/meta/setup));
       // Admin can edit anyone, but cannot remove their own admin role or disable themselves
       allow update: if isAdmin() && !(uid == request.auth.uid
-        && (request.resource.data.role != 'admin' || request.resource.data.active == false));
+        && (!request.resource.data.get('roles', [request.resource.data.role]).hasAny(['admin']) || request.resource.data.active == false));
       allow delete: if false;
     }
 

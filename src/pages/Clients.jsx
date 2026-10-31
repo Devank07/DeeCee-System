@@ -4,6 +4,7 @@ import { addDoc, updateDoc, deleteDoc, backend } from '../data';
 import { inr, sum, num, fmtDate, waLink, mapsLink, daysUntil } from '../utils';
 import { STATE_NAMES, stateFromGstin } from '../constants';
 import { nextText } from '../workflow';
+import { hasAny, isAdminU } from '../roles';
 
 export function ClientForm({ client, onClose, onSaved }) {
   const { f, bind } = useForm(client || { name: '', contactPerson: '', phone: '', email: '', address: '', city: '', state: '', gstin: '' });
@@ -76,7 +77,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
   const amcs = useCol('amcs', [['clientId', '==', c.id]]);
   const complaints = useCol('complaints', [['clientId', '==', c.id]]);
   const activity = useCol('activity', [['clientId', '==', c.id]]);
-  const users = useCol('users', [['clientId', '==', c.id]], user.role === 'admin');
+  const users = useCol('users', [['clientId', '==', c.id]], isAdminU(user));
   const [portal, setPortal] = useState(false);
   const [del, setDel] = useState(false);
   const live = invoices.filter((i) => i.status !== 'Cancelled');
@@ -94,7 +95,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
           {c.phone && <a className="btn ghost" href={'tel:' + c.phone}>Call</a>}
           {c.phone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(c.phone, `Hello ${c.contactPerson || ''}, `)}>WhatsApp</a>}
           <button className="btn ghost" onClick={onEdit}>Edit</button>
-          {user.role === 'admin' && <button className="btn" onClick={() => setPortal(true)}>Client portal login</button>}
+          {isAdminU(user) && <button className="btn" onClick={() => setPortal(true)}>Client portal login</button>}
         </>}
       />
       <div className="stats">
@@ -112,10 +113,10 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
             <dt>State</dt><dd>{c.state || '—'}</dd>
             <dt>GSTIN</dt><dd>{c.gstin || '—'}</dd>
             {c.notes && <><dt>Notes</dt><dd>{c.notes}</dd></>}
-            {user.role === 'admin' && <><dt>Portal access</dt><dd>{users.length ? users.map((u) => u.email).join(', ') : <span className="muted">Not set up</span>}</dd></>}
+            {isAdminU(user) && <><dt>Portal access</dt><dd>{users.length ? users.map((u) => u.email).join(', ') : <span className="muted">Not set up</span>}</dd></>}
           </dl>
         </Card>
-        <Card title="Enquiries & orders" actions={['admin', 'sales'].includes(user.role) && <button className="btn ghost sm" onClick={() => go('enquiries/new/' + c.id)}>+ New enquiry</button>}>
+        <Card title="Enquiries & orders" actions={hasAny(user, 'sales') && <button className="btn ghost sm" onClick={() => go('enquiries/new/' + c.id)}>+ New enquiry</button>}>
           {projects.length === 0 ? <Empty /> : (
             <ul className="list">{projects.map((p) => (
               <li key={p.id} onClick={() => go('orders/' + p.id)} className="clickable"><div><b>{p.title}</b><div className="muted small">{p.code || p.quoteNo} · {nextText(p)}</div></div><span className="row gap"><MiniPipeline p={p} /><Badge>{p.status}</Badge></span></li>
@@ -139,7 +140,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
       <Card title="Timeline"><ActivityFeed items={activity} /></Card>
       {form && <ClientForm client={form} onClose={() => setForm(null)} />}
       {portal && <PortalLogin client={c} onClose={() => setPortal(false)} />}
-      {user.role === 'admin' && !projects.length && !invoices.length && (
+      {isAdminU(user) && !projects.length && !invoices.length && (
         <p className="r">{del ? <button className="btn danger-btn sm" onClick={() => act(() => deleteDoc('clients', c.id, c.name), 'Client deleted').then(() => go('clients'))}>Yes, delete {c.name}</button> : <button className="link danger" onClick={() => setDel(true)}>Delete client</button>}</p>
       )}
     </div>
@@ -150,7 +151,7 @@ function PortalLogin({ client, onClose }) {
   const { f, bind } = useForm({ email: client.email || '', password: '' });
   const create = async () => {
     if (!f.email || (f.password || '').length < 6) return act(async () => { throw new Error('Enter an email and a password of at least 6 characters'); });
-    await act(() => backend().createAccount({ email: f.email, password: f.password, name: client.name, role: 'client', clientId: client.id }), 'Portal login created');
+    await act(() => backend().createAccount({ email: f.email, password: f.password, name: client.name, role: 'client', roles: ['client'], clientId: client.id }), 'Portal login created');
     onClose();
   };
   return (

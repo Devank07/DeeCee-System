@@ -3,8 +3,9 @@ import { useCol, PageHeader, Card, Stat, go, ActivityFeed, Badge, Empty } from '
 import { inr, sum, today, daysUntil, fmtDate, num } from '../utils';
 import { STEPS, openTasks, quoteTotal } from '../workflow';
 import { ROLES } from '../constants';
+import { hasAny, rolesOf, roleLabel, isAdminU } from '../roles';
 
-const has = (u, ...r) => u.role === 'admin' || r.includes(u.role);
+const has = (u, ...r) => hasAny(u, ...r);
 
 export default function Dashboard({ user }) {
   const t = today();
@@ -35,7 +36,7 @@ export default function Dashboard({ user }) {
   const activeStaff = staff.filter((s) => s.active !== false).length;
 
   // Workflow tasks for this user's team
-  const tasks = orders.flatMap((p) => openTasks(p, user.role).map((s) => ({ p, s })));
+  const tasks = orders.flatMap((p) => openTasks(p, rolesOf(user)).map((s) => ({ p, s })));
   const stepCount = STEPS.map((s) => ({ ...s, n: orders.filter((p) => openTasks(p, 'admin').some((x) => x.key === s.key)).length }));
 
   const attention = [
@@ -52,10 +53,10 @@ export default function Dashboard({ user }) {
   const hour = new Date().getHours();
   return (
     <div className="page">
-      <PageHeader title={`Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${(user.name || '').split(' ')[0]}`} sub={`${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${ROLES[user.role]}`} />
+      <PageHeader title={`Good ${hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening'}, ${(user.name || '').split(' ')[0]}`} sub={`${new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })} · ${roleLabel(user)}`} />
       <div className="stats">
         <Stat label="Active orders" value={orders.length} sub={late.length ? `${late.length} past target date` : 'All on track'} tone={late.length ? 'amber' : ''} onClick={() => go('orders')} />
-        <Stat label={user.role === 'admin' ? 'Steps waiting' : 'Waiting for my team'} value={tasks.length} sub={tasks.length ? 'Open the list below' : 'Nothing pending'} tone={tasks.length ? 'amber' : 'green'} onClick={() => go('orders')} />
+        <Stat label={isAdminU(user) ? 'Steps waiting' : 'Waiting for my team'} value={tasks.length} sub={tasks.length ? 'Open the list below' : 'Nothing pending'} tone={tasks.length ? 'amber' : 'green'} onClick={() => go('orders')} />
         {has(user, 'sales') && <Stat label="Open enquiries" value={enquiries.length} sub={inr(sum(enquiries, quoteTotal)) + ' quoted'} onClick={() => go('enquiries')} />}
         {has(user, 'accounts') && <Stat label="Invoices outstanding" value={inr(sum(due, 'bal'))} sub={`${overdue.length} overdue`} tone={overdue.length ? 'red' : ''} onClick={() => go('billing')} />}
         {money && <Stat label="Received this month" value={inr(sum(payments, 'amount'))} sub={`${payments.length} payments`} tone="green" onClick={has(user, 'accounts') ? () => go('billing/payments') : undefined} />}
@@ -66,16 +67,16 @@ export default function Dashboard({ user }) {
       </div>
 
       <div className="grid-2">
-        <Card title={user.role === 'admin' ? `Orders waiting on a team (${tasks.length})` : `Waiting for your team (${tasks.length})`}>
+        <Card title={isAdminU(user) ? `Orders waiting on a team (${tasks.length})` : `Waiting for your team (${tasks.length})`}>
           {tasks.length === 0 ? <Empty>Nothing is waiting for your team 🎉</Empty> : (
             <ul className="attention">
               {tasks.slice(0, 16).map(({ p, s }) => (
-                <li key={p.id + s.key} onClick={() => go('orders/' + p.id)}><Badge tone="blue">{s.label}</Badge><span>{p.clientName} — {p.title}{user.role === 'admin' && <span className="muted small"> · {s.team}</span>}</span><span className="chev">›</span></li>
+                <li key={p.id + s.key} onClick={() => go('orders/' + p.id)}><Badge tone="blue">{s.label}</Badge><span>{p.clientName} — {p.title}{isAdminU(user) && <span className="muted small"> · {s.team}</span>}</span><span className="chev">›</span></li>
               ))}
             </ul>
           )}
         </Card>
-        {user.role === 'admin' || user.role === 'projects' ? (
+        {hasAny(user, 'projects') ? (
           <Card title="Where orders are waiting">
             <div className="bars">
               {stepCount.map((x) => (
@@ -89,7 +90,7 @@ export default function Dashboard({ user }) {
           </Card>
         )}
       </div>
-      {(user.role === 'admin' || user.role === 'projects') && attention.length > 0 && <Card title={`Needs attention (${attention.length})`}><AttentionList items={attention} /></Card>}
+      {hasAny(user, 'projects') && attention.length > 0 && <Card title={`Needs attention (${attention.length})`}><AttentionList items={attention} /></Card>}
       <Card title="Latest updates across teams"><ActivityFeed items={activity} /></Card>
     </div>
   );

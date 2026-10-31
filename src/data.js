@@ -2,6 +2,7 @@
 import { firebaseConfig } from './firebaseConfig';
 import { uid as makeId } from './utils';
 import { seedData } from './seed';
+import { rolesOf, isClientU } from './roles';
 
 // Demo mode: no Firebase config, or a build made with VITE_DEMO=1 (used for the shareable preview)
 export const DEMO = !firebaseConfig.apiKey || import.meta.env.VITE_DEMO === '1';
@@ -202,7 +203,7 @@ async function firebaseBackend() {
     async bootstrapAdmin(name) {
       const u = auth.currentUser;
       const b = fs.writeBatch(db);
-      b.set(fs.doc(db, 'users', u.uid), { name, email: u.email, role: 'admin', active: true, createdAt: Date.now() });
+      b.set(fs.doc(db, 'users', u.uid), { name, email: u.email, role: 'admin', roles: ['admin'], active: true, createdAt: Date.now() });
       b.set(fs.doc(db, 'meta', 'setup'), { by: u.uid, at: Date.now() });
       await b.commit();
     },
@@ -233,8 +234,8 @@ export const getOne = (col, id) => B.getOne(col, id);
 
 function audit(action, col, docId, label) {
   const u = me();
-  if (!u || u.role === 'client' || col === 'audit') return;
-  B.add('audit', { at: Date.now(), uid: u.id, name: u.name || u.email, role: u.role, action, col, docId, label: label || '' }).catch(() => {});
+  if (!u || isClientU(u) || col === 'audit') return;
+  B.add('audit', { at: Date.now(), uid: u.id, name: u.name || u.email, role: rolesOf(u).join(','), action, col, docId, label: label || '' }).catch(() => {});
 }
 
 export async function addDoc(col, data, label) {
@@ -279,7 +280,7 @@ export function postActivity({ projectId = null, clientId = null, text, visibleT
   const u = me();
   return addDoc('activity', {
     projectId, clientId, text, visibleToClient, teamId: teamId || null, teamVisible: !!teamId, kind,
-    at: Date.now(), byName: u?.name || '', byRole: u?.role || '',
+    at: Date.now(), byName: u?.name || '', byRole: rolesOf(u)[0] || '',
   });
 }
 

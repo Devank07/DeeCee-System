@@ -66,8 +66,9 @@ export const currentStep = (p) => {
 };
 export const progressPct = (p) => Math.round((steps(p).filter((s) => s.done).length / STEPS.length) * 100);
 
-export function openTasks(p, role) {
-  return steps(p).filter((s) => s.open && (role === 'admin' || STEP_ROLES[s.key].includes(role)));
+export function openTasks(p, roles) {
+  const r = Array.isArray(roles) ? roles : [roles];
+  return steps(p).filter((s) => s.open && (r.includes('admin') || STEP_ROLES[s.key].some((k) => r.includes(k))));
 }
 export const nextText = (p) => {
   const open = steps(p).filter((s) => s.open);
