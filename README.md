@@ -74,6 +74,14 @@ firebase deploy --only firestore,hosting
 6. Give logins from the same staff form: open the person → **System access** → tick *Give a login*, enter email + temporary password, and tick what they can access (Sales, Drawing, Material & Dispatch, Installation manager, Service & AMC, Accounts, Technician, Admin — several allowed). Change or block access later from the same place. All logins are also listed in **Settings → Logins & access**.
 7. For clients who should use the portal: **Clients → open client → Client portal login**.
 
+## Importing your old register (Excel)
+**Settings → Import old data** (Admin). In Google Sheets: *File → Download → Microsoft Excel (.xlsx)*, then choose the file.
+- Row colour decides the status: **white** = quote to be given, **yellow** = quote given, **green** = order confirmed (choose whether green rows are running or completed). Other colours can be mapped or skipped.
+- Columns (changeable): A serial (used in Ref No.), B building type, C address, D city, E client name, F phone, G other, H lifts e.g. `1(6P)HYD`, I architect / referred by, J date, K spec e.g. `G+3,ACO/RG/GD/MRL,W=1550XD=1650`, L costing (lakh), M quoted price (lakh).
+- Codes are decoded: persons → load, HYD/MRL drive, ACO/ATSD doors, GD glass door, RG rose gold, SS steel, W×D shaft size, floors & stops.
+- Costing is stored privately (Admin, Sales, Accounts only) and shows margin on the client tab.
+- Re-importing is safe: serials already imported are skipped. Rows can be limited by date.
+
 ## Free-plan notes
 - Drawings and documents are stored inside the database in pieces (max **12 MB** per file) so no paid Storage is needed. Keep drawings as compact PDFs. The free plan has 1 GB in total — enough for several hundred drawings plus all business data. If you outgrow it, Firebase's pay-as-you-go plan can be switched on without code changes.
 - The JSON backup does not include drawing files — keep originals in the drawing team's folder.

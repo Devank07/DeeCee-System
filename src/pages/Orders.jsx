@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Pipeline, MiniPipeline, ProgressBar, ActivityFeed, PhotoUploader, PhotoGrid, FileList, FileUpload, Empty, Stat, Note, PrintDoc, useSettings } from '../ui';
-import { updateDoc, deleteDoc, postActivity, restampTeam, me } from '../data';
+import { updateDoc, deleteDoc, postActivity, restampTeam, me, setDoc } from '../data';
 import { SITE_CHECKLIST, INSTALL_STEPS, STATE_NAMES } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, num, sum, waLink, mapsLink, daysUntil } from '../utils';
 import { steps, openTasks, nextText, progressPct, quoteTotal, milestoneStatus } from '../workflow';
@@ -331,6 +331,7 @@ function QuoteCard({ p, user, setModal, qTotal, compact }) {
         <ul className="list">{(p.quote?.items || []).map((it, i) => <li key={i}><span className="small">{it.desc}</span><span className="nowrap">{num(it.rate) ? `${it.qty} × ${inr(it.rate)}` : <Badge tone="red">Price?</Badge>}</span></li>)}</ul>
       )}
       <div className="row between mt"><span className="muted">Total incl. GST</span><b className="big-num">{qTotal > 0 ? inr(qTotal) : '—'}</b></div>
+      {hasAny(user, 'sales', 'accounts') && <CostingLine p={p} />}
       {!p.orderConfirmedAt && p.status === 'Enquiry' && sales && qTotal > 0 && (
         <div className="row gap mt wrap"><button className="btn ghost sm" onClick={() => setModal({ t: 'revise' })}>Revise → {nextRevRef(p)}</button><span className="muted small">Keeps {p.quote?.refNo || p.quoteNo} as an old version</span></div>
       )}
@@ -350,6 +351,33 @@ function QuoteCard({ p, user, setModal, qTotal, compact }) {
       )}
       {p.orderConfirmedAt && <p className="muted small">Order confirmed {fmtDate(p.orderConfirmedAt)}{p.orderBy ? ' by ' + p.orderBy : ''}{num(p.contractValue) !== qTotal && p.contractValue ? ` · final value ${inr(p.contractValue)}` : ''}</p>}
     </Card>
+  );
+}
+
+/* Internal costing — stored separately so clients and other teams can't read it */
+function CostingLine({ p }) {
+  const c = useDoc('costings', p.id);
+  const [edit, setEdit] = useState(null);
+  const quotedEx = calcTotals(p.quote?.items || [], 0, p.quote?.discount || 0).taxable;
+  const cost = Number(c?.costing) || 0;
+  const margin = cost && quotedEx ? Math.round(((quotedEx - cost) / quotedEx) * 100) : null;
+  const save = async () => {
+    await act(() => setDoc('costings', p.id, { costing: Math.round(Number(edit) * 100000), quoted: quotedEx, projectId: p.id, clientName: p.clientName }, true, 'Costing'), 'Costing saved');
+    setEdit(null);
+  };
+  return (
+    <div className="costing-line">
+      <span className="muted small">Costing (internal)</span>
+      {edit === null ? (
+        <span className="row gap">
+          <b>{cost ? inr(cost) : '—'}</b>
+          {margin !== null && <Badge tone={margin < 10 ? 'red' : margin < 20 ? 'amber' : 'green'}>{margin}% margin</Badge>}
+          <button className="link small" onClick={() => setEdit(cost ? String(cost / 100000) : '')}>{cost ? 'Edit' : 'Add'}</button>
+        </span>
+      ) : (
+        <span className="row gap"><input className="mini r" type="number" step="0.01" value={edit} onChange={(e) => setEdit(e.target.value)} placeholder="lakh" autoFocus /><span className="muted small">lakh</span><button className="btn sm" onClick={save}>Save</button><button className="link small" onClick={() => setEdit(null)}>Cancel</button></span>
+      )}
+    </div>
   );
 }
 

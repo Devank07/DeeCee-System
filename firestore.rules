@@ -48,6 +48,8 @@ service cloud.firestore {
     match /counters/{id} { allow read, write: if active(); }
     match /audit/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if false; }
     match /payroll/{id} { allow read, write: if hasRole(['accounts']); }
+    // Internal costing per client tab — never visible to clients, technicians or other teams
+    match /costings/{id} { allow read, write: if hasRole(['sales', 'accounts']); }
 
     // ---- People & teams ----
     match /staff/{staffId} {

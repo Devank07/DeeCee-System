@@ -244,6 +244,14 @@ export async function addDoc(col, data, label) {
   audit('Created', col, id, label);
   return id;
 }
+// Bulk import: no per-row audit entry (one summary entry is written instead)
+export async function addQuiet(col, data) {
+  const u = me();
+  return B.add(col, clean({ createdAt: Date.now(), ...data, createdBy: u?.id || null, createdByName: u?.name || '' }));
+}
+export async function setQuiet(col, id, data, merge = true) { await B.set(col, id, clean(data), merge); }
+export const logAudit = (action, col, label) => audit(action, col, '', label);
+
 export async function setDoc(col, id, data, merge = true, label) {
   await B.set(col, id, clean({ ...data, updatedAt: Date.now() }), merge);
   audit('Saved', col, id, label);

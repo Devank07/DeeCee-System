@@ -6,15 +6,17 @@ import { downloadFile, fmtDate, compressImage } from '../utils';
 import { buildRef } from '../proposal';
 import { rolesOf, roleLabel } from '../roles';
 import { RoleChecks } from './Access';
+import ImportOld from './Import';
 
 export default function Settings({ params }) {
-  const tab = ['users', 'data'].includes(params[0]) ? params[0] : 'company';
+  const tab = ['users', 'data', 'import'].includes(params[0]) ? params[0] : 'company';
   return (
     <div className="page">
       <PageHeader title="Settings" sub="Company details, user logins and data backup" />
-      <Tabs value={tab} onChange={(k) => (location.hash = '#/settings/' + k)} tabs={[{ key: 'company', label: 'Company' }, { key: 'users', label: 'Logins & access' }, { key: 'data', label: 'Backup' }]} />
+      <Tabs value={tab} onChange={(k) => (location.hash = '#/settings/' + k)} tabs={[{ key: 'company', label: 'Company' }, { key: 'users', label: 'Logins & access' }, { key: 'import', label: 'Import old data' }, { key: 'data', label: 'Backup' }]} />
       {tab === 'company' && <Company />}
       {tab === 'users' && <Users />}
+      {tab === 'import' && <ImportOld />}
       {tab === 'data' && <Data />}
     </div>
   );

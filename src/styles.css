@@ -610,3 +610,14 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .role-opt.on { border-color: var(--accent); background: var(--accent-soft); }
 .role-opt.locked { opacity: .75; cursor: default; }
 .role-chips { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+
+/* import */
+.import-steps { margin: 0 0 12px; padding-left: 20px; line-height: 1.7; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid #bbb; vertical-align: -1px; margin: 0 2px; }
+.sw.big { width: 22px; height: 22px; border-radius: 6px; }
+.colour-map { display: flex; flex-direction: column; gap: 8px; }
+.colour-row { display: grid; grid-template-columns: 30px 1fr 220px; gap: 10px; align-items: center; }
+.preview-table td, .preview-table th { padding: 7px 10px; font-size: 12.5px; }
+.mb { margin-bottom: 10px; }
+@media (max-width: 640px) { .colour-row { grid-template-columns: 30px 1fr; } .colour-row select { grid-column: span 2; } }
+.costing-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line-2); flex-wrap: wrap; }
