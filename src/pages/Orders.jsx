@@ -4,7 +4,7 @@ import { updateDoc, deleteDoc, postActivity, restampTeam, me, setDoc } from '../
 import { SITE_CHECKLIST, INSTALL_STEPS, STATE_NAMES } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, num, sum, waLink, mapsLink, daysUntil } from '../utils';
 import { steps, openTasks, nextText, progressPct, quoteTotal, milestoneStatus } from '../workflow';
-import { VisitForm, InvoiceForm, PaymentForm, teamOptions, can } from './shared';
+import { VisitForm, InvoiceForm, PaymentForm, DeletePayment, teamOptions, can } from './shared';
 import { ConfirmOrder, EnquiryStatus } from './Enquiries';
 import ProposalForm from './ProposalForm';
 import ProposalDoc from './ProposalDoc';
@@ -184,6 +184,15 @@ function ClientTab({ id, user }) {
                   );
                 })}
               </tbody></table>
+              {isAdminU(user) && payments.length > 0 && (
+                <details className="small" style={{ marginTop: 8 }}>
+                  <summary className="muted">Payments received ({payments.length}) — delete a wrong entry</summary>
+                  <ul className="list">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => (
+                    <li key={x.id}><span>{fmtDate(x.date)} · {x.mode}{x.ref ? ' · ' + x.ref : ''}{x.invoiceNumber ? ' · ' + x.invoiceNumber : ''}</span>
+                      <span className="nowrap"><b>{inr(x.amount)}</b><button className="btn ghost sm danger" style={{ marginLeft: 8 }} onClick={() => setModal({ t: 'delpay', pay: x })}>Delete</button></span></li>
+                  ))}</ul>
+                </details>
+              )}
             </Card>
           )}
 
@@ -293,6 +302,7 @@ function ClientTab({ id, user }) {
       {modal?.t === 'confirm' && <ConfirmOrder p={p} onClose={close} />}
       {modal?.t === 'enq' && <EnquiryStatus p={p} onClose={close} />}
       {modal?.t === 'print' && <ProposalDoc p={p} onClose={close} />}
+      {modal?.t === 'delpay' && <DeletePayment payment={modal.pay} onClose={close} />}
       {modal?.t === 'pay' && <PaymentForm project={p} milestone={modal.milestone} confirmAdvance={modal.confirmAdvance} onClose={close} />}
       {modal?.t === 'invoice' && <InvoiceForm onClose={close}
         initial={{ clientId: p.clientId, projectId: p.id, milestone: modal.i, placeOfSupply: p.siteState || '', items: [{ desc: `${modal.m.name} (${modal.m.percent}%) — ${p.title}`, hsn: company.hsnSupply || '', qty: 1, rate: Math.round((num(modal.m.amount) / 1.18) * 100) / 100 }], gstRate: 18 }}

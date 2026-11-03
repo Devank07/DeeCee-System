@@ -43,7 +43,7 @@ Locked steps show *why* they're locked (e.g. "Waiting for site ready"). Only the
 This is enforced by the database rules (`firestore.rules`), not just hidden in the menu. A technician's phone cannot load another team's site even if they know the link.
 
 ## Other modules
-- **Billing**: GST tax invoices with HSN/SAC per line and *place of supply* (CGST+SGST in your state, IGST outside), amount in words, cancel invoice (number kept), payments by milestone, order balances, invoice ageing, WhatsApp reminders.
+- **Billing**: GST tax invoices with HSN/SAC per line and *place of supply* (CGST+SGST in your state, IGST outside), amount in words, cancel invoice (number kept), payments by milestone, **Admin can delete** a wrong/test payment (invoice balance and advance are reversed) or a test invoice (with its payments) — every deletion stays in the Audit log, order balances, invoice ageing, WhatsApp reminders.
 - **Service & AMC**: complaints → assign a service team → visit; AMC contracts, renewal alerts, one-click yearly maintenance schedule, AMC billing.
 - **Alerts**: a new complaint (e.g. from the client portal) shows a red banner with a sound for Admin and Service, plus a desktop notification if turned on. *(Phone push notifications need Firebase's paid plan and are not included yet.)*
 - **Material & Stock**: stock with minimum levels, purchase orders (receive → stock in), dispatch challans, vendors, stock ledger. Stock and payment totals update safely even when two people save at the same moment.

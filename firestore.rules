@@ -151,7 +151,7 @@ service cloud.firestore {
       allow create: if hasRole(['accounts', 'service']);
       allow update: if hasRole(['accounts', 'service'])
         || (hasRole(['stores']) && onlyChanges(['paid', 'updatedAt', 'updatedBy']));
-      allow delete: if false; // cancel instead, so invoice numbers are never lost
+      allow delete: if isAdmin(); // Admin only, for test/duplicate invoices — real ones should be cancelled
     }
     match /payments/{id} {
       allow read: if isOffice() || ownsDoc();

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useCol, Modal, Field, Select, useForm, act, LineItems, useSettings, Note } from '../ui';
-import { addDoc, updateDoc, nextNumber, postActivity, getOne, inc, me } from '../data';
+import { addDoc, updateDoc, deleteDoc, queryOnce, nextNumber, postActivity, getOne, inc, me } from '../data';
 import { VISIT_TYPES, PAY_MODES, STATE_NAMES, stateFromGstin } from '../constants';
-import { today, addDays, calcTotals, num, inr, sum } from '../utils';
+import { today, addDays, calcTotals, num, inr, sum, fmtDate } from '../utils';
 import { milestoneStatus } from '../workflow';
 import { hasAny } from '../roles';
 
@@ -149,6 +149,72 @@ export function PaymentForm({ project, invoice, milestone: initialMs, confirmAdv
       {needsAdvance && (
         <label className="check strong"><input type="checkbox" checked={confirmAdv} onChange={(e) => setConfirmAdv(e.target.checked)} /> This confirms the advance — release the order to the Drawing and Material teams</label>
       )}
+    </Modal>
+  );
+}
+
+/* -------- Admin: delete a payment (reverses invoice "received" and, if asked, the advance) -------- */
+async function removePayment(pay) {
+  await deleteDoc('payments', pay.id, `${inr(pay.amount)} · ${pay.clientName || ''} ${pay.invoiceNumber || pay.projectCode || ''}`.trim());
+  if (pay.invoiceId) {
+    const inv = await getOne('invoices', pay.invoiceId);
+    if (inv) await updateDoc('invoices', inv.id, { paid: inc(-num(pay.amount)) }, inv.number);
+  }
+}
+
+export function DeletePayment({ payment: pay, onClose }) {
+  const [proj, setProj] = useState(undefined);
+  const [others, setOthers] = useState(0);
+  const [undoAdv, setUndoAdv] = useState(false);
+  React.useEffect(() => {
+    if (!pay.projectId) { setProj(null); return; }
+    (async () => {
+      const p = await getOne('projects', pay.projectId);
+      const rest = (await queryOnce('payments', [['projectId', '==', pay.projectId]])).filter((x) => x.id !== pay.id);
+      setProj(p || null); setOthers(rest.length);
+      setUndoAdv(!!p?.advance?.confirmed && rest.length === 0);
+    })().catch(() => setProj(null));
+  }, [pay.id]);
+  const save = async () => {
+    await act(async () => {
+      await removePayment(pay);
+      if (proj && undoAdv && proj.advance?.confirmed) await updateDoc('projects', proj.id, { advance: { confirmed: false } }, proj.code);
+    }, 'Payment deleted');
+    onClose();
+  };
+  return (
+    <Modal title="Delete this payment?" onClose={onClose}
+      footer={<><button className="btn ghost" onClick={onClose}>Keep it</button><button className="btn danger-btn" disabled={proj === undefined} onClick={save}>Delete payment</button></>}>
+      <p><b>{inr(pay.amount)}</b> from {pay.clientName || '—'} on {fmtDate(pay.date)} · {pay.mode}{pay.ref ? ' · ' + pay.ref : ''}{pay.invoiceNumber ? ' · invoice ' + pay.invoiceNumber : ''}</p>
+      <p className="muted">It is removed from all totals{pay.invoiceId ? ' and the invoice balance goes back up' : ''}. The deletion is kept in the Audit log.</p>
+      {proj?.advance?.confirmed && (
+        <label className="check strong"><input type="checkbox" checked={undoAdv} onChange={(e) => setUndoAdv(e.target.checked)} /> Also mark the advance as <b>not received</b> for {proj.code || proj.clientName}{others ? ` (${others} other payment${others > 1 ? 's' : ''} remain on this order)` : ''}</label>
+      )}
+    </Modal>
+  );
+}
+
+/* -------- Admin: delete an invoice completely (and its payments) -------- */
+export function DeleteInvoice({ inv, onClose, onDeleted }) {
+  const [pays, setPays] = useState(null);
+  React.useEffect(() => { queryOnce('payments', [['invoiceId', '==', inv.id]]).then(setPays).catch(() => setPays([])); }, [inv.id]);
+  const save = async () => {
+    await act(async () => {
+      for (const p of pays) await deleteDoc('payments', p.id, `${inr(p.amount)} · ${inv.number}`);
+      await deleteDoc('invoices', inv.id, `${inv.number} · ${inv.clientName || ''}`);
+      if (inv.projectId) {
+        const p = await getOne('projects', inv.projectId);
+        if (p?.milestones?.some((m) => m.invoiceId === inv.id)) await updateDoc('projects', p.id, { milestones: p.milestones.map((m) => (m.invoiceId === inv.id ? { ...m, invoiceId: null } : m)) }, p.code);
+      }
+    }, 'Invoice deleted');
+    onDeleted?.(); onClose();
+  };
+  return (
+    <Modal title={'Delete ' + inv.number + '?'} onClose={onClose}
+      footer={<><button className="btn ghost" onClick={onClose}>Keep it</button><button className="btn danger-btn" disabled={!pays} onClick={save}>Delete permanently</button></>}>
+      <p>This removes invoice <b>{inv.number}</b> ({inr(inv.total)}, {inv.clientName}) completely.</p>
+      {pays?.length > 0 && <Note tone="red">Its {pays.length} payment{pays.length > 1 ? 's' : ''} ({inr(sum(pays, 'amount'))}) will be deleted too.</Note>}
+      <p className="muted small">Use this for test or duplicate invoices. For a real invoice sent to a client, use <b>Cancel invoice</b> instead so the number stays in your GST records. The number will not be reused. The deletion is kept in the Audit log.</p>
     </Modal>
   );
 }

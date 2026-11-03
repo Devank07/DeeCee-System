@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, act, go, Badge, Tabs, PrintDoc, useSettings, Stat, Note } from '../ui';
 import { updateDoc, getOne } from '../data';
 import { inr, fmtDate, today, num, sum, waLink, daysUntil, addDays } from '../utils';
-import { InvoiceForm, PaymentForm } from './shared';
-import { hasAny } from '../roles';
+import { InvoiceForm, PaymentForm, DeletePayment, DeleteInvoice } from './shared';
+import { hasAny, isAdminU } from '../roles';
 
 export const invStatus = (i) => {
   if (i.status === 'Cancelled') return 'Cancelled';
@@ -21,6 +21,8 @@ export default function Billing({ user, params }) {
   const [newInv, setNewInv] = useState(false);
   const openId = params[0] === 'invoices' && params[1];
   const canWrite = hasAny(user, 'accounts');
+  const admin = isAdminU(user);
+  const [delPay, setDelPay] = useState(null);
   const due = invoices.filter((i) => live(i) && invStatus(i) !== 'Paid');
   const month = today().slice(0, 7);
   return (
@@ -62,6 +64,7 @@ export default function Billing({ user, params }) {
               { key: 'mode', label: 'Mode' },
               { key: 'ref', label: 'Reference' },
               { key: 'amount', label: 'Amount', align: 'r', value: (r) => inr(r.amount), sortValue: (r) => num(r.amount), csv: (r) => r.amount },
+              ...(admin ? [{ key: 'del', label: '', noExport: true, render: (r) => <button className="btn ghost sm danger" onClick={(e) => { e.stopPropagation(); setDelPay(r); }}>Delete</button> }] : []),
             ]}
           />
           <p className="muted small pad-x">Showing the last 13 months.</p>
@@ -70,7 +73,8 @@ export default function Billing({ user, params }) {
       {tab === 'orders' && <OrderBalances />}
       {tab === 'receivables' && <Receivables invoices={invoices.filter(live)} />}
       {newInv && <InvoiceForm onClose={() => setNewInv(false)} onSaved={(id) => go('billing/invoices/' + id)} />}
-      {openId && <InvoiceView id={openId} canWrite={canWrite} onClose={() => go('billing/invoices')} />}
+      {openId && <InvoiceView id={openId} canWrite={canWrite} admin={admin} onClose={() => go('billing/invoices')} />}
+      {delPay && <DeletePayment payment={delPay} onClose={() => setDelPay(null)} />}
     </div>
   );
 }
@@ -123,11 +127,12 @@ function Receivables({ invoices }) {
   );
 }
 
-function InvoiceView({ id, canWrite, onClose }) {
+function InvoiceView({ id, canWrite, admin, onClose }) {
   const inv = useDoc('invoices', id);
   const payments = useCol('payments', [['invoiceId', '==', id]]);
   const company = useSettings();
   const [modal, setModal] = useState(null);
+  const [delPay, setDelPay] = useState(null);
   if (!inv) return null;
   const bal = num(inv.total) - num(inv.paid);
   const cancelled = inv.status === 'Cancelled';
@@ -137,6 +142,7 @@ function InvoiceView({ id, canWrite, onClose }) {
       <Modal title={'Invoice ' + inv.number} onClose={onClose}
         footer={<>
           {canWrite && !payments.length && !cancelled && <button className="btn ghost danger" onClick={() => setModal('cancel')}>Cancel invoice</button>}
+          {admin && <button className="btn ghost danger" onClick={() => setModal('delete')}>Delete</button>}
           <span className="spacer" />
           {canWrite && !payments.length && !cancelled && <button className="btn ghost" onClick={() => setModal('edit')}>Edit</button>}
           {bal > 0.5 && !cancelled && inv.phone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(inv.phone, reminder)}>WhatsApp reminder</a>}
@@ -157,13 +163,15 @@ function InvoiceView({ id, canWrite, onClose }) {
         <ul className="list">{(inv.items || []).map((it, i) => <li key={i}><span>{it.desc}{it.hsn && <span className="muted small"> · HSN/SAC {it.hsn}</span>}</span><span className="nowrap">{it.qty} × {inr(it.rate)}</span></li>)}</ul>
         {payments.length > 0 && (<>
           <h4 className="section-title">Payments</h4>
-          <ul className="list">{payments.map((p) => <li key={p.id}><span>{fmtDate(p.date)} · {p.mode} {p.ref && '· ' + p.ref}</span><b>{inr(p.amount)}</b></li>)}</ul>
+          <ul className="list">{payments.map((p) => <li key={p.id}><span>{fmtDate(p.date)} · {p.mode} {p.ref && '· ' + p.ref}</span><span className="nowrap"><b>{inr(p.amount)}</b>{admin && <button className="btn ghost sm danger" style={{ marginLeft: 8 }} onClick={() => setDelPay(p)}>Delete</button>}</span></li>)}</ul>
         </>)}
       </Modal>
       {modal === 'pay' && <PaymentForm invoice={inv} onClose={() => setModal(null)} />}
       {modal === 'print' && <PrintDoc kind="Tax Invoice" doc={inv} company={company} onClose={() => setModal(null)} />}
       {modal === 'edit' && <InvoiceForm initial={inv} onClose={() => setModal(null)} />}
       {modal === 'cancel' && <CancelInvoice inv={inv} onClose={() => setModal(null)} />}
+      {modal === 'delete' && <DeleteInvoice inv={inv} onClose={() => setModal(null)} onDeleted={onClose} />}
+      {delPay && <DeletePayment payment={delPay} onClose={() => setDelPay(null)} />}
     </>
   );
 }
