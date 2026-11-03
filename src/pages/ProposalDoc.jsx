@@ -74,7 +74,8 @@ export default function ProposalDoc({ p, onClose }) {
   const sheet = (n, body) => <Sheet company={company} page={n} total={T} refNo={refNo}>{body}</Sheet>;
 
   return (
-    <PrintFrame title={'Quotation ' + refNo} fileName={fileName} onClose={onClose}>
+    <PrintFrame title={'Quotation ' + refNo} fileName={fileName} onClose={onClose}
+      whatsapp={{ phone: p.contactPhone, text: `Dear ${p.contactPerson || p.clientName}, thank you for your enquiry. Please find attached our proposal ${refNo} for ${p.title || 'the elevator'}${subtotal ? ` — ${money(subtotal)} + GST` : ''}. Happy to answer any questions. — ${sales?.name || p.salesName || company.letterName || 'Dee Cee Elevators'}${sales?.phone ? ', ' + sales.phone : ''}` }}>
       <div className="sheets">
         {/* PAGE 1 — covering letter */}
         {sheet(1, <>

@@ -193,7 +193,7 @@ function ClientTab({ id, user }) {
             {can(user, 'drawing', 'sales') && p.drawing?.status === 'Issued' && <button className="btn ghost sm" onClick={approveDrawing}>Approved by client</button>}
           </>}>
             {!adv && can(user, 'drawing') && <p className="muted small">The drawing can be issued once the advance is received.</p>}
-            <FileList projectId={p.id} kind="Drawing" canDelete={can(user, 'drawing')} canToggle={can(user, 'drawing', 'sales')} />
+            <FileList projectId={p.id} kind="Drawing" canDelete={can(user, 'drawing')} canToggle={can(user, 'drawing', 'sales')} phone={p.contactPhone} clientName={p.contactPerson || p.clientName} />
           </Card>
 
           {/* SITE READINESS */}
@@ -255,7 +255,7 @@ function ClientTab({ id, user }) {
           <PhotoGrid refId={p.id} canDelete={can(user, 'projects')} canToggleClient />
         </Card>
         <Card title="Documents" actions={<button className="btn ghost sm" onClick={() => setModal({ t: 'doc' })}>+ Upload</button>}>
-          <FileList projectId={p.id} kind="Document" canDelete={can(user, 'sales', 'projects')} canToggle />
+          <FileList projectId={p.id} kind="Document" canDelete={can(user, 'sales', 'projects')} canToggle phone={p.contactPhone} clientName={p.contactPerson || p.clientName} />
         </Card>
         <Card title="Client & site">
           <dl className="dl">

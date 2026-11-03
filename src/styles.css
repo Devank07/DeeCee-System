@@ -621,3 +621,11 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .mb { margin-bottom: 10px; }
 @media (max-width: 640px) { .colour-row { grid-template-columns: 30px 1fr; } .colour-row select { grid-column: span 2; } }
 .costing-line { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line-2); flex-wrap: wrap; }
+
+/* WhatsApp / PDF sharing */
+.btn.wa-btn { background: #1fa855; color: #fff; }
+.btn.wa-btn:hover { filter: brightness(1.05); }
+.wa-text { color: #13853f !important; }
+.spinner.sm { width: 18px; height: 18px; border-width: 2px; }
+.share-file { display: flex; gap: 12px; align-items: center; background: var(--grey-soft); border-radius: 12px; padding: 10px 12px; }
+.pdf-capture { width: 190mm !important; background: #fff; padding: 0 !important; }

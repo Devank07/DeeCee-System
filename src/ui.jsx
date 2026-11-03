@@ -327,13 +327,14 @@ export function PhotoGrid({ refId, canDelete, canToggleClient }) {
 /* ---------- files: drawings & documents ---------- */
 const fmtSize = (b) => (b > 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
 
-export function FileList({ projectId, kind, canDelete, canToggle, clientView, clientId, hideEmpty }) {
+export function FileList({ projectId, kind, canDelete, canToggle, clientView, clientId, hideEmpty, phone, clientName }) {
   const { teamId } = useScope();
   const base = clientView ? [['clientId', '==', clientId], ['projectId', '==', projectId], ['visibleToClient', '==', true]] : [['projectId', '==', projectId]];
   const all = useCol('files', scoped(base, teamId), !!projectId);
   const files = all.filter((f) => !f.uploading && (!kind || f.kind === kind)).sort((a, b) => b.at - a.at);
   const [busy, setBusy] = useState(null);
   const [del, setDel] = useState(null);
+  const [send, setSend] = useState(null);
   const open = async (f, download) => {
     setBusy(f.id);
     try {
@@ -365,12 +366,14 @@ export function FileList({ projectId, kind, canDelete, canToggle, clientView, cl
             <div className="row gap">
               <button className="btn ghost sm" disabled={busy === f.id} onClick={() => open(f, false)}>{busy === f.id ? 'Opening…' : 'Open'}</button>
               <button className="btn ghost sm" disabled={busy === f.id} onClick={() => open(f, true)}>Download</button>
+              {!clientView && <button className="btn ghost sm wa-text" onClick={() => setSend(f)}><WaIcon /> WhatsApp</button>}
               {canToggle && <button className="btn ghost sm" onClick={() => updateDoc('files', f.id, { visibleToClient: !f.visibleToClient }, f.title)}>{f.visibleToClient ? 'Hide from client' : 'Show to client'}</button>}
               {canDelete && <button className="icon-btn" aria-label="Delete file" onClick={() => setDel(f)}>✕</button>}
             </div>
           </li>
         ))}
       </ul>
+      {send && <ShareSheet title={send.title || send.name} fileName={send.name} phone={phone} text={`Dear ${clientName || 'Sir/Madam'}, please find attached ${send.kind === 'Drawing' ? 'the drawing' : ''} ${send.title || send.name}${send.kind === 'Drawing' ? ' (Rev ' + send.rev + ')' : ''}. — Dee Cee Elevators`.replace(/\s+/g, ' ')} getFile={async () => new File([await fetchFileBlob(send)], send.name, { type: send.type || 'application/octet-stream' })} onClose={() => setSend(null)} />}
       {del && (
         <Modal title="Delete file?" onClose={() => setDel(null)} footer={<><button className="btn ghost" onClick={() => setDel(null)}>Keep</button><button className="btn danger-btn" onClick={() => act(() => deleteFile(del), 'File deleted').then(() => setDel(null))}>Delete</button></>}>
           <p>Delete <b>{del.title || del.name}</b>? Everyone will lose access to it.</p>
@@ -473,7 +476,8 @@ export function PrintDoc({ kind, doc, company, onClose }) {
   const intra = pos && company.state ? pos === company.state : (company.gstin || '').slice(0, 2) === (doc.clientGstin || company.gstin || '').slice(0, 2);
   const showHsn = (doc.items || []).some((i) => i.hsn);
   return (
-    <PrintFrame title={kind} fileName={`${kind} ${doc.number || ''} ${doc.clientName || ''}`} onClose={onClose}>
+    <PrintFrame title={kind} fileName={`${kind} ${doc.number || ''} ${doc.clientName || ''}`} onClose={onClose}
+      whatsapp={{ phone: doc.phone, text: isInvoice ? `Dear ${doc.clientName}, please find attached Tax Invoice ${doc.number} dated ${fmtDate(doc.date)} for ${inr(t.total)}${num(doc.paid) < t.total ? ` (balance due ${inr(t.total - num(doc.paid))})` : ''}. — ${company.name}` : `Dear ${doc.clientName || 'Sir/Madam'}, please find attached ${kind} ${doc.number || ''}. — ${company.name}` }}>
       <div className="print-area">
         {doc.status === 'Cancelled' && <div className="pd-cancel">CANCELLED</div>}
         <div className="pd-head">
@@ -543,19 +547,109 @@ export function PrintDoc({ kind, doc, company, onClose }) {
 }
 
 /* Print / PDF window: rendered outside the app so only the document prints */
-export function PrintFrame({ title, fileName, onClose, children }) {
+export function PrintFrame({ title, fileName, onClose, children, whatsapp }) {
+  const ref = useRef(null);
+  const [share, setShare] = useState(false);
+  const name = (fileName || title || 'document').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
   const print = () => {
     const old = document.title;
-    if (fileName) document.title = fileName.replace(/[\\/:*?"<>|]+/g, ' ').trim();
+    document.title = name;
     window.print();
     setTimeout(() => { document.title = old; }, 1500);
   };
   return createPortal(
     <div className="print-host">
-      <Modal title={title} onClose={onClose} wide footer={<><button className="btn ghost" onClick={onClose}>Close</button><button className="btn" onClick={print}>Print / Save as PDF</button></>}>
-        {children}
+      <Modal title={title} onClose={onClose} wide footer={<>
+        <button className="btn ghost" onClick={onClose}>Close</button>
+        <span className="spacer" />
+        <button className="btn ghost" onClick={print}>Print</button>
+        <button className="btn wa-btn" onClick={() => setShare(true)}><WaIcon /> Send on WhatsApp / PDF</button>
+      </>}>
+        <div ref={ref}>{children}</div>
       </Modal>
+      {share && <ShareSheet title={title} fileName={name + '.pdf'} phone={whatsapp?.phone} text={whatsapp?.text} getFile={() => elementToPdf(ref.current, name + '.pdf')} onClose={() => setShare(false)} />}
     </div>,
     document.body,
+  );
+}
+
+/* ---------- PDF + WhatsApp sharing ---------- */
+export const WaIcon = () => (
+  <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" style={{ flexShrink: 0 }}><path fill="currentColor" d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3 .8.8-2.9-.2-.3A8.2 8.2 0 1 1 12 20.2zm4.5-6.1c-.2-.1-1.5-.7-1.7-.8-.2-.1-.4-.1-.6.1l-.8 1c-.1.2-.3.2-.5.1a6.7 6.7 0 0 1-3.3-2.9c-.3-.4.3-.4.7-1.4.1-.2 0-.3 0-.4l-.8-1.8c-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.4.1-.6.3-.2.2-.8.8-.8 2s.8 2.3.9 2.5c.1.2 1.6 2.5 4 3.5 1.5.6 2.1.7 2.8.6.5-.1 1.5-.6 1.7-1.2.2-.6.2-1.1.2-1.2-.1-.1-.2-.2-.4-.2z" /></svg>
+);
+
+// Turn the on-screen document into an A4 PDF file (page-by-page for proposals, auto-split for invoices)
+export async function elementToPdf(container, fileName) {
+  const [{ jsPDF }, h2c] = await Promise.all([import('jspdf'), import('html2canvas')]);
+  const html2canvas = h2c.default || h2c;
+  const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  const sheets = [...container.querySelectorAll('.sheet')];
+  const shot = (el) => html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 1200, scrollX: 0, scrollY: -window.scrollY });
+  if (sheets.length) {
+    for (let i = 0; i < sheets.length; i++) {
+      const c = await shot(sheets[i]);
+      if (i) pdf.addPage();
+      pdf.addImage(c.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, 210, 297);
+    }
+  } else {
+    const el = container.querySelector('.print-area') || container;
+    el.classList.add('pdf-capture');
+    try {
+      const c = await shot(el);
+      const w = 190; const pageH = 277;
+      const pxPerMm = c.width / w; const slicePx = Math.floor(pageH * pxPerMm);
+      for (let y = 0, i = 0; y < c.height; y += slicePx, i++) {
+        const part = document.createElement('canvas');
+        part.width = c.width; part.height = Math.min(slicePx, c.height - y);
+        const ctx = part.getContext('2d');
+        ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, part.width, part.height);
+        ctx.drawImage(c, 0, y, c.width, part.height, 0, 0, c.width, part.height);
+        if (i) pdf.addPage();
+        pdf.addImage(part.toDataURL('image/jpeg', 0.9), 'JPEG', 10, 10, w, part.height / pxPerMm);
+      }
+    } finally { el.classList.remove('pdf-capture'); }
+  }
+  return new File([pdf.output('blob')], fileName, { type: 'application/pdf' });
+}
+
+function saveFile(file) {
+  const url = URL.createObjectURL(file);
+  const a = document.createElement('a');
+  a.href = url; a.download = file.name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+const waUrl = (phone, text) => {
+  const d = String(phone || '').replace(/\D/g, '');
+  const num = d.length === 10 ? '91' + d : d;
+  return `https://wa.me/${num}?text=${encodeURIComponent(text || '')}`;
+};
+
+/* Share sheet: builds the file, then lets the user send it on WhatsApp (phone share menu) or download + open the chat */
+export function ShareSheet({ title, fileName, phone, text, getFile, onClose }) {
+  const [file, setFile] = useState(null);
+  const [err, setErr] = useState('');
+  const [to, setTo] = useState(phone || '');
+  const [msg, setMsg] = useState(text || `Please find attached ${title || 'the document'}. — Dee Cee Elevators`);
+  useEffect(() => { let on = true; getFile().then((f) => on && setFile(f)).catch((e) => { console.error(e); on && setErr('Could not create the file: ' + (e.message || e)); }); return () => { on = false; }; }, []);
+  const canShareFile = !!(file && navigator.canShare && navigator.canShare({ files: [file] }));
+  const shareNow = async () => {
+    try { await navigator.share({ files: [file], text: msg, title: fileName }); onClose(); }
+    catch (e) { if (e.name !== 'AbortError') toast('Sharing was blocked — use “Download & open chat” instead', 'err'); }
+  };
+  const openChat = () => { saveFile(file); window.open(waUrl(to, msg), '_blank', 'noopener'); toast('PDF saved — attach it in the WhatsApp chat (📎 → Document)'); };
+  return (
+    <Modal title="Send on WhatsApp" onClose={onClose} footer={<button className="btn ghost" onClick={onClose}>Close</button>}>
+      {err ? <Note tone="red">{err}</Note> : !file ? <div className="row gap"><div className="spinner sm" /> <span className="muted">Preparing PDF…</span></div> : (
+        <div className="stack">
+          <div className="share-file"><span className="file-ico">PDF</span><div><b>{file.name}</b><div className="muted small">{Math.max(1, Math.round(file.size / 1024))} KB</div></div></div>
+          <Field label="Client WhatsApp number"><input value={to} onChange={(e) => setTo(e.target.value)} placeholder="98xxxxxxxx" inputMode="tel" /></Field>
+          <Field label="Message"><textarea rows={3} value={msg} onChange={(e) => setMsg(e.target.value)} /></Field>
+          {canShareFile && <button className="btn wa-btn wide" onClick={shareNow}><WaIcon /> Send PDF on WhatsApp</button>}
+          <button className={'btn wide ' + (canShareFile ? 'ghost' : 'wa-btn')} onClick={openChat}><WaIcon /> Download &amp; open chat{to ? ' with ' + to : ''}</button>
+          <button className="btn ghost wide" onClick={() => saveFile(file)}>Download PDF only</button>
+          <p className="muted small">{canShareFile ? '“Send PDF on WhatsApp” opens your phone’s share menu with the PDF attached — pick WhatsApp, then the client.' : 'This computer can’t attach files to WhatsApp directly. The PDF is saved and the chat opens with the message — attach it with 📎 → Document.'}</p>
+        </div>
+      )}
+    </Modal>
   );
 }

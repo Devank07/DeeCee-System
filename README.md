@@ -48,6 +48,7 @@ This is enforced by the database rules (`firestore.rules`), not just hidden in t
 - **Alerts**: a new complaint (e.g. from the client portal) shows a red banner with a sound for Admin and Service, plus a desktop notification if turned on. *(Phone push notifications need Firebase's paid plan and are not included yet.)*
 - **Material & Stock**: stock with minimum levels, purchase orders (receive → stock in), dispatch challans, vendors, stock ledger. Stock and payment totals update safely even when two people save at the same moment.
 - **Staff & Teams**: staff records, **site teams** (installation crews, service team), attendance; salaries visible only to Admin & Accounts.
+- **Send on WhatsApp**: every quotation, invoice, delivery challan, purchase order, drawing and uploaded document has a green *Send on WhatsApp* button. It makes the PDF (named after the client), fills in the client's number and a ready message. On a phone (or a Windows PC with the WhatsApp app) the PDF is attached directly through the share menu; on other computers the PDF is downloaded and the client's WhatsApp chat opens with the message — attach it with 📎 → Document.
 - **Audit log**, **CSV export** on every table, **full backup** in Settings.
 
 ---
