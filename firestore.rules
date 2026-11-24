@@ -128,7 +128,8 @@ service cloud.firestore {
       allow read: if isOffice() || teamDoc() || ownsDoc();
       allow create: if isOffice();
       allow update: if isOffice()
-        || (teamDoc() && onlyChanges(['status', 'startedAt', 'doneAt', 'doneBy', 'checklist', 'notes', 'partsUsed', 'customerName', 'signature', 'updatedAt', 'updatedBy']));
+        || (teamDoc() && onlyChanges(['status', 'startedAt', 'doneAt', 'doneBy', 'checklist', 'notes', 'partsUsed', 'customerName', 'signature', 'updatedAt', 'updatedBy']))
+        || (ownsDoc() && onlyChanges(['rating', 'feedback', 'ratedAt', 'updatedAt', 'updatedBy']));
       allow delete: if hasRole(['service', 'projects']);
     }
     match /complaints/{id} {
@@ -136,12 +137,24 @@ service cloud.firestore {
       allow create: if isOffice()
         || (isClient() && request.resource.data.clientId == profile().clientId && request.resource.data.status == 'Open');
       allow update: if isOffice()
-        || (teamDoc() && onlyChanges(['status', 'resolution', 'resolvedAt', 'updatedAt', 'updatedBy']));
+        || (teamDoc() && onlyChanges(['status', 'resolution', 'resolvedAt', 'updatedAt', 'updatedBy']))
+        || (ownsDoc() && onlyChanges(['rating', 'feedback', 'ratedAt', 'updatedAt', 'updatedBy']));
       allow delete: if isAdmin();
     }
     match /amcs/{id} {
       allow read: if isOffice() || ownsDoc();
       allow create, update: if hasRole(['service', 'projects']);
+      allow delete: if isAdmin();
+    }
+
+    // ---- Sent by clients from the portal: payment details, drawing approval, site ready, messages, AMC renewal ----
+    match /clientRequests/{id} {
+      allow read: if isOffice() || ownsDoc();
+      allow create: if isClient() && request.resource.data.clientId == profile().clientId
+        && request.resource.data.status == 'New'
+        && request.resource.data.type in ['payment', 'drawing', 'site', 'message', 'amc']
+        && request.resource.data.get('images', []).size() <= 3;
+      allow update: if isOffice();
       allow delete: if isAdmin();
     }
 

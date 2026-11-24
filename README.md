@@ -38,9 +38,20 @@ Locked steps show *why* they're locked (e.g. "Waiting for site ready"). Only the
 | Service & AMC | Dashboard, Clients, Orders, Service & AMC, Staff & Teams, Field App |
 | Accounts | Dashboard, Clients, Orders, Billing, Staff & attendance |
 | **Technician** | **Phone app only — just their own team's sites and jobs**: drawings, site status, installation progress, photos (shared with the client), job reports with customer signature, check-in |
-| Client | Their own portal: live pipeline, drawings, photos, payments, invoices, AMC, report a problem |
+| Client | Their own portal (phone-first): see the **Client portal** section below |
 
 This is enforced by the database rules (`firestore.rules`), not just hidden in the menu. A technician's phone cannot load another team's site even if they know the link.
+
+## Client portal
+Clients log in at the same address with the login you create (**Clients → open client → Client portal login**). On a phone it has a bottom tab bar:
+- **Home** — progress ring, current stage and target handover, *Needs your attention* (pay advance, approve drawing, get site ready, invoice due, rate a fix), quick actions, and **your Dee Cee team**: salesperson, site-team leader and office, with Call / WhatsApp buttons.
+- **Progress** — all 8 stages explained in plain words with dates, *your part* where the client must act, installation checklist, site photos, all updates.
+- **Documents** — separate sections for **Quotations** (current + earlier versions), **Drawings** (approve / ask for changes), **Invoices**, **Payment receipts** and **Other documents**. Every document can be viewed, downloaded as PDF or sent on WhatsApp.
+- **Payments** — order value / paid / balance, milestones, invoices to pay, bank details with Copy, and **I have made a payment** (amount, UTR, screenshot).
+- **Service** — report a problem (with photo), complaint tracker (Received → Assigned → In progress → Resolved, with team name), AMC status and **Request renewal**, upcoming visits, service history, and star ratings.
+
+**What clients send reaches the office** as *From the client* on the client tab and *From clients* on the Dashboard (with a red count on the menu). On the client tab the buttons do the real work: **Record this payment** (pre-filled), **Mark drawing approved**, **Verified — mark site ready**. Any reply typed there shows up in the client's portal.
+Contact cards are copied automatically from the staff record (salesperson) and the team leader of the assigned site team, so keep their phone numbers filled in under Staff & Teams.
 
 ## Other modules
 - **Billing**: GST tax invoices with HSN/SAC per line and *place of supply* (CGST+SGST in your state, IGST outside), amount in words, cancel invoice (number kept), payments by milestone, **Admin can delete** a wrong/test payment (invoice balance and advance are reversed) or a test invoice (with its payments) — every deletion stays in the Audit log, order balances, invoice ageing, WhatsApp reminders.

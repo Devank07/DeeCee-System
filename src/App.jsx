@@ -14,6 +14,7 @@ import Inventory from './pages/Inventory';
 import Staff from './pages/Staff';
 import FieldApp from './pages/FieldApp';
 import Portal from './pages/Portal';
+import { REQ_TYPES } from './pages/ClientRequests';
 import Audit from './pages/Audit';
 import Settings from './pages/Settings';
 
@@ -45,7 +46,9 @@ function useBadges(user) {
   const orders = useCol('projects', [['status', '==', 'Order']], office);
   const enquiries = useCol('projects', [['status', '==', 'Enquiry']], hasAny(user, 'sales'));
   const today = new Date().toISOString().slice(0, 10);
+  const reqs = useCol('clientRequests', [['status', '==', 'New']], office);
   return {
+    dashboard: reqs.filter((r) => hasAny(user, ...(REQ_TYPES[r.type] || REQ_TYPES.message).roles)).length,
     orders: orders.filter((p) => openTasks(p, rolesOf(user)).length).length,
     enquiries: enquiries.filter((p) => (p.enquiry?.followUpDate && p.enquiry.followUpDate <= today) || !p.quote?.items?.some((i) => Number(i.rate) > 0)).length,
   };

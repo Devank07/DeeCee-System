@@ -51,9 +51,10 @@ function ClientBlock({ p, x }) {
 
 const H = ({ children }) => <div className="pp-h"><span>{children}</span></div>;
 
-export default function ProposalDoc({ p, onClose }) {
+export default function ProposalDoc({ p, onClose, clientView }) {
   const company = useSettings();
-  const sales = useDoc('staff', p.salesBy || null);
+  const staffSales = useDoc('staff', clientView ? null : p.salesBy || null);
+  const sales = staffSales || p.contacts?.sales || null;
   const x = p.proposal || {};
   const q = p.quote || {};
   const refNo = q.refNo || p.quoteNo;

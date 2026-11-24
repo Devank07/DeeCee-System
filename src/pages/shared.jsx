@@ -98,7 +98,7 @@ export function InvoiceForm({ initial = {}, onClose, onSaved }) {
 }
 
 /* -------- Record a payment: against an order milestone and/or an invoice -------- */
-export function PaymentForm({ project, invoice, milestone: initialMs, confirmAdvance: confirmDefault, onClose }) {
+export function PaymentForm({ project, invoice, milestone: initialMs, confirmAdvance: confirmDefault, prefill, onSaved, onClose }) {
   const payments = useCol('payments', [['projectId', '==', project?.id || invoice?.projectId || '_none_']], !!(project?.id || invoice?.projectId));
   const msList = project?.milestones || [];
   const paidFor = (i) => sum(payments.filter((p) => p.milestone === i), 'amount');
@@ -106,7 +106,7 @@ export function PaymentForm({ project, invoice, milestone: initialMs, confirmAdv
   const startMs = initialMs ?? invoice?.milestone ?? (firstDue === -1 ? '' : firstDue);
   const msDefault = startMs === '' ? 0 : Math.max(0, num(msList[startMs]?.amount) - paidFor(startMs));
   const invBal = invoice ? num(invoice.total) - num(invoice.paid) : 0;
-  const { f, bind, setF } = useForm({ amount: invoice ? invBal : msDefault, date: today(), mode: PAY_MODES[0], ref: '', milestone: startMs });
+  const { f, bind, setF } = useForm({ amount: invoice ? invBal : msDefault, date: today(), mode: PAY_MODES[0], ref: '', milestone: startMs, ...Object.fromEntries(Object.entries(prefill || {}).filter(([, v]) => v !== undefined && v !== '' && v !== null)) });
   const needsAdvance = project && !project.advance?.confirmed;
   const [confirmAdv, setConfirmAdv] = useState(confirmDefault ?? (needsAdvance && Number(startMs) === 0));
   const save = async () => {
@@ -122,6 +122,7 @@ export function PaymentForm({ project, invoice, milestone: initialMs, confirmAdv
         clientId: proj?.clientId || invoice?.clientId, clientName: proj?.clientName || invoice?.clientName, amount: amt, date: f.date, mode: f.mode, ref: f.ref,
       }, invNo || proj?.code || '');
       if (invId) await updateDoc('invoices', invId, { paid: inc(amt) }, invNo);
+      if (onSaved) await onSaved();
       const msName = ms != null && proj?.milestones?.[ms] ? ` (${proj.milestones[ms].name})` : '';
       await postActivity({ projectId: proj?.id || null, clientId: proj?.clientId || invoice?.clientId, text: `Payment of ${inr(amt)} received${msName}. Thank you!`, visibleToClient: true, kind: 'billing' });
       if (proj && confirmAdv && !proj.advance?.confirmed) {

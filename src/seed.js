@@ -296,12 +296,23 @@ export function seedData() {
     },
   };
 
+  // Contact cards the client sees in the portal (normally kept up to date by the office app)
+  Object.values(projects).forEach((p) => {
+    const s = staff[p.salesBy]; const t = teams[p.teamId]; const l = t && staff[t.leaderId];
+    p.contacts = {
+      sales: s ? { name: s.name, phone: s.phone || '', email: s.email || '', designation: s.designation || '', quoteSignature: s.quoteSignature || '' } : null,
+      lead: l ? { name: l.name, phone: l.phone || '', email: l.email || '', designation: l.designation || '', team: t.name } : t ? { name: '', phone: '', email: '', designation: '', team: t.name } : null,
+    };
+  });
+  const clientRequests = {
+    cr1: { type: 'message', status: 'New', at: now - 3 * H, clientId: 'c_green', clientName: clients.c_green.name, projectId: 'p1', projectCode: projects.p1.code, projectTitle: projects.p1.title, subject: 'Site or schedule', text: 'Can the team start the second lift cabin before Diwali? Our residents are asking.', images: [] },
+  };
   const stamp = (obj, baseT = now - 30 * D) => { Object.values(obj).forEach((o, i) => { o.createdAt ||= baseT + i * H; }); return obj; };
   return {
     teams, staff: stamp(staff), clients: stamp(clients), projects: stamp(projects), invoices: stamp(invoices), payments: stamp(payments), amcs: stamp(amcs),
     complaints: stamp(complaints), visits: stamp(visits), items: stamp(items), vendors: stamp(vendors), files, 'files/f1/chunks': { 0: { d: sampleDrawing('2 x Passenger lifts - Tower B, Green Valley Apartments', '1800 x 1900', '1500', '4200') } },
     'files/f2/chunks': { 0: { d: sampleDrawing('Stretcher lift - New OT Block, City Care Hospital', '2400 x 2700', '1600', '4600') } },
-    purchaseOrders: stamp(purchaseOrders), dispatches: stamp(dispatches), stockMoves, activity, attendance, users, settings, photos: {}, audit: {},
+    purchaseOrders: stamp(purchaseOrders), dispatches: stamp(dispatches), stockMoves, activity, attendance, users, settings, photos: {}, audit: {}, clientRequests,
     counters: { 'PRJ_26-27': { n: 3 }, 'INV_26-27': { n: 5 }, 'AMC_26-27': { n: 1 }, 'CMP_26-27': { n: 3 }, 'QT_26-27': { n: 10 }, 'PO_26-27': { n: 3 }, 'DSP_26-27': { n: 4 }, QREF: { n: 2830 } },
   };
 }

@@ -1,155 +1,714 @@
-import React, { useState } from 'react';
-import { logoUrl, useCol, Card, Badge, Empty, Pipeline, ActivityFeed, Modal, Field, Select, useForm, act, PrintDoc, useSettings, Tabs, ProgressBar, FileList } from '../ui';
-import { addDoc, nextNumber, backend } from '../data';
-import { inr, fmtDate, fmtDateTime, num, sum, daysUntil, waLink } from '../utils';
-import { steps, progressPct, milestoneStatus } from '../workflow';
+// Client portal — phone-first. Home · Progress · Documents · Payments · Service
+import React, { useEffect, useMemo, useState } from 'react';
+import { logoUrl, useCol, Badge, Empty, Modal, Field, Select, useForm, act, PrintDoc, PrintFrame, useSettings, ProgressBar, toast, WaIcon } from '../ui';
+import { addDoc, updateDoc, nextNumber, backend, fetchFileBlob } from '../data';
+import { inr, fmtDate, fmtDateTime, num, sum, daysUntil, waLink, compressImage, today, amountInWords } from '../utils';
+import { steps, progressPct, milestoneStatus, quoteTotal } from '../workflow';
+import { SITE_CHECKLIST, INSTALL_STEPS, PAY_MODES } from '../constants';
 import { invStatus } from './Billing';
+import ProposalDoc from './ProposalDoc';
+
+/* What each stage means for the client, and what (if anything) they need to do */
+const STEP_INFO = {
+  quote: { text: 'Our proposal with the lift specifications and price.' },
+  order: { text: 'Your order is booked and your project file is opened.' },
+  advance: { text: 'The advance payment starts the drawing and the manufacturing of your lift.', you: 'Pay the advance and send us the payment details.' },
+  drawing: { text: 'Our drawing team prepares the lift layout drawing (GA drawing) for your approval.', you: 'Check the drawing, then approve it or ask for changes.' },
+  site: { text: 'The shaft, pit, machine room / top and power supply must be ready before material arrives.', you: 'Get the site ready as per the checklist and tell us.' },
+  dispatch: { text: 'Your lift material is manufactured, packed and sent to your site.' },
+  install: { text: 'Our installation team fits the rails, machine, cabin, doors and wiring, then tests the lift.' },
+  handover: { text: 'Final testing, lift licence and handover of keys, manuals and warranty.', you: 'Receive the lift and sign the handover.' },
+};
+const COMPLAINT_FLOW = ['Open', 'Assigned', 'In Progress', 'Resolved'];
+
+/* ---------- small icons ---------- */
+const I = {
+  home: <path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
+  progress: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,
+  docs: <path d="M7 3h7l5 5v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM14 3v5h5M9 13h6M9 17h6" />,
+  pay: <path d="M3 7h18v12H3zM3 11h18M7 15h3" />,
+  service: <path d="M14.7 6.3a4 4 0 0 0-5.4 5.4L3 18l3 3 6.3-6.3a4 4 0 0 0 5.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z" />,
+  phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2" />,
+  chat: <path d="M4 5h16v11H8l-4 4z" />,
+  alert: <path d="M12 3 2 20h20zM12 10v4M12 17v.5" />,
+  check: <path d="m5 12 5 5L20 7" />,
+};
+const Ico = ({ n, size = 20 }) => <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{I[n]}</svg>;
+
+function Ring({ pct, size = 104 }) {
+  const r = (size - 12) / 2, c = 2 * Math.PI * r;
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="ring" aria-label={pct + '% complete'}>
+      <circle cx={size / 2} cy={size / 2} r={r} className="ring-bg" />
+      <circle cx={size / 2} cy={size / 2} r={r} className="ring-fg" strokeDasharray={c} strokeDashoffset={c * (1 - pct / 100)} transform={`rotate(-90 ${size / 2} ${size / 2})`} />
+      <text x="50%" y="50%" dominantBaseline="central" textAnchor="middle">{pct}%</text>
+    </svg>
+  );
+}
+
+const TABS = [['home', 'Home'], ['progress', 'Progress'], ['docs', 'Documents'], ['pay', 'Payments'], ['service', 'Service']];
 
 export default function Portal({ user }) {
   const cid = user.clientId || '_none_';
   const company = useSettings();
-  const projects = useCol('projects', [['clientId', '==', cid]]).filter((p) => ['Order', 'Completed', 'On Hold'].includes(p.status));
+  const all = useCol('projects', [['clientId', '==', cid]]);
+  const projects = useMemo(() => all.filter((p) => !['Lost', 'Cancelled'].includes(p.status) && (p.orderConfirmedAt || quoteTotal(p) > 0))
+    .sort((a, b) => (a.status === 'Order' ? 0 : a.status === 'Enquiry' ? 1 : 2) - (b.status === 'Order' ? 0 : b.status === 'Enquiry' ? 1 : 2) || (b.orderConfirmedAt || 0) - (a.orderConfirmedAt || 0)), [all]);
+  const orders = projects.filter((p) => ['Order', 'Completed', 'On Hold'].includes(p.status));
   const invoices = useCol('invoices', [['clientId', '==', cid]]).filter((i) => i.status !== 'Cancelled');
   const payments = useCol('payments', [['clientId', '==', cid]]);
   const amcs = useCol('amcs', [['clientId', '==', cid]]);
   const complaints = useCol('complaints', [['clientId', '==', cid]]);
   const visits = useCol('visits', [['clientId', '==', cid]]);
   const activity = useCol('activity', [['clientId', '==', cid], ['visibleToClient', '==', true]]);
-  const [tab, setTab] = useState('projects');
-  const [raise, setRaise] = useState(false);
-  const [print, setPrint] = useState(null);
-  const due = sum(invoices, (i) => num(i.total) - num(i.paid));
-  const openC = complaints.filter((c) => !['Resolved', 'Closed'].includes(c.status));
+  const files = useCol('files', [['clientId', '==', cid], ['visibleToClient', '==', true]]).filter((f) => !f.uploading);
+  const requests = useCol('clientRequests', [['clientId', '==', cid]]);
+  const [tab, setTabRaw] = useState(() => { try { return sessionStorage.getItem('portalTab') || 'home'; } catch { return 'home'; } });
+  const setTab = (t) => { setTabRaw(t); try { sessionStorage.setItem('portalTab', t); } catch { /* ignore */ } window.scrollTo(0, 0); };
+  const [pid, setPid] = useState(null);
+  const [m, setM] = useState(null); // modal
+  const p = projects.find((x) => x.id === pid) || projects[0] || null;
+  useEffect(() => { if (!pid && projects[0]) setPid(projects[0].id); }, [projects, pid]);
+
+  const ctx = { user, cid, company, projects, orders, invoices, payments, amcs, complaints, visits, activity, files, requests, p, setPid, setTab, setM };
+  const contacts = p?.contacts || {};
+  const officePhone = company.phone;
+  const newReplies = activity.filter((a) => a.kind === 'reply' && Date.now() - a.at < 3 * 86400000).length;
 
   return (
     <div className="portal">
       <header className="portal-head">
         <div className="brand"><img src={logoUrl} alt="" className="brand-logo" /><div><b>Dee Cee Elevators</b><span>Customer portal</span></div></div>
-        <div className="row gap">
-          {company.phone && <a className="btn ghost sm" href={'tel:' + company.phone}>Call us</a>}
+        <nav className="portal-tabs" aria-label="Portal sections">
+          {TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><Ico n={k} size={18} /><span>{l}</span>{k === 'home' && newReplies > 0 && <i className="dotb" />}</button>)}
+        </nav>
+        <div className="row gap portal-head-r">
+          {officePhone && <a className="btn ghost sm" href={'tel:' + officePhone}><Ico n="phone" size={15} /> <span className="hide-sm">Call us</span></a>}
           <button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button>
         </div>
       </header>
-      <div className="portal-body">
-        <h1>Welcome, {user.name}</h1>
-        <div className="stats">
-          <div className="stat"><span className="stat-label">Lift projects</span><span className="stat-value">{projects.length}</span></div>
-          <div className={'stat ' + (due > 0 ? 'amber' : 'green')}><span className="stat-label">Invoices due</span><span className="stat-value">{inr(due)}</span></div>
-          <div className="stat"><span className="stat-label">Open complaints</span><span className="stat-value">{openC.length}</span></div>
-          <div className="stat"><span className="stat-label">AMC</span><span className="stat-value small-v">{amcs.find((a) => daysUntil(a.end) >= 0 && a.status === 'Active') ? 'Active' : amcs.length ? 'Expired' : '—'}</span></div>
-        </div>
-        <button className="btn danger-btn wide" onClick={() => setRaise(true)}>🚨 Report a lift problem</button>
-        <Tabs value={tab} onChange={setTab} tabs={[{ key: 'projects', label: 'My lifts' }, { key: 'payments', label: 'Payments' }, { key: 'service', label: 'Service & AMC' }, { key: 'updates', label: 'Updates' }]} />
 
-        {tab === 'projects' && (projects.length === 0 ? <Empty>No projects yet</Empty> : projects.map((p) => {
-          const paid = sum(payments.filter((x) => x.projectId === p.id), 'amount');
-          const paidFor = (i) => sum(payments.filter((x) => x.projectId === p.id && x.milestone === i), 'amount');
-          const current = steps(p).find((s) => !s.done);
-          return (
-            <Card key={p.id} title={p.title} actions={<Badge>{p.status === 'Order' ? 'In progress' : p.status}</Badge>}>
-              <p className="muted small">{p.code} · {p.siteAddress}</p>
-              <Pipeline p={p} />
-              <div className="portal-now">
-                <div><span className="muted small">Current stage</span><b>{current ? current.label : 'Handed over'}</b></div>
-                <div><span className="muted small">Overall progress</span><b>{progressPct(p)}%</b></div>
-                {p.status === 'Order' && p.expectedHandover && <div><span className="muted small">Expected handover</span><b>{fmtDate(p.expectedHandover)}</b></div>}
-                {p.install?.progress > 0 && p.install.progress < 100 && <div><span className="muted small">Installation</span><b>{p.install.progress}% done</b></div>}
-              </div>
-              <h4 className="section-title">Drawings</h4>
-              <FileList projectId={p.id} clientId={cid} kind="Drawing" clientView />
-              <h4 className="section-title">Payments</h4>
-              <div className="pay-sum">
-                <div><span>Order value</span><b>{inr(p.contractValue)}</b></div>
-                <div><span>Paid</span><b className="ok-text">{inr(paid)}</b></div>
-                <div><span>Balance</span><b>{inr(num(p.contractValue) - paid)}</b></div>
-              </div>
-              <ProgressBar value={(paid / (num(p.contractValue) || 1)) * 100} tone="green" />
-              <ul className="list">{(p.milestones || []).map((m, i) => <li key={i}><span>{m.name} ({m.percent}%)</span><span className="nowrap">{inr(m.amount)} <Badge>{milestoneStatus(m, paidFor(i))}</Badge></span></li>)}</ul>
-              <ClientPhotos cid={cid} pid={p.id} />
-              <FileList projectId={p.id} clientId={cid} kind="Document" clientView hideEmpty />
-            </Card>
-          );
-        }))}
+      <main className="portal-body">
+        {projects.length > 1 && ['home', 'progress'].includes(tab) && (
+          <div className="proj-chips">{projects.map((x) => <button key={x.id} className={x.id === p?.id ? 'on' : ''} onClick={() => setPid(x.id)}>{x.title || x.code}<span>{x.status === 'Enquiry' ? 'Proposal' : x.code}</span></button>)}</div>
+        )}
+        {tab === 'home' && <Home {...ctx} contacts={contacts} />}
+        {tab === 'progress' && <Progress {...ctx} />}
+        {tab === 'docs' && <Documents {...ctx} />}
+        {tab === 'pay' && <Payments {...ctx} />}
+        {tab === 'service' && <Service {...ctx} />}
+      </main>
 
-        {tab === 'payments' && (<>
-          <Card title="Invoices" pad={false}>
-            {invoices.length === 0 ? <Empty>No invoices</Empty> : (
-              <ul className="list pad">{[...invoices].sort((a, b) => (a.date < b.date ? 1 : -1)).map((i) => (
-                <li key={i.id}>
-                  <div><b>{i.number}</b><div className="muted small">{fmtDate(i.date)} · {inr(i.total)}{num(i.paid) > 0 && ' · paid ' + inr(i.paid)}</div></div>
-                  <div className="row gap"><Badge>{invStatus(i)}</Badge><button className="btn ghost sm" onClick={() => setPrint(i)}>View</button></div>
-                </li>
-              ))}</ul>
-            )}
-            {due > 0 && company.bank && <div className="card-body"><b>Pay by bank transfer</b><div className="pre small">{company.bank}</div></div>}
-          </Card>
-          <Card title="Payments received" pad={false}>
-            {payments.length === 0 ? <Empty>No payments yet</Empty> : <ul className="list pad">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => <li key={x.id}><span>{fmtDate(x.date)} · {x.mode}</span><b>{inr(x.amount)}</b></li>)}</ul>}
-          </Card>
-        </>)}
-
-        {tab === 'service' && (<>
-          {amcs.map((a) => (
-            <Card key={a.id} title={`AMC ${a.number}`} actions={<Badge tone={daysUntil(a.end) < 0 ? 'red' : daysUntil(a.end) <= 30 ? 'amber' : 'green'}>{daysUntil(a.end) < 0 ? 'Expired' : 'Active'}</Badge>}>
-              <p>{a.type} · {a.lifts} lift(s) · {fmtDate(a.start)} → {fmtDate(a.end)}</p>
-              {daysUntil(a.end) <= 30 && company.phone && <a className="btn sm" target="_blank" rel="noreferrer" href={waLink(company.phone, `Hello, we would like to renew our AMC ${a.number} (${user.name}).`)}>Request renewal</a>}
-            </Card>
-          ))}
-          <Card title="Complaints">
-            {complaints.length === 0 ? <Empty>No complaints</Empty> : (
-              <ul className="list">{[...complaints].sort((a, b) => b.reportedAt - a.reportedAt).map((c) => (
-                <li key={c.id}><div><b>{c.issue}</b><div className="muted small">{c.number} · {fmtDateTime(c.reportedAt)}{c.resolution && ' · ' + c.resolution}</div></div><Badge>{c.status}</Badge></li>
-              ))}</ul>
-            )}
-          </Card>
-          <Card title="Service visits">
-            {visits.filter((v) => v.status === 'Done').length === 0 ? <Empty>No visits yet</Empty> : (
-              <ul className="list">{visits.filter((v) => v.status === 'Done').sort((a, b) => b.doneAt - a.doneAt).map((v) => (
-                <li key={v.id}><div><b>{v.type}</b><div className="muted small">{fmtDate(v.date)} · {v.notes}</div></div><Badge>Done</Badge></li>
-              ))}</ul>
-            )}
-            {visits.some((v) => v.status !== 'Done') && <p className="muted small">Upcoming: {visits.filter((v) => v.status !== 'Done').map((v) => `${v.type} on ${fmtDate(v.date)}`).join(' · ')}</p>}
-          </Card>
-        </>)}
-
-        {tab === 'updates' && <Card><ActivityFeed items={activity} showFlags={false} limit={60} /></Card>}
-      </div>
-      {raise && <RaiseComplaint user={user} amcs={amcs} projects={projects} onClose={() => setRaise(false)} />}
-      {print && <PrintDoc kind="Tax Invoice" doc={print} company={company} onClose={() => setPrint(null)} />}
+      {m?.t === 'payment' && <PaymentProof {...ctx} preset={m} onClose={() => setM(null)} />}
+      {m?.t === 'site' && <SiteReady p={m.p} user={user} onClose={() => setM(null)} />}
+      {m?.t === 'message' && <MessageForm {...ctx} preset={m} onClose={() => setM(null)} />}
+      {m?.t === 'drawing' && <DrawingReview file={m.file} p={m.p} decision={m.decision} user={user} onClose={() => setM(null)} />}
+      {m?.t === 'complaint' && <RaiseComplaint user={user} amcs={amcs} projects={orders} onClose={() => setM(null)} />}
+      {m?.t === 'rate' && <Rate col={m.col} doc={m.doc} onClose={() => setM(null)} />}
+      {m?.t === 'quote' && <ProposalDoc p={m.p} clientView onClose={() => setM(null)} />}
+      {m?.t === 'invoice' && <PrintDoc kind="Tax Invoice" doc={m.doc} company={company} onClose={() => setM(null)} />}
+      {m?.t === 'receipt' && <Receipt pay={m.doc} company={company} user={user} onClose={() => setM(null)} />}
     </div>
   );
 }
 
-function ClientPhotos({ cid, pid }) {
-  const photos = useCol('photos', [['clientId', '==', cid], ['projectId', '==', pid], ['visibleToClient', '==', true]]);
-  const [open, setOpen] = useState(null);
-  if (!photos.length) return null;
+/* ================= HOME ================= */
+function Home({ user, company, projects, invoices, payments, complaints, activity, files, requests, p, setTab, setM, contacts }) {
+  const pending = (type, f = () => true) => requests.some((r) => r.type === type && r.status === 'New' && f(r));
+  const todos = [];
+  if (p && p.status === 'Order') {
+    const st = Object.fromEntries(steps(p).map((s) => [s.key, s]));
+    if (!st.advance.done) {
+      const ms = p.milestones?.[0];
+      todos.push(pending('payment', (r) => r.projectId === p.id)
+        ? { tone: 'grey', title: 'Advance payment details sent', text: 'Our accounts team is confirming it.' }
+        : { tone: 'amber', title: 'Pay the advance', text: ms ? `${ms.name}: ${inr(ms.amount)}` : 'Advance as per the order', btn: 'I have paid', go: () => setM({ t: 'payment', projectId: p.id, milestone: 0, amount: ms?.amount }) });
+    }
+    const latest = files.filter((f) => f.projectId === p.id && f.kind === 'Drawing').sort((a, b) => b.at - a.at)[0];
+    if (latest && p.drawing?.status !== 'Approved') {
+      todos.push(pending('drawing', (r) => r.fileId === latest.id)
+        ? { tone: 'grey', title: 'Drawing feedback sent', text: 'Our drawing team will reply soon.' }
+        : { tone: 'amber', title: 'Approve your drawing', text: `${latest.title || latest.name} · Rev ${latest.rev}`, btn: 'Review', go: () => setTab('docs') });
+    }
+    if (st.order.done && !st.site.done) {
+      todos.push(pending('site', (r) => r.projectId === p.id)
+        ? { tone: 'grey', title: 'Site-ready report sent', text: 'Our installation team will verify it.' }
+        : { tone: p.site?.status === 'Not ready' ? 'red' : 'amber', title: 'Get your site ready', text: p.site?.status === 'Not ready' ? `Our team found: ${p.site?.notes || 'some work pending'}` : 'Shaft, pit, hook, openings & power', btn: 'Site is ready', go: () => setM({ t: 'site', p }) });
+    }
+  }
+  invoices.filter((i) => num(i.total) - num(i.paid) > 0.5 && (!p || !i.projectId || i.projectId === p.id)).slice(0, 2).forEach((i) => todos.push(
+    pending('payment', (r) => r.invoiceId === i.id)
+      ? { tone: 'grey', title: `Payment details sent for ${i.number}`, text: 'Being confirmed by accounts.' }
+      : { tone: invStatus(i) === 'Overdue' ? 'red' : 'amber', title: `Invoice ${i.number} — ${inr(num(i.total) - num(i.paid))} due`, text: i.dueDate ? 'Due ' + fmtDate(i.dueDate) : '', btn: 'Pay / send details', go: () => setM({ t: 'payment', invoiceId: i.id, projectId: i.projectId, amount: num(i.total) - num(i.paid) }) }));
+  complaints.filter((c) => ['Resolved', 'Closed'].includes(c.status) && !c.rating && c.resolvedAt && Date.now() - c.resolvedAt < 30 * 86400000).slice(0, 1).forEach((c) => todos.push({ tone: 'blue', title: 'How did we do?', text: `Rate the fix for “${c.issue}”`, btn: 'Rate', go: () => setM({ t: 'rate', col: 'complaints', doc: c }) }));
+
+  const st = p ? steps(p) : [];
+  const cur = st.find((s) => !s.done);
+  const pct = p ? (p.status === 'Enquiry' ? 0 : progressPct(p)) : 0;
+  const myUpdates = activity.filter((a) => !p || !a.projectId || a.projectId === p.id).sort((a, b) => b.at - a.at);
+  const paid = p ? sum(payments.filter((x) => x.projectId === p.id), 'amount') : 0;
+
   return (<>
-    <h4 className="section-title">Site photos</h4>
-    <div className="photo-grid">{[...photos].sort((a, b) => b.at - a.at).slice(0, 24).map((p) => <div className="photo" key={p.id}><img src={p.data} alt="Site" onClick={() => setOpen(p)} /></div>)}</div>
-    {open && <div className="lightbox" onClick={() => setOpen(null)}><img src={open.data} alt="" /><span>{fmtDateTime(open.at)}</span></div>}
+    <h1 className="portal-hello">Namaste{(p?.contactPerson || user.name) ? ', ' + (p?.contactPerson || user.name) : ''}</h1>
+    {!p ? <div className="p-card"><Empty>Your project will appear here once your order is booked.</Empty></div> : (
+      <section className="hero">
+        <div className="hero-top">
+          <div className="grow">
+            <div className="hero-k">{p.status === 'Enquiry' ? 'Proposal' : p.status === 'Completed' ? 'Handed over' : p.status === 'On Hold' ? 'On hold' : 'In progress'} · {p.code || p.quote?.refNo || p.quoteNo}</div>
+            <h2>{p.title}</h2>
+            <div className="hero-addr">{(p.siteAddress || '').split('\n')[0]}</div>
+          </div>
+          {p.status !== 'Enquiry' && <Ring pct={pct} />}
+        </div>
+        {p.status === 'Enquiry' ? (
+          <div className="hero-now">
+            <div><span>Proposal</span><b>{p.quote?.refNo || p.quoteNo}</b></div>
+            <div><span>Amount</span><b>{inr(quoteTotal(p))} <small>incl. GST</small></b></div>
+            <button className="btn hero-btn" onClick={() => setM({ t: 'quote', p })}>View proposal</button>
+          </div>
+        ) : (
+          <div className="hero-now">
+            <div><span>Now</span><b>{cur ? cur.label : 'Handed over 🎉'}</b>{cur && <small>{STEP_INFO[cur.key].text}</small>}</div>
+            {p.status === 'Order' && p.expectedHandover && <div><span>Target handover</span><b>{fmtDate(p.expectedHandover)}</b></div>}
+            {p.handoverAt && <div><span>Handed over</span><b>{fmtDate(p.handoverAt)}</b></div>}
+            {num(p.contractValue) > 0 && <div><span>Paid</span><b>{inr(paid)} <small>of {inr(p.contractValue)}</small></b></div>}
+          </div>
+        )}
+        {p.status !== 'Enquiry' && <button className="hero-link" onClick={() => setTab('progress')}>See all stages ›</button>}
+      </section>
+    )}
+
+    {todos.length > 0 && (
+      <section className="p-card">
+        <h3 className="p-h">Needs your attention</h3>
+        <ul className="todo">{todos.map((t, i) => (
+          <li key={i} className={'t-' + t.tone}><span className="t-dot" /><div className="grow"><b>{t.title}</b>{t.text && <div className="muted small">{t.text}</div>}</div>{t.btn && <button className="btn sm" onClick={t.go}>{t.btn}</button>}</li>
+        ))}</ul>
+      </section>
+    )}
+
+    <section className="quick">
+      <button onClick={() => setM({ t: 'payment', projectId: p?.status === 'Order' ? p.id : '' })}><Ico n="pay" /><span>Send payment details</span></button>
+      <button onClick={() => setM({ t: 'message', projectId: p?.id || '' })}><Ico n="chat" /><span>Message our team</span></button>
+      <button onClick={() => setTab('docs')}><Ico n="docs" /><span>Quotes, drawings & invoices</span></button>
+      <button className="q-red" onClick={() => setM({ t: 'complaint' })}><Ico n="alert" /><span>Report a lift problem</span></button>
+    </section>
+
+    <section className="p-card">
+      <h3 className="p-h">Your Dee Cee team</h3>
+      <div className="contacts">
+        {contacts.sales?.name && <Contact role="Your sales contact" c={contacts.sales} msg={`Hello ${contacts.sales.name}, this is ${user.name} regarding ${p?.title || 'my lift'} (${p?.code || p?.quoteNo || ''}).`} />}
+        {(contacts.lead?.name || contacts.lead?.team) && p?.status !== 'Enquiry' && <Contact role={`Site team leader${contacts.lead.team ? ' · ' + contacts.lead.team : ''}`} c={contacts.lead} msg={`Hello, this is ${user.name} regarding the lift work at ${(p?.siteAddress || '').split('\n')[0]}.`} />}
+        <Contact role="Office & service helpline" c={{ name: company.name || 'Dee Cee Elevators', phone: company.phone, email: company.email }} msg={`Hello, this is ${user.name}.`} />
+      </div>
+    </section>
+
+    <section className="p-card">
+      <div className="row between"><h3 className="p-h">Latest updates</h3>{myUpdates.length > 3 && <button className="link-btn" onClick={() => setTab('progress')}>See all</button>}</div>
+      {myUpdates.length === 0 ? <p className="muted small">Updates from our team will appear here.</p> : <Timeline items={myUpdates.slice(0, 3)} />}
+    </section>
+    {p && <Photos cid={user.clientId} pid={p.id} limit={6} />}
   </>);
 }
 
+function Contact({ role, c, msg }) {
+  const initials = (c.name || '?').split(' ').map((w) => w[0]).slice(0, 2).join('').toUpperCase();
+  return (
+    <div className="contact">
+      <span className="avatar">{initials}</span>
+      <div className="grow"><div className="muted small">{role}</div><b>{c.name || '—'}</b>{c.designation && <div className="muted small">{c.designation}</div>}</div>
+      {c.phone && <a className="icon-act" href={'tel:' + c.phone} aria-label={'Call ' + c.name}><Ico n="phone" size={18} /></a>}
+      {c.phone && <a className="icon-act wa" href={waLink(c.phone, msg)} target="_blank" rel="noreferrer" aria-label={'WhatsApp ' + c.name}><WaIcon /></a>}
+    </div>
+  );
+}
+
+function Timeline({ items }) {
+  return <ul className="p-feed">{items.map((a) => <li key={a.id} className={a.kind === 'reply' ? 'reply' : ''}><span className="pf-dot" /><div><div className="pf-text">{a.text}</div><div className="muted small">{a.byName || 'Dee Cee'} · {fmtDateTime(a.at)}</div></div></li>)}</ul>;
+}
+
+function Photos({ cid, pid, limit }) {
+  const photos = useCol('photos', [['clientId', '==', cid], ['projectId', '==', pid], ['visibleToClient', '==', true]]);
+  const [open, setOpen] = useState(null);
+  if (!photos.length) return null;
+  const list = [...photos].sort((a, b) => b.at - a.at).slice(0, limit || 60);
+  return (
+    <section className="p-card">
+      <h3 className="p-h">Site photos <span className="muted small">({photos.length})</span></h3>
+      <div className="p-photos">{list.map((ph) => <img key={ph.id} src={ph.data} alt="Site" onClick={() => setOpen(ph)} />)}</div>
+      {open && <div className="lightbox" onClick={() => setOpen(null)}><img src={open.data} alt="" /><span>{open.caption || ''} {fmtDateTime(open.at)}</span></div>}
+    </section>
+  );
+}
+
+/* ================= PROGRESS (workflow) ================= */
+function Progress({ user, activity, requests, p, setM }) {
+  if (!p) return <div className="p-card"><Empty>No project yet</Empty></div>;
+  if (p.status === 'Enquiry') return <div className="p-card"><p>This is a proposal. Once you confirm the order, every stage of your lift will be tracked here.</p><button className="btn" onClick={() => setM({ t: 'quote', p })}>View proposal</button></div>;
+  const st = steps(p);
+  const curIdx = st.findIndex((s) => !s.done);
+  const pend = (type) => requests.some((r) => r.type === type && r.status === 'New' && r.projectId === p.id);
+  const action = {
+    advance: !pend('payment') && { label: 'Send payment details', go: () => setM({ t: 'payment', projectId: p.id, milestone: 0, amount: p.milestones?.[0]?.amount }) },
+    site: !pend('site') && { label: 'Tell us the site is ready', go: () => setM({ t: 'site', p }) },
+  };
+  const items = activity.filter((a) => !a.projectId || a.projectId === p.id).sort((a, b) => b.at - a.at);
+  return (<>
+    <section className="p-card">
+      <div className="row between"><h3 className="p-h">{p.title}</h3><Badge tone={p.status === 'Completed' ? 'green' : 'blue'}>{progressPct(p)}% complete</Badge></div>
+      <ol className="vsteps">
+        {st.map((s, i) => {
+          const state = s.done ? 'done' : i === curIdx ? 'now' : 'later';
+          const info = STEP_INFO[s.key];
+          return (
+            <li key={s.key} className={state}>
+              <span className="vs-dot">{s.done ? <Ico n="check" size={14} /> : i + 1}</span>
+              <div className="vs-body">
+                <div className="vs-title"><b>{s.label}</b><span className="muted small">{s.done ? (s.at ? fmtDate(s.at) : 'Done') : i === curIdx ? 'In progress' : ''}</span></div>
+                {(state !== 'later') && <div className="muted small">{info.text}</div>}
+                {s.detail && <div className="small">{s.detail}</div>}
+                {s.key === 'site' && p.site?.status === 'Not ready' && <div className="small danger-text">Not ready yet{p.site?.notes ? ': ' + p.site.notes : ''}</div>}
+                {s.key === 'install' && (state === 'now' || (p.install?.progress > 0 && !s.done)) && (
+                  <div className="vs-sub"><ProgressBar value={p.install?.progress || 0} tone="green" />
+                    <ul>{INSTALL_STEPS.map((x) => <li key={x} className={p.install?.steps?.[x] ? 'ok' : ''}>{p.install?.steps?.[x] ? '✓' : '○'} {x}</li>)}</ul></div>
+                )}
+                {state === 'now' && info.you && <div className="vs-you"><b>Your part:</b> {info.you}{action[s.key] && <button className="btn sm" onClick={action[s.key].go}>{action[s.key].label}</button>}{s.key === 'drawing' && <span className="muted small"> Open the Documents tab.</span>}</div>}
+                {state === 'now' && !info.you && <div className="vs-who">With our {s.team} team</div>}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    </section>
+    <Photos cid={user.clientId} pid={p.id} />
+    <section className="p-card"><h3 className="p-h">All updates</h3>{items.length ? <Timeline items={items.slice(0, 80)} /> : <p className="muted small">No updates yet</p>}</section>
+  </>);
+}
+
+/* ================= DOCUMENTS ================= */
+async function openFile(f, download) {
+  try {
+    const blob = await fetchFileBlob(f);
+    const url = URL.createObjectURL(blob);
+    if (download) { const a = document.createElement('a'); a.href = url; a.download = f.name; document.body.appendChild(a); a.click(); a.remove(); } else window.open(url, '_blank', 'noopener');
+    setTimeout(() => URL.revokeObjectURL(url), 60000);
+  } catch (e) { toast('Could not open the file. Please try again.', 'err'); }
+}
+
+function Documents({ projects, invoices, payments, files, requests, setM }) {
+  const [busy, setBusy] = useState(null);
+  const byP = Object.fromEntries(projects.map((x) => [x.id, x]));
+  const drawings = files.filter((f) => f.kind === 'Drawing').sort((a, b) => b.at - a.at);
+  const latestOf = {};
+  drawings.forEach((f) => { if (!latestOf[f.projectId]) latestOf[f.projectId] = f.id; });
+  const others = files.filter((f) => f.kind !== 'Drawing').sort((a, b) => b.at - a.at);
+  const run = async (f, dl) => { setBusy(f.id + dl); await openFile(f, dl); setBusy(null); };
+  const FileRow = ({ f, children }) => (
+    <li className="doc">
+      <span className={'doc-ico ' + (f.type === 'application/pdf' ? 'pdf' : 'img')}>{f.type === 'application/pdf' ? 'PDF' : f.type?.startsWith('image/') ? 'IMG' : 'DOC'}</span>
+      <div className="grow"><b>{f.title || f.name}</b><div className="muted small">{byP[f.projectId]?.code || ''} · {fmtDate(f.at)}</div>{children}</div>
+      <div className="doc-btns">
+        <button className="btn ghost sm" disabled={!!busy} onClick={() => run(f, false)}>{busy === f.id + false ? '…' : 'Open'}</button>
+        <button className="btn ghost sm" disabled={!!busy} onClick={() => run(f, true)}>Download</button>
+      </div>
+    </li>
+  );
+  return (<>
+    <section className="p-card">
+      <h3 className="p-h">Quotations</h3>
+      {projects.length === 0 ? <p className="muted small">No quotations yet</p> : (
+        <ul className="docs">{projects.map((x) => (
+          <React.Fragment key={x.id}>
+            <li className="doc">
+              <span className="doc-ico q">QT</span>
+              <div className="grow"><b>{x.quote?.refNo || x.quoteNo}</b><div className="muted small">{x.title} · {fmtDate(x.quote?.date)} · {inr(quoteTotal(x))} incl. GST</div>{x.status !== 'Enquiry' && <Badge tone="green">Order confirmed</Badge>}</div>
+              <div className="doc-btns"><button className="btn sm" onClick={() => setM({ t: 'quote', p: x })}>View / PDF</button></div>
+            </li>
+            {(x.revisions || []).filter((r) => r.refNo !== (x.quote?.refNo || x.quoteNo)).reverse().map((r, i) => (
+              <li className="doc old" key={i}><span className="doc-ico q">QT</span><div className="grow"><b>{r.refNo}</b><div className="muted small">Earlier version · {fmtDate(r.quote?.date)}</div></div>
+                <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'quote', p: { ...x, ...r } })}>View</button></div></li>
+            ))}
+          </React.Fragment>
+        ))}</ul>
+      )}
+    </section>
+
+    <section className="p-card">
+      <h3 className="p-h">Drawings</h3>
+      {drawings.length === 0 ? <p className="muted small">Your lift drawing will appear here once it is issued.</p> : (
+        <ul className="docs">{drawings.map((f) => {
+          const latest = latestOf[f.projectId] === f.id;
+          const proj = byP[f.projectId];
+          const myReq = requests.filter((r) => r.type === 'drawing' && r.fileId === f.id).sort((a, b) => b.at - a.at)[0];
+          const approved = proj?.drawing?.status === 'Approved' && latest;
+          return (
+            <FileRow key={f.id} f={f}>
+              <div className="row gap wrap mt-s">
+                <Badge tone={latest ? 'blue' : 'grey'}>Rev {f.rev}{latest ? ' · latest' : ''}</Badge>
+                {approved && <Badge tone="green">Approved</Badge>}
+                {!approved && myReq && <Badge tone={myReq.decision === 'Approved' ? 'green' : 'amber'}>You: {myReq.decision}</Badge>}
+              </div>
+              {latest && !approved && !(myReq && myReq.status === 'New') && proj?.status === 'Order' && (
+                <div className="row gap wrap mt-s">
+                  <button className="btn sm green-btn" onClick={() => setM({ t: 'drawing', file: f, p: proj, decision: 'Approved' })}>✓ Approve drawing</button>
+                  <button className="btn ghost sm" onClick={() => setM({ t: 'drawing', file: f, p: proj, decision: 'Changes requested' })}>Ask for changes</button>
+                </div>
+              )}
+            </FileRow>
+          );
+        })}</ul>
+      )}
+    </section>
+
+    <section className="p-card">
+      <h3 className="p-h">Invoices</h3>
+      {invoices.length === 0 ? <p className="muted small">No invoices yet</p> : (
+        <ul className="docs">{[...invoices].sort((a, b) => (a.date < b.date ? 1 : -1)).map((i) => (
+          <li className="doc" key={i.id}><span className="doc-ico inv">INV</span>
+            <div className="grow"><b>{i.number}</b><div className="muted small">{fmtDate(i.date)} · {inr(i.total)}</div><Badge>{invStatus(i)}</Badge></div>
+            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'invoice', doc: i })}>View / PDF</button></div></li>
+        ))}</ul>
+      )}
+    </section>
+
+    <section className="p-card">
+      <h3 className="p-h">Payment receipts</h3>
+      {payments.length === 0 ? <p className="muted small">Receipts appear here for every payment we receive.</p> : (
+        <ul className="docs">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => (
+          <li className="doc" key={x.id}><span className="doc-ico rc">RCT</span>
+            <div className="grow"><b>{inr(x.amount)}</b><div className="muted small">{fmtDate(x.date)} · {x.mode}{x.invoiceNumber ? ' · ' + x.invoiceNumber : ''}</div></div>
+            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'receipt', doc: x })}>Receipt</button></div></li>
+        ))}</ul>
+      )}
+    </section>
+
+    <section className="p-card">
+      <h3 className="p-h">Other documents</h3>
+      {others.length === 0 ? <p className="muted small">Handover papers, licences, warranty and other files will appear here.</p> : <ul className="docs">{others.map((f) => <FileRow key={f.id} f={f} />)}</ul>}
+    </section>
+  </>);
+}
+
+/* ================= PAYMENTS ================= */
+function Payments({ company, orders, invoices, payments, requests, setM }) {
+  const value = sum(orders, 'contractValue');
+  const paid = sum(payments, 'amount');
+  const due = invoices.filter((i) => num(i.total) - num(i.paid) > 0.5);
+  const sent = requests.filter((r) => r.type === 'payment').sort((a, b) => b.at - a.at);
+  const copy = (t) => { try { navigator.clipboard.writeText(t); toast('Copied'); } catch { /* ignore */ } };
+  return (<>
+    {orders.length > 0 && (
+      <section className="p-card">
+        <div className="pay-sum">
+          <div><span>Order value</span><b>{inr(value)}</b></div>
+          <div><span>Paid</span><b className="ok-text">{inr(paid)}</b></div>
+          <div><span>Balance</span><b>{inr(Math.max(0, value - paid))}</b></div>
+        </div>
+        <ProgressBar value={(paid / (value || 1)) * 100} tone="green" />
+      </section>
+    )}
+    <button className="btn wide big" onClick={() => setM({ t: 'payment' })}>I have made a payment — send details</button>
+
+    {due.length > 0 && (
+      <section className="p-card">
+        <h3 className="p-h">Invoices to pay</h3>
+        <ul className="docs">{due.map((i) => (
+          <li className="doc" key={i.id}><span className="doc-ico inv">INV</span>
+            <div className="grow"><b>{i.number} · {inr(num(i.total) - num(i.paid))}</b><div className="muted small">{i.dueDate ? 'Due ' + fmtDate(i.dueDate) : fmtDate(i.date)}</div><Badge>{invStatus(i)}</Badge></div>
+            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'invoice', doc: i })}>View</button><button className="btn sm" onClick={() => setM({ t: 'payment', invoiceId: i.id, projectId: i.projectId, amount: num(i.total) - num(i.paid) })}>Paid?</button></div></li>
+        ))}</ul>
+      </section>
+    )}
+
+    {company.bank && (
+      <section className="p-card">
+        <div className="row between"><h3 className="p-h">Pay by bank transfer</h3><button className="btn ghost sm" onClick={() => copy(company.bank)}>Copy</button></div>
+        <div className="bank pre">{company.bank}</div>
+        <p className="muted small">After paying, tap “send details” above with the UTR / cheque number so we can confirm it quickly.</p>
+      </section>
+    )}
+
+    {orders.map((p) => {
+      const pp = payments.filter((x) => x.projectId === p.id);
+      const paidFor = (i) => sum(pp.filter((x) => x.milestone === i), 'amount');
+      if (!(p.milestones || []).length) return null;
+      return (
+        <section className="p-card" key={p.id}>
+          <h3 className="p-h">{p.title} <span className="muted small">{p.code}</span></h3>
+          <ul className="ms">{p.milestones.map((m, i) => {
+            const s = milestoneStatus(m, paidFor(i));
+            return <li key={i} className={s === 'Paid' ? 'paid' : ''}><span className="ms-dot" /><div className="grow"><b>{m.name}</b><div className="muted small">{m.percent}% · {inr(m.amount)}{paidFor(i) > 0 && s !== 'Paid' ? ` · ${inr(paidFor(i))} received` : ''}</div></div><Badge>{s}</Badge></li>;
+          })}</ul>
+        </section>
+      );
+    })}
+
+    {sent.length > 0 && (
+      <section className="p-card">
+        <h3 className="p-h">Payment details you sent</h3>
+        <ul className="docs">{sent.map((r) => <li key={r.id} className="doc"><div className="grow"><b>{inr(r.amount)}</b> <span className="muted small">{fmtDate(r.date)} · {r.mode}{r.ref ? ' · ' + r.ref : ''}</span>{r.reply && <div className="small">{r.reply}</div>}</div><Badge tone={r.status === 'New' ? 'amber' : 'green'}>{r.status === 'New' ? 'Being confirmed' : 'Confirmed'}</Badge></li>)}</ul>
+      </section>
+    )}
+
+    <section className="p-card">
+      <h3 className="p-h">Payments received</h3>
+      {payments.length === 0 ? <p className="muted small">No payments yet</p> : (
+        <ul className="docs">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => <li key={x.id} className="doc"><div className="grow"><b>{inr(x.amount)}</b><div className="muted small">{fmtDate(x.date)} · {x.mode}</div></div><button className="btn ghost sm" onClick={() => setM({ t: 'receipt', doc: x })}>Receipt</button></li>)}</ul>
+      )}
+    </section>
+  </>);
+}
+
+/* ================= SERVICE ================= */
+function Service({ user, company, amcs, complaints, visits, requests, setM }) {
+  const open = complaints.filter((c) => !['Resolved', 'Closed'].includes(c.status)).sort((a, b) => b.reportedAt - a.reportedAt);
+  const past = complaints.filter((c) => ['Resolved', 'Closed'].includes(c.status)).sort((a, b) => (b.resolvedAt || b.reportedAt) - (a.resolvedAt || a.reportedAt));
+  const done = visits.filter((v) => v.status === 'Done').sort((a, b) => (b.doneAt || 0) - (a.doneAt || 0));
+  const upcoming = visits.filter((v) => v.status !== 'Done' && v.status !== 'Cancelled').sort((a, b) => (a.date > b.date ? 1 : -1));
+  const renewReq = (a) => requests.find((r) => r.type === 'amc' && r.amcId === a.id && r.status === 'New');
+  const askRenew = (a) => act(() => addDoc('clientRequests', { type: 'amc', status: 'New', at: Date.now(), clientId: user.clientId, clientName: user.name, projectId: a.projectId || null, amcId: a.id, amcNumber: a.number, text: `Please renew AMC ${a.number} (${a.type}, ${a.lifts} lift(s)).` }), 'Renewal request sent');
+  return (<>
+    <button className="btn danger-btn wide big" onClick={() => setM({ t: 'complaint' })}>🚨 Report a lift problem</button>
+    {company.phone && <p className="muted small center">Someone stuck inside the lift? Call us now: <a href={'tel:' + company.phone}><b>{company.phone}</b></a></p>}
+
+    <section className="p-card">
+      <h3 className="p-h">Your complaints</h3>
+      {open.length === 0 && <p className="muted small">No open complaints.</p>}
+      {open.map((c) => {
+        const idx = Math.max(0, COMPLAINT_FLOW.indexOf(c.status));
+        return (
+          <div className="cmp" key={c.id}>
+            <div className="row between"><b>{c.issue}</b><Badge tone={c.priority?.startsWith('Critical') ? 'red' : 'amber'}>{c.status}</Badge></div>
+            <div className="muted small">{c.number} · {c.liftRef || ''} · reported {fmtDateTime(c.reportedAt)}</div>
+            <ol className="cmp-track">{COMPLAINT_FLOW.map((s, i) => <li key={s} className={i <= idx ? 'on' : ''}><span />{s === 'Open' ? 'Received' : s}</li>)}</ol>
+            {c.teamName && <div className="small">Attending: <b>{c.teamName}</b></div>}
+          </div>
+        );
+      })}
+      {past.length > 0 && (
+        <details className="mt"><summary className="muted small">Earlier complaints ({past.length})</summary>
+          <ul className="docs">{past.map((c) => (
+            <li key={c.id} className="doc"><div className="grow"><b>{c.issue}</b><div className="muted small">{c.number} · {fmtDate(c.resolvedAt || c.reportedAt)}{c.resolution ? ' · ' + c.resolution : ''}</div></div>
+              {c.rating ? <span className="stars-s">{'★'.repeat(c.rating)}</span> : <button className="btn ghost sm" onClick={() => setM({ t: 'rate', col: 'complaints', doc: c })}>Rate</button>}</li>
+          ))}</ul>
+        </details>
+      )}
+    </section>
+
+    {amcs.length > 0 && (
+      <section className="p-card">
+        <h3 className="p-h">Maintenance contract (AMC)</h3>
+        {amcs.map((a) => {
+          const d = daysUntil(a.end);
+          const req = renewReq(a);
+          return (
+            <div className="amc" key={a.id}>
+              <div className="row between"><b>{a.number}</b><Badge tone={d < 0 ? 'red' : d <= 30 ? 'amber' : 'green'}>{d < 0 ? 'Expired' : d <= 30 ? `Ends in ${d} days` : 'Active'}</Badge></div>
+              <div className="muted small">{a.type} · {a.lifts} lift(s) · {fmtDate(a.start)} → {fmtDate(a.end)}{a.visitsPerYear ? ` · ${a.visitsPerYear} visits/year` : ''}</div>
+              {d <= 45 && (req ? <p className="small ok-text">Renewal requested — our team will contact you.</p> : <button className="btn sm mt-s" onClick={() => askRenew(a)}>Request renewal</button>)}
+            </div>
+          );
+        })}
+      </section>
+    )}
+
+    {upcoming.length > 0 && (
+      <section className="p-card"><h3 className="p-h">Upcoming visits</h3>
+        <ul className="docs">{upcoming.slice(0, 6).map((v) => <li key={v.id} className="doc"><div className="grow"><b>{v.type}</b><div className="muted small">{fmtDate(v.date)}{v.teamName ? ' · ' + v.teamName : ''}</div></div><Badge tone="blue">{v.status}</Badge></li>)}</ul>
+      </section>
+    )}
+
+    <section className="p-card"><h3 className="p-h">Service history</h3>
+      {done.length === 0 ? <p className="muted small">No visits yet</p> : (
+        <ul className="docs">{done.slice(0, 30).map((v) => (
+          <li key={v.id} className="doc"><div className="grow"><b>{v.type}</b><div className="muted small">{fmtDate(v.date)}{v.teamName ? ' · ' + v.teamName : ''}{v.notes ? ' · ' + v.notes : ''}</div></div>
+            {v.rating ? <span className="stars-s">{'★'.repeat(v.rating)}</span> : <button className="btn ghost sm" onClick={() => setM({ t: 'rate', col: 'visits', doc: v })}>Rate</button>}</li>
+        ))}</ul>
+      )}
+    </section>
+  </>);
+}
+
+/* ================= CLIENT FORMS ================= */
+function ImagePicker({ images, setImages, max = 3, label = 'Add photo' }) {
+  const add = async (e) => {
+    const list = [...e.target.files].slice(0, max - images.length);
+    e.target.value = '';
+    try { const out = await Promise.all(list.map((f) => compressImage(f, 1000, 0.55))); setImages([...images, ...out].slice(0, max)); } catch { toast('Could not read that photo', 'err'); }
+  };
+  return (
+    <div className="img-pick">
+      {images.map((src, i) => <span key={i} className="thumb"><img src={src} alt="" /><button type="button" aria-label="Remove" onClick={() => setImages(images.filter((_, j) => j !== i))}>✕</button></span>)}
+      {images.length < max && <label className="thumb add">＋<span>{label}</span><input type="file" accept="image/*" multiple hidden onChange={add} /></label>}
+    </div>
+  );
+}
+
+const sendReq = (user, data) => addDoc('clientRequests', { status: 'New', at: Date.now(), clientId: user.clientId, clientName: user.name, ...data });
+const projInfo = (p) => (p ? { projectId: p.id, projectCode: p.code || '', projectTitle: p.title || '' } : { projectId: null });
+
+function PaymentProof({ user, orders, invoices, payments, preset, onClose }) {
+  const { f, bind, setF } = useForm({ projectId: preset.projectId || (orders.length === 1 ? orders[0].id : ''), milestone: preset.milestone ?? '', invoiceId: preset.invoiceId || '', amount: preset.amount ? Math.round(preset.amount) : '', date: today(), mode: 'Bank Transfer / NEFT', ref: '', text: '' });
+  const [images, setImages] = useState([]);
+  const p = orders.find((x) => x.id === f.projectId);
+  const paidFor = (i) => sum(payments.filter((x) => x.projectId === f.projectId && x.milestone === i), 'amount');
+  const myInv = invoices.filter((i) => num(i.total) - num(i.paid) > 0.5 && (!f.projectId || i.projectId === f.projectId));
+  const save = async () => {
+    if (num(f.amount) <= 0) return act(async () => { throw new Error('Enter the amount you paid'); });
+    if (!f.ref.trim() && !images.length) return act(async () => { throw new Error('Add the UTR / cheque number or a screenshot'); });
+    const inv = invoices.find((i) => i.id === f.invoiceId);
+    await act(() => sendReq(user, { type: 'payment', ...projInfo(p), amount: num(f.amount), date: f.date, mode: f.mode, ref: f.ref.trim(), text: f.text.trim(), milestone: f.milestone === '' ? null : Number(f.milestone), invoiceId: inv?.id || null, invoiceNumber: inv?.number || '', images }), 'Sent — our accounts team will confirm it');
+    onClose();
+  };
+  return (
+    <Modal title="Send payment details" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send</button></>}>
+      <div className="form-grid">
+        {orders.length > 1 && <Field label="For which lift / order" span={2}><Select options={orders.map((o) => ({ value: o.id, label: `${o.title} · ${o.code}` }))} placeholder="— choose —" value={f.projectId} onChange={(e) => setF((x) => ({ ...x, projectId: e.target.value, milestone: '', invoiceId: '' }))} /></Field>}
+        {p?.milestones?.length > 0 && <Field label="Payment for" span={2}><Select options={p.milestones.map((m, i) => ({ value: i, label: `${m.name} — ${inr(m.amount)} (${milestoneStatus(m, paidFor(i))})` }))} placeholder="— not sure —" value={f.milestone} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, milestone: v, amount: v === '' ? x.amount : Math.max(0, Math.round(num(p.milestones[v].amount) - paidFor(Number(v)))) })); }} /></Field>}
+        {myInv.length > 0 && <Field label="Against invoice (optional)" span={2}><Select options={myInv.map((i) => ({ value: i.id, label: `${i.number} — ${inr(num(i.total) - num(i.paid))} due` }))} placeholder="— none —" {...bind('invoiceId')} /></Field>}
+        <Field label="Amount paid (₹)"><input type="number" inputMode="decimal" {...bind('amount')} /></Field>
+        <Field label="Date paid"><input type="date" {...bind('date')} /></Field>
+        <Field label="Paid by"><Select options={PAY_MODES} placeholder={false} {...bind('mode')} /></Field>
+        <Field label="UTR / cheque / UPI ref."><input {...bind('ref')} placeholder="e.g. UTR 4321…" /></Field>
+        <Field label="Screenshot / cheque photo (optional)" span={2}><ImagePicker images={images} setImages={setImages} max={2} label="Add" /></Field>
+        <Field label="Note (optional)" span={2}><input {...bind('text')} /></Field>
+      </div>
+    </Modal>
+  );
+}
+
+function SiteReady({ p, user, onClose }) {
+  const [checks, setChecks] = useState(() => Object.fromEntries(SITE_CHECKLIST.map((c) => [c, !!p.site?.checks?.[c]])));
+  const [images, setImages] = useState([]);
+  const [text, setText] = useState('');
+  const all = SITE_CHECKLIST.every((c) => checks[c]);
+  const save = async () => {
+    if (!images.length) return act(async () => { throw new Error('Please add at least one photo of the shaft / pit'); });
+    await act(() => sendReq(user, { type: 'site', ...projInfo(p), checks, images, text: text.trim() }), 'Sent — our installation team will verify the site');
+    onClose();
+  };
+  return (
+    <Modal title="Is your site ready?" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send to installation team</button></>}>
+      <p className="muted small">Tick what is complete. Our team will check and confirm before sending the material.</p>
+      <div className="checks">{SITE_CHECKLIST.map((c) => <label key={c} className="check"><input type="checkbox" checked={checks[c]} onChange={(e) => setChecks({ ...checks, [c]: e.target.checked })} /> {c}</label>)}</div>
+      {!all && <p className="small amber-text">Some items are not ticked — you can still send, and tell us what is pending below.</p>}
+      <Field label="Photos of the shaft, pit and top (up to 3)"><ImagePicker images={images} setImages={setImages} /></Field>
+      <Field label="Anything we should know?"><textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} /></Field>
+    </Modal>
+  );
+}
+
+function MessageForm({ user, projects, preset, onClose }) {
+  const { f, bind } = useForm({ projectId: preset.projectId || '', subject: 'Question about my order', text: '' });
+  const [images, setImages] = useState([]);
+  const save = async () => {
+    if (!f.text.trim()) return act(async () => { throw new Error('Please type your message'); });
+    const p = projects.find((x) => x.id === f.projectId);
+    await act(() => sendReq(user, { type: 'message', ...projInfo(p), subject: f.subject, text: f.text.trim(), images }), 'Message sent — the reply will show in your portal');
+    onClose();
+  };
+  return (
+    <Modal title="Message our team" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send</button></>}>
+      <div className="form-grid">
+        {projects.length > 1 && <Field label="About" span={2}><Select options={projects.map((o) => ({ value: o.id, label: `${o.title} · ${o.code || o.quoteNo}` }))} placeholder="— general —" {...bind('projectId')} /></Field>}
+        <Field label="Topic" span={2}><Select options={['Question about my order', 'Change in lift / finish', 'Site or schedule', 'Payment or invoice', 'Something else']} placeholder={false} {...bind('subject')} /></Field>
+        <Field label="Message" span={2}><textarea rows={4} {...bind('text')} autoFocus /></Field>
+        <Field label="Photo (optional)" span={2}><ImagePicker images={images} setImages={setImages} max={2} /></Field>
+      </div>
+      <p className="muted small">For a breakdown, use “Report a lift problem” instead — it alerts our service team immediately.</p>
+    </Modal>
+  );
+}
+
+function DrawingReview({ file, p, decision, user, onClose }) {
+  const [text, setText] = useState('');
+  const [images, setImages] = useState([]);
+  const approve = decision === 'Approved';
+  const save = async () => {
+    if (!approve && !text.trim()) return act(async () => { throw new Error('Please tell us what should change'); });
+    await act(() => sendReq(user, { type: 'drawing', ...projInfo(p), fileId: file.id, fileTitle: file.title || file.name, rev: file.rev ?? null, decision, text: text.trim(), images }), approve ? 'Thank you — drawing approval sent' : 'Sent to our drawing team');
+    onClose();
+  };
+  return (
+    <Modal title={approve ? 'Approve drawing' : 'Ask for changes'} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className={'btn' + (approve ? ' green-btn' : '')} onClick={save}>{approve ? 'I approve this drawing' : 'Send'}</button></>}>
+      <p><b>{file.title || file.name}</b> · Rev {file.rev}</p>
+      {approve ? <p className="small">By approving, you confirm the shaft size, door and cabin details in this drawing are correct. Manufacturing will go ahead as per this drawing.</p> : <p className="small muted">Describe the changes. You can add a photo of a marked-up print.</p>}
+      <Field label={approve ? 'Comment (optional)' : 'What should change?'}><textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} /></Field>
+      {!approve && <Field label="Photo (optional)"><ImagePicker images={images} setImages={setImages} max={2} /></Field>}
+    </Modal>
+  );
+}
+
+function Rate({ col, doc, onClose }) {
+  const [stars, setStars] = useState(0);
+  const [text, setText] = useState('');
+  const save = async () => {
+    if (!stars) return act(async () => { throw new Error('Tap the stars to rate'); });
+    await act(() => updateDoc(col, doc.id, { rating: stars, feedback: text.trim(), ratedAt: Date.now() }), 'Thank you for your feedback!');
+    onClose();
+  };
+  return (
+    <Modal title="Rate our service" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Later</button><button className="btn" onClick={save}>Submit</button></>}>
+      <p className="small muted">{doc.issue || doc.type} · {fmtDate(doc.resolvedAt || doc.date)}</p>
+      <div className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" className={n <= stars ? 'on' : ''} onClick={() => setStars(n)} aria-label={n + ' stars'}>★</button>)}</div>
+      <Field label="Comments (optional)"><textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} /></Field>
+    </Modal>
+  );
+}
+
 function RaiseComplaint({ user, amcs, projects, onClose }) {
-  const { f, bind } = useForm({ liftRef: '', issue: '', priority: 'Normal', contactPhone: '' });
+  const { f, bind } = useForm({ liftRef: '', issue: '', priority: 'Normal', contactPhone: user.phone || '' });
+  const [images, setImages] = useState([]);
   const [done, setDone] = useState(null);
   const save = async () => {
     if (!f.issue.trim()) return act(async () => { throw new Error('Please describe the problem'); });
     const a = amcs.find((x) => x.status === 'Active' && daysUntil(x.end) >= 0);
     const number = await nextNumber('CMP');
-    await act(() => addDoc('complaints', { ...f, number, clientId: user.clientId, clientName: user.name, amcId: a?.id || null, projectId: a?.projectId || projects[0]?.id || null, status: 'Open', teamId: null, assignedTo: null, reportedVia: 'Client Portal', reportedAt: Date.now() }));
+    await act(() => addDoc('complaints', { ...f, images, number, clientId: user.clientId, clientName: user.name, amcId: a?.id || null, projectId: a?.projectId || projects[0]?.id || null, status: 'Open', teamId: null, assignedTo: null, reportedVia: 'Client Portal', reportedAt: Date.now() }));
     setDone(number);
   };
-  if (done) return <Modal title="Complaint registered" onClose={onClose} footer={<button className="btn" onClick={onClose}>OK</button>}><p>Your complaint number is <b>{done}</b>. Our service team has been alerted and will contact you shortly.</p><p className="muted small">If someone is trapped inside the lift, please also call us immediately.</p></Modal>;
+  if (done) return <Modal title="Complaint registered" onClose={onClose} footer={<button className="btn" onClick={onClose}>OK</button>}><p>Your complaint number is <b>{done}</b>. Our service team has been alerted and will contact you shortly. You can track it in the Service tab.</p><p className="muted small">If someone is trapped inside the lift, please also call us immediately.</p></Modal>;
   return (
     <Modal title="Report a lift problem" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Submit</button></>}>
       <div className="form-grid">
         <Field label="Which lift / location"><input {...bind('liftRef')} placeholder="e.g. Tower A, Lift 1" /></Field>
         <Field label="How urgent?"><Select options={['Normal', 'High', 'Critical (Trapped / Stuck)']} placeholder={false} {...bind('priority')} /></Field>
         <Field label="What's the problem?" span={2}><textarea rows={4} {...bind('issue')} placeholder="Describe what is happening" /></Field>
+        <Field label="Photo (optional)" span={2}><ImagePicker images={images} setImages={setImages} max={2} /></Field>
         <Field label="Your phone number" span={2}><input {...bind('contactPhone')} inputMode="tel" /></Field>
       </div>
     </Modal>
+  );
+}
+
+/* Payment receipt (printable / PDF / WhatsApp) */
+export function Receipt({ pay, company, user, onClose }) {
+  const no = 'RCT-' + String(pay.id).slice(-6).toUpperCase();
+  return (
+    <PrintFrame title="Payment Receipt" fileName={`Payment Receipt ${fmtDate(pay.date)} ${pay.clientName || ''}`} onClose={onClose}
+      whatsapp={{ phone: '', text: `Payment receipt: ${inr(pay.amount)} received by ${company.name} on ${fmtDate(pay.date)}.` }}>
+      <div className="print-area">
+        <div className="pd-head">
+          <img src={logoUrl} alt="" className="pd-logo" />
+          <div className="pd-left">
+            <div className="pd-co">{company.name}</div>
+            <div className="pd-small pre">{company.address}{company.state ? ', ' + company.state : ''}</div>
+            <div className="pd-small">{[company.phone, company.email, company.website].filter(Boolean).join(' · ')}</div>
+            {company.gstin && <div className="pd-small">GSTIN: {company.gstin}</div>}
+          </div>
+          <div className="pd-title"><div>PAYMENT RECEIPT</div><div className="pd-small">No: <b>{no}</b></div><div className="pd-small">Date: {fmtDate(pay.date)}</div></div>
+        </div>
+        <div className="pd-to"><div className="pd-small muted">Received with thanks from</div><b>{pay.clientName || user?.name}</b></div>
+        <table className="pd-table"><tbody>
+          <tr><td>Amount</td><td className="r"><b>{inr(pay.amount)}</b></td></tr>
+          <tr><td>In words</td><td className="r">{amountInWords(pay.amount)}</td></tr>
+          <tr><td>Mode</td><td className="r">{pay.mode}{pay.ref ? ' · ' + pay.ref : ''}</td></tr>
+          {pay.projectCode && <tr><td>Order</td><td className="r">{pay.projectCode}</td></tr>}
+          {pay.invoiceNumber && <tr><td>Against invoice</td><td className="r">{pay.invoiceNumber}</td></tr>}
+        </tbody></table>
+        <div className="pd-sign"><div /><div>For {company.name}<br />{company.signature ? <img src={company.signature} alt="" className="pd-sigimg" /> : <><br /><br /></>}<br />Authorised Signatory</div></div>
+        <p className="pd-small muted">This is a computer-generated receipt. Cheque payments are subject to realisation.</p>
+      </div>
+    </PrintFrame>
   );
 }

@@ -549,6 +549,25 @@ export function PrintDoc({ kind, doc, company, onClose }) {
 /* Print / PDF window: rendered outside the app so only the document prints */
 export function PrintFrame({ title, fileName, onClose, children, whatsapp }) {
   const ref = useRef(null);
+  const [fit, setFit] = useState(1);
+  // On phones, shrink the A4 pages to the screen width (printing and PDF still use full size)
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => {
+      const box = el.parentElement;
+      if (!box) return;
+      const prev = el.style.zoom; el.style.zoom = '1';
+      const natural = Math.max(el.scrollWidth, ...[...el.querySelectorAll('.sheet, .print-area')].map((x) => x.offsetWidth + 16));
+      el.style.zoom = prev;
+      const avail = Math.min(box.clientWidth, window.innerWidth - (window.innerWidth < 760 ? 32 : 80)) - 4;
+      setFit(natural > avail && avail > 0 ? Math.max(0.3, avail / natural) : 1);
+    };
+    measure();
+    const t = setTimeout(measure, 300);
+    window.addEventListener('resize', measure);
+    return () => { clearTimeout(t); window.removeEventListener('resize', measure); };
+  }, []);
   const [share, setShare] = useState(false);
   const name = (fileName || title || 'document').replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim();
   const print = () => {
@@ -565,7 +584,7 @@ export function PrintFrame({ title, fileName, onClose, children, whatsapp }) {
         <button className="btn ghost" onClick={print}>Print</button>
         <button className="btn wa-btn" onClick={() => setShare(true)}><WaIcon /> Send on WhatsApp / PDF</button>
       </>}>
-        <div ref={ref}>{children}</div>
+        <div ref={ref} className="pf-fit" style={{ zoom: fit }}>{children}</div>
       </Modal>
       {share && <ShareSheet title={title} fileName={name + '.pdf'} phone={whatsapp?.phone} text={whatsapp?.text} getFile={() => elementToPdf(ref.current, name + '.pdf')} onClose={() => setShare(false)} />}
     </div>,
@@ -583,6 +602,11 @@ export async function elementToPdf(container, fileName) {
   const [{ jsPDF }, h2c] = await Promise.all([import('jspdf'), import('html2canvas')]);
   const html2canvas = h2c.default || h2c;
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
+  const oldZoom = container.style.zoom;
+  container.style.zoom = '1';
+  try { return await buildPdf(pdf, container, html2canvas, fileName); } finally { container.style.zoom = oldZoom; }
+}
+async function buildPdf(pdf, container, html2canvas, fileName) {
   const sheets = [...container.querySelectorAll('.sheet')];
   const shot = (el) => html2canvas(el, { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false, windowWidth: 1200, scrollX: 0, scrollY: -window.scrollY });
   if (sheets.length) {

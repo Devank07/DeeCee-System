@@ -5,6 +5,8 @@ import { SITE_CHECKLIST, INSTALL_STEPS, STATE_NAMES } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, num, sum, waLink, mapsLink, daysUntil } from '../utils';
 import { steps, openTasks, nextText, progressPct, quoteTotal, milestoneStatus } from '../workflow';
 import { VisitForm, InvoiceForm, PaymentForm, DeletePayment, teamOptions, can } from './shared';
+import { ProjectRequests } from './ClientRequests';
+import { ContactSync } from '../contacts';
 import { ConfirmOrder, EnquiryStatus } from './Enquiries';
 import ProposalForm from './ProposalForm';
 import ProposalDoc from './ProposalDoc';
@@ -36,6 +38,7 @@ function OrderList({ user }) {
   const showMoney = payments.length > 0 || hasAny(user, 'accounts', 'stores', 'sales');
   return (
     <div className="page">
+      <ContactSync projects={projects} />
       <PageHeader title="Orders" sub="Every confirmed order from advance to handover. Each team sees what is waiting for them." />
       <div className="chips">
         {Object.entries(groups).map(([k, v]) => (
@@ -135,6 +138,19 @@ function ClientTab({ id, user }) {
       />
 
       <Card><Pipeline p={p} /></Card>
+      <ContactSync projects={[p]} />
+      <ProjectRequests p={p} user={user}
+        onRecordPayment={(r) => setModal({ t: 'pay', milestone: r.milestone ?? undefined, confirmAdvance: r.milestone === 0 && !adv ? true : undefined, prefill: { amount: r.amount, date: r.date, mode: r.mode, ref: r.ref }, req: r })}
+        onApproveDrawing={(r) => act(async () => {
+          await updateDoc('projects', p.id, { drawing: { ...p.drawing, status: 'Approved', approvedAt: Date.now() } }, p.code);
+          await postActivity({ projectId: p.id, clientId: p.clientId, text: `Drawing Rev ${r.rev ?? p.drawing?.rev ?? 0} approved by client. Thank you!`, visibleToClient: true, teamId: p.teamId || null, kind: 'drawing' });
+          await updateDoc('clientRequests', r.id, { status: 'Done', doneAt: Date.now(), doneBy: me()?.name || '' });
+        }, 'Drawing marked approved')}
+        onSiteReady={(r) => act(async () => {
+          await updateDoc('projects', p.id, { site: { ...(p.site || {}), status: 'Ready', at: Date.now(), by: me()?.name || '', notes: 'Reported ready by client and verified' } }, p.code);
+          await postActivity({ projectId: p.id, clientId: p.clientId, text: 'Site confirmed ready for installation. Thank you!', visibleToClient: true, teamId: p.teamId || null, kind: 'site' });
+          await updateDoc('clientRequests', r.id, { status: 'Done', doneAt: Date.now(), doneBy: me()?.name || '' });
+        }, 'Site marked ready')} />
       {myTasks.length > 0 && p.status !== 'Lost' && (
         <Note tone="blue"><b>Waiting for {isAdmin ? 'action' : 'your team'}:</b> {myTasks.map((s) => s.label).join(', ')}</Note>
       )}
@@ -303,7 +319,7 @@ function ClientTab({ id, user }) {
       {modal?.t === 'enq' && <EnquiryStatus p={p} onClose={close} />}
       {modal?.t === 'print' && <ProposalDoc p={p} onClose={close} />}
       {modal?.t === 'delpay' && <DeletePayment payment={modal.pay} onClose={close} />}
-      {modal?.t === 'pay' && <PaymentForm project={p} milestone={modal.milestone} confirmAdvance={modal.confirmAdvance} onClose={close} />}
+      {modal?.t === 'pay' && <PaymentForm project={p} milestone={modal.milestone} confirmAdvance={modal.confirmAdvance} prefill={modal.prefill} onSaved={modal.req ? () => updateDoc('clientRequests', modal.req.id, { status: 'Done', doneAt: Date.now(), doneBy: me()?.name || '', reply: 'Payment received and recorded. Thank you!' }) : undefined} onClose={close} />}
       {modal?.t === 'invoice' && <InvoiceForm onClose={close}
         initial={{ clientId: p.clientId, projectId: p.id, milestone: modal.i, placeOfSupply: p.siteState || '', items: [{ desc: `${modal.m.name} (${modal.m.percent}%) — ${p.title}`, hsn: company.hsnSupply || '', qty: 1, rate: Math.round((num(modal.m.amount) / 1.18) * 100) / 100 }], gstRate: 18 }}
         onSaved={(iid) => updateDoc('projects', p.id, { milestones: p.milestones.map((x, j) => (j === modal.i ? { ...x, invoiceId: iid } : x)) }, p.code)} />}

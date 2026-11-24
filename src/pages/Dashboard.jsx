@@ -4,6 +4,7 @@ import { inr, sum, today, daysUntil, fmtDate, num } from '../utils';
 import { STEPS, openTasks, quoteTotal } from '../workflow';
 import { ROLES } from '../constants';
 import { hasAny, rolesOf, roleLabel, isAdminU } from '../roles';
+import { DashboardRequests } from './ClientRequests';
 
 const has = (u, ...r) => hasAny(u, ...r);
 
@@ -65,6 +66,8 @@ export default function Dashboard({ user }) {
         <Stat label="Field jobs today" value={visits.length} sub={`${visits.filter((v) => v.status === 'Done').length} done`} onClick={has(user, 'service', 'projects') ? () => go('service/visits') : undefined} />
         <Stat label="Staff present" value={`${present}/${activeStaff}`} sub="Today" onClick={has(user, 'accounts') ? () => go('staff/attendance') : undefined} />
       </div>
+
+      <DashboardRequests user={user} />
 
       <div className="grid-2">
         <Card title={isAdminU(user) ? `Orders waiting on a team (${tasks.length})` : `Waiting for your team (${tasks.length})`}>

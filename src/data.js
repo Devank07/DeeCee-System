@@ -35,8 +35,8 @@ const matches = (doc, filters) =>
 
 /* ---------------- DEMO BACKEND (localStorage) ---------------- */
 function demoBackend() {
-  const KEY = 'deecee_erp_demo_v3';
-  const UKEY = 'deecee_erp_demo_uid_v3';
+  const KEY = 'deecee_erp_demo_v4';
+  const UKEY = 'deecee_erp_demo_uid_v4';
   let mem = null;
   try { mem = JSON.parse(localStorage.getItem(KEY)); } catch { /* storage unavailable */ }
   if (!mem) mem = seedData();

@@ -1,3 +1,4 @@
+import { ContactSync } from '../contacts';
 import React, { useState } from 'react';
 import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, LineItems, useSettings, Note } from '../ui';
 import { addDoc, updateDoc, nextNumber, postActivity, me } from '../data';
@@ -38,6 +39,7 @@ export default function Enquiries({ user, params }) {
   };
   return (
     <div className="page">
+      <ContactSync projects={all} />
       <PageHeader title="Enquiries & Quotations" sub="Add a new client — the system asks for the lift details and makes the quotation in the DeeCee proposal format. Send it, and confirm the order when the client agrees." actions={<button className="btn" onClick={() => go('enquiries/new')}>+ New client enquiry</button>} />
       <div className="chips">
         {Object.entries(groups).map(([k, v]) => <button key={k} className={'chip' + (filter === k ? ' on' : '')} onClick={() => setFilter(k)}>{k} <span>{v.length}</span></button>)}
