@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, Badge, Tabs, useSettings } from '../ui';
-import { setDoc, updateDoc, backend, DEMO, me } from '../data';
+import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, Badge, Tabs, useSettings, Note } from '../ui';
+import { setDoc, updateDoc, backend, DEMO, me, wipeData, logAudit } from '../data';
 import { ROLES, STATE_NAMES } from '../constants';
 import { downloadFile, fmtDate, compressImage } from '../utils';
 import { buildRef } from '../proposal';
@@ -13,7 +13,7 @@ export default function Settings({ params }) {
   return (
     <div className="page">
       <PageHeader title="Settings" sub="Company details, user logins and data backup" />
-      <Tabs value={tab} onChange={(k) => (location.hash = '#/settings/' + k)} tabs={[{ key: 'company', label: 'Company' }, { key: 'users', label: 'Logins & access' }, { key: 'import', label: 'Import old data' }, { key: 'data', label: 'Backup' }]} />
+      <Tabs value={tab} onChange={(k) => (location.hash = '#/settings/' + k)} tabs={[{ key: 'company', label: 'Company' }, { key: 'users', label: 'Logins & access' }, { key: 'import', label: 'Import old data' }, { key: 'data', label: 'Backup & reset' }]} />
       {tab === 'company' && <Company />}
       {tab === 'users' && <Users />}
       {tab === 'import' && <ImportOld />}
@@ -181,6 +181,7 @@ function Data() {
     } finally { setBusy(false); }
   };
   return (
+    <>
     <Card title="Backup">
       <p>Download a complete copy of all company records (clients, orders, invoices, AMC, stock, staff…) as a JSON file. Keep a monthly copy on your computer or Google Drive. Uploaded drawings are not included — keep the original drawing files in your drawing team's folder.</p>
       <div className="row gap">
@@ -188,6 +189,62 @@ function Data() {
         {DEMO && <button className="btn ghost danger" onClick={() => backend().resetDemo()}>Reset demo data</button>}
       </div>
       <p className="muted small">Every table in the app also has an “Export CSV” button for Excel.</p>
+    </Card>
+    <ResetData onBackup={exportAll} busyBackup={busy} />
+    </>
+  );
+}
+
+const RESET_GROUPS = [
+  { key: 'business', label: 'Clients, enquiries, quotations & orders, invoices, payments, AMC, complaints, field jobs, updates, drawings & documents, photos, client messages, costings', cols: ['clientRequests', 'activity', 'photos', 'files', 'visits', 'complaints', 'amcs', 'payments', 'invoices', 'costings', 'projects', 'clients'], fixed: true },
+  { key: 'stock', label: 'Stock items, stock ledger, purchase orders, delivery challans, vendors', cols: ['stockMoves', 'dispatches', 'purchaseOrders', 'items', 'vendors'] },
+  { key: 'attendance', label: 'Attendance', cols: ['attendance'] },
+  { key: 'clientLogins', label: 'Client portal logins (staff logins are kept)', cols: ['users'] },
+  { key: 'numbers', label: 'Restart numbering (orders, invoices, AMC, complaints, POs… start again from 0001)', cols: ['counters'] },
+  { key: 'audit', label: 'Audit log', cols: ['audit'] },
+];
+
+function ResetData({ onBackup, busyBackup }) {
+  const company = useSettings();
+  const [pick, setPick] = useState({ business: true, stock: true, attendance: true, clientLogins: true, numbers: true, audit: true });
+  const [serial, setSerial] = useState('');
+  const [confirm, setConfirm] = useState('');
+  const [busy, setBusy] = useState(null);
+  const [done, setDone] = useState(null);
+  const cols = RESET_GROUPS.filter((g) => g.fixed || pick[g.key]).flatMap((g) => g.cols);
+  const run = async () => {
+    if (confirm.trim().toUpperCase() !== 'RESET') return act(async () => { throw new Error('Type RESET to confirm'); });
+    setBusy('Starting…');
+    try {
+      await act(async () => {
+        const n = await wipeData(cols, (col, k) => setBusy(`Clearing ${col}… (${k})`));
+        if (serial && Number(serial) > 0) await setDoc('settings', 'company', { quoteNextSerial: Number(serial) }, true, 'Next quotation serial');
+        logAudit('Reset', 'all', `Test data cleared (${n} records): ${RESET_GROUPS.filter((g) => g.fixed || pick[g.key]).map((g) => g.key).join(', ')}`);
+        setDone(n);
+      }, 'Reset complete');
+    } catch { /* shown */ }
+    setBusy(null); setConfirm('');
+  };
+  return (
+    <Card title="Reset — clear test data" className="reset-card">
+      <p>Use this once when testing is over and you are ready to start using the software for real. It permanently deletes the records you tick below.</p>
+      <p className="ok-text small"><b>Always kept:</b> staff records, site teams, staff logins and their access, company & quotation settings, bank details, signature, salaries.</p>
+      <div className="checks">{RESET_GROUPS.map((g) => (
+        <label key={g.key} className="check"><input type="checkbox" disabled={g.fixed} checked={g.fixed || !!pick[g.key]} onChange={(e) => setPick({ ...pick, [g.key]: e.target.checked })} /> {g.label}</label>
+      ))}</div>
+      {pick.numbers && (
+        <Field label={`Next quotation serial no. after reset (now ${company.quoteNextSerial || '—'})`} hint="Leave blank to keep it. Quotation refs continue from your real register, e.g. 2830.">
+          <input type="number" value={serial} onChange={(e) => setSerial(e.target.value)} placeholder={String(company.quoteNextSerial || '')} />
+        </Field>
+      )}
+      <Note tone="red"><b>This cannot be undone.</b> Download a backup first if you might need any of it.</Note>
+      <div className="row gap wrap mt">
+        <button className="btn ghost" onClick={onBackup} disabled={busyBackup}>{busyBackup ? 'Preparing…' : '1 · Download backup'}</button>
+        <input className="reset-confirm" value={confirm} onChange={(e) => setConfirm(e.target.value)} placeholder="Type RESET" />
+        <button className="btn danger-btn" disabled={!!busy || confirm.trim().toUpperCase() !== 'RESET'} onClick={run}>{busy || '2 · Delete test data'}</button>
+      </div>
+      {done !== null && <p className="ok-text">Done — {done} test records deleted. Open the Dashboard: it should be empty and ready for real work.</p>}
+      <p className="muted small">Client portal logins created during testing can still sign in to an empty portal until you remove them in the Firebase console (Authentication → Users). To reuse the same mobile number for a real client, delete it there first.</p>
     </Card>
   );
 }

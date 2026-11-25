@@ -359,3 +359,21 @@ export async function restampTeam(projectId, teamId) {
   visits.filter((v) => v.status !== 'Done' && v.type === 'Installation Work').forEach((v) => jobs.push(B.update('visits', v.id, { teamId: t })));
   await Promise.all(jobs);
 }
+
+/* ---------------- RESET (testing → going live) ----------------
+   Deletes every record in the given collections. Staff, teams, staff logins and company settings are never touched.
+   For 'users' only CLIENT portal logins are removed. */
+export async function wipeData(cols, onProgress) {
+  let done = 0;
+  for (const col of cols) {
+    const rows = (await B.query(col, [], undefined)).filter((r) => col !== 'users' || r.role === 'client');
+    for (let i = 0; i < rows.length; i += 20) {
+      await Promise.all(rows.slice(i, i + 20).map((r) => (col === 'files'
+        ? (async () => { for (let k = 0; k < (r.chunks || 1); k++) await B.remove(`files/${r.id}/chunks`, String(k)).catch(() => {}); await B.remove('files', r.id); })()
+        : B.remove(col, r.id)).catch(() => {})));
+      done += Math.min(20, rows.length - i);
+      onProgress?.(col, done);
+    }
+  }
+  return done;
+}

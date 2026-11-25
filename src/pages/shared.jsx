@@ -157,7 +157,7 @@ export function PaymentForm({ project, invoice, milestone: initialMs, confirmAdv
 /* -------- Admin: delete a payment (reverses invoice "received" and, if asked, the advance) -------- */
 async function removePayment(pay) {
   await deleteDoc('payments', pay.id, `${inr(pay.amount)} · ${pay.clientName || ''} ${pay.invoiceNumber || pay.projectCode || ''}`.trim());
-  if (pay.invoiceId) {
+  if (pay.invoiceId && pay.status !== 'Reversed') {
     const inv = await getOne('invoices', pay.invoiceId);
     if (inv) await updateDoc('invoices', inv.id, { paid: inc(-num(pay.amount)) }, inv.number);
   }
@@ -171,7 +171,7 @@ export function DeletePayment({ payment: pay, onClose }) {
     if (!pay.projectId) { setProj(null); return; }
     (async () => {
       const p = await getOne('projects', pay.projectId);
-      const rest = (await queryOnce('payments', [['projectId', '==', pay.projectId]])).filter((x) => x.id !== pay.id);
+      const rest = (await queryOnce('payments', [['projectId', '==', pay.projectId]])).filter((x) => x.id !== pay.id && x.status !== 'Reversed');
       setProj(p || null); setOthers(rest.length);
       setUndoAdv(!!p?.advance?.confirmed && rest.length === 0);
     })().catch(() => setProj(null));
@@ -216,6 +216,41 @@ export function DeleteInvoice({ inv, onClose, onDeleted }) {
       <p>This removes invoice <b>{inv.number}</b> ({inr(inv.total)}, {inv.clientName}) completely.</p>
       {pays?.length > 0 && <Note tone="red">Its {pays.length} payment{pays.length > 1 ? 's' : ''} ({inr(sum(pays, 'amount'))}) will be deleted too.</Note>}
       <p className="muted small">Use this for test or duplicate invoices. For a real invoice sent to a client, use <b>Cancel invoice</b> instead so the number stays in your GST records. The number will not be reused. The deletion is kept in the Audit log.</p>
+    </Modal>
+  );
+}
+
+/* -------- Revoke (reverse) a payment: cheque bounced, transfer failed, entered twice. Kept on record, removed from totals. -------- */
+export function RevokePayment({ payment: pay, onClose }) {
+  const [reason, setReason] = useState('Cheque bounced');
+  const [proj, setProj] = useState(undefined);
+  const [undoAdv, setUndoAdv] = useState(false);
+  React.useEffect(() => {
+    if (!pay.projectId) { setProj(null); return; }
+    (async () => {
+      const p = await getOne('projects', pay.projectId);
+      const rest = (await queryOnce('payments', [['projectId', '==', pay.projectId]])).filter((x) => x.id !== pay.id && x.status !== 'Reversed');
+      setProj(p || null); setUndoAdv(!!p?.advance?.confirmed && rest.length === 0);
+    })().catch(() => setProj(null));
+  }, [pay.id]);
+  const save = async () => {
+    if (!reason.trim()) return act(async () => { throw new Error('Enter a reason'); });
+    await act(async () => {
+      await updateDoc('payments', pay.id, { status: 'Reversed', reversedReason: reason.trim(), reversedAt: Date.now(), reversedBy: me()?.name || '' }, `Reversed ${inr(pay.amount)} · ${pay.clientName || ''}`);
+      if (pay.invoiceId) { const inv = await getOne('invoices', pay.invoiceId); if (inv) await updateDoc('invoices', inv.id, { paid: inc(-num(pay.amount)) }, inv.number); }
+      if (proj && undoAdv && proj.advance?.confirmed) await updateDoc('projects', proj.id, { advance: { confirmed: false } }, proj.code);
+      await postActivity({ projectId: pay.projectId || null, clientId: pay.clientId, text: `Payment of ${inr(pay.amount)} dated ${fmtDate(pay.date)} was reversed (${reason.trim()}).`, visibleToClient: true, kind: 'billing' });
+    }, 'Payment reversed');
+    onClose();
+  };
+  return (
+    <Modal title="Revoke this payment?" onClose={onClose}
+      footer={<><button className="btn ghost" onClick={onClose}>Keep it</button><button className="btn danger-btn" disabled={proj === undefined} onClick={save}>Revoke payment</button></>}>
+      <p><b>{inr(pay.amount)}</b> from {pay.clientName || '—'} on {fmtDate(pay.date)} · {pay.mode}{pay.ref ? ' · ' + pay.ref : ''}</p>
+      <p className="muted small">The entry stays in the records marked <b>REVERSED</b> with the reason, but no longer counts as received anywhere{pay.invoiceId ? ' — the invoice balance goes back up' : ''}. The client sees a note in their portal. Use <b>Delete</b> instead for a test or wrong entry.</p>
+      <Field label="Reason"><Select options={['Cheque bounced', 'Transfer failed / returned', 'Entered twice', 'Refunded to client', 'Other']} placeholder={false} value={['Cheque bounced', 'Transfer failed / returned', 'Entered twice', 'Refunded to client', 'Other'].includes(reason) ? reason : 'Other'} onChange={(e) => setReason(e.target.value === 'Other' ? '' : e.target.value)} /></Field>
+      {!['Cheque bounced', 'Transfer failed / returned', 'Entered twice', 'Refunded to client'].includes(reason) && <Field label="Other reason"><input value={reason} onChange={(e) => setReason(e.target.value)} autoFocus /></Field>}
+      {proj?.advance?.confirmed && <label className="check strong"><input type="checkbox" checked={undoAdv} onChange={(e) => setUndoAdv(e.target.checked)} /> Also mark the advance as <b>not received</b> for {proj.code || proj.clientName}</label>}
     </Modal>
   );
 }

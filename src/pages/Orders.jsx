@@ -5,7 +5,7 @@ import { updateDoc, deleteDoc, postActivity, restampTeam, me, setDoc } from '../
 import { SITE_CHECKLIST, INSTALL_STEPS, STATE_NAMES } from '../constants';
 import { inr, fmtDate, fmtDateTime, today, num, sum, waLink, mapsLink, daysUntil } from '../utils';
 import { steps, openTasks, nextText, progressPct, quoteTotal, milestoneStatus } from '../workflow';
-import { VisitForm, InvoiceForm, PaymentForm, DeletePayment, teamOptions, can } from './shared';
+import { VisitForm, InvoiceForm, PaymentForm, DeletePayment, RevokePayment, teamOptions, can } from './shared';
 import { ProjectRequests } from './ClientRequests';
 import PortalInvite from './PortalInvite';
 import HandoverPack from './HandoverPack';
@@ -75,6 +75,7 @@ function ClientTab({ id, user }) {
   const office = isOfficeU(user);
   const moneyRoles = can(user, 'stores', 'accounts', 'sales');
   const payments = useCol('payments', [['projectId', '==', id]], moneyRoles);
+  const payList = useCol('payments', [['projectId', '==', id]], moneyRoles, { withReversed: true });
   const invoices = useCol('invoices', [['projectId', '==', id]], moneyRoles);
   const activity = useCol('activity', [['projectId', '==', id]]);
   const visits = useCol('visits', [['projectId', '==', id]]);
@@ -204,12 +205,14 @@ function ClientTab({ id, user }) {
                   );
                 })}
               </tbody></table>
-              {isAdminU(user) && payments.length > 0 && (
+              {payList.length > 0 && (
                 <details className="small" style={{ marginTop: 8 }}>
-                  <summary className="muted">Payments received ({payments.length}) — delete a wrong entry</summary>
-                  <ul className="list">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => (
-                    <li key={x.id}><span>{fmtDate(x.date)} · {x.mode}{x.ref ? ' · ' + x.ref : ''}{x.invoiceNumber ? ' · ' + x.invoiceNumber : ''}</span>
-                      <span className="nowrap"><b>{inr(x.amount)}</b><button className="btn ghost sm danger" style={{ marginLeft: 8 }} onClick={() => setModal({ t: 'delpay', pay: x })}>Delete</button></span></li>
+                  <summary className="muted">Payments received ({payments.length}){payList.length > payments.length ? ` · ${payList.length - payments.length} reversed` : ''}{can(user, 'accounts') ? ' — revoke or delete an entry' : ''}</summary>
+                  <ul className="list">{[...payList].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => (
+                    <li key={x.id}><span>{fmtDate(x.date)} · {x.mode}{x.ref ? ' · ' + x.ref : ''}{x.invoiceNumber ? ' · ' + x.invoiceNumber : ''}{x.status === 'Reversed' && <> · <Badge tone="red">Reversed</Badge> {x.reversedReason}</>}</span>
+                      <span className="nowrap">{x.status === 'Reversed' ? <s className="muted">{inr(x.amount)}</s> : <b>{inr(x.amount)}</b>}
+                        {can(user, 'accounts') && x.status !== 'Reversed' && <button className="btn ghost sm" style={{ marginLeft: 8 }} onClick={() => setModal({ t: 'revpay', pay: x })}>Revoke</button>}
+                        {isAdminU(user) && <button className="btn ghost sm danger" style={{ marginLeft: 4 }} onClick={() => setModal({ t: 'delpay', pay: x })}>Delete</button>}</span></li>
                   ))}</ul>
                 </details>
               )}
@@ -326,6 +329,7 @@ function ClientTab({ id, user }) {
       {modal?.t === 'enq' && <EnquiryStatus p={p} onClose={close} />}
       {modal?.t === 'print' && <ProposalDoc p={p} onClose={close} />}
       {modal?.t === 'delpay' && <DeletePayment payment={modal.pay} onClose={close} />}
+      {modal?.t === 'revpay' && <RevokePayment payment={modal.pay} onClose={close} />}
       {modal?.t === 'pay' && <PaymentForm project={p} milestone={modal.milestone} confirmAdvance={modal.confirmAdvance} prefill={modal.prefill} onSaved={modal.req ? () => updateDoc('clientRequests', modal.req.id, { status: 'Done', doneAt: Date.now(), doneBy: me()?.name || '', reply: 'Payment received and recorded. Thank you!' }) : undefined} onClose={close} />}
       {modal?.t === 'invoice' && <InvoiceForm onClose={close}
         initial={{ clientId: p.clientId, projectId: p.id, milestone: modal.i, placeOfSupply: p.siteState || '', items: [{ desc: `${modal.m.name} (${modal.m.percent}%) — ${p.title}`, hsn: company.hsnSupply || '', qty: 1, rate: Math.round((num(modal.m.amount) / 1.18) * 100) / 100 }], gstRate: 18 }}

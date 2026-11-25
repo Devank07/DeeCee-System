@@ -44,12 +44,13 @@ service cloud.firestore {
       // Admin can edit anyone, but cannot remove their own admin role or disable themselves
       allow update: if isAdmin() && !(uid == request.auth.uid
         && (!request.resource.data.get('roles', [request.resource.data.role]).hasAny(['admin']) || request.resource.data.active == false));
-      allow delete: if false;
+      // Admin may remove CLIENT portal logins (e.g. test data reset); staff logins are never deleted
+      allow delete: if isAdmin() && resource.data.role == 'client';
     }
 
     match /settings/{id} { allow read: if active(); allow write: if isAdmin(); }
     match /counters/{id} { allow read, write: if active(); }
-    match /audit/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update, delete: if false; }
+    match /audit/{id} { allow read: if isAdmin(); allow create: if isStaff(); allow update: if false; allow delete: if isAdmin(); }
     match /payroll/{id} { allow read, write: if hasRole(['accounts']); }
     // Internal costing per client tab — never visible to clients, technicians or other teams
     match /costings/{id} { allow read, write: if hasRole(['sales', 'accounts']); }
@@ -77,7 +78,7 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
     match /items/{id} { allow read: if isOffice(); allow write: if hasRole(['stores']); }
-    match /stockMoves/{id} { allow read: if isOffice(); allow create: if hasRole(['stores']); allow update, delete: if false; }
+    match /stockMoves/{id} { allow read: if isOffice(); allow create: if hasRole(['stores']); allow update: if false; allow delete: if isAdmin(); }
     match /vendors/{id} { allow read: if isOffice(); allow write: if hasRole(['stores']); }
     match /purchaseOrders/{id} { allow read: if isOffice(); allow write: if hasRole(['stores']); }
     match /dispatches/{id} { allow read: if isOffice(); allow write: if hasRole(['stores']); }
@@ -172,7 +173,11 @@ service cloud.firestore {
     match /payments/{id} {
       allow read: if isOffice() || ownsDoc();
       allow create: if hasRole(['accounts', 'stores']);
-      allow update, delete: if isAdmin();
+      // Accounts can revoke (reverse) a payment; only Admin can change or delete it otherwise
+      allow update: if isAdmin()
+        || (hasRole(['accounts']) && request.resource.data.status == 'Reversed'
+            && onlyChanges(['status', 'reversedReason', 'reversedAt', 'reversedBy', 'updatedAt', 'updatedBy']));
+      allow delete: if isAdmin();
     }
   }
 }

@@ -74,6 +74,8 @@ Contact cards are copied automatically from the staff record (salesperson) and t
 - **Material & Stock**: stock with minimum levels, purchase orders (receive → stock in), dispatch challans, vendors, stock ledger. Stock and payment totals update safely even when two people save at the same moment.
 - **Staff & Teams**: staff records, **site teams** (installation crews, service team), attendance; salaries visible only to Admin & Accounts.
 - **Send on WhatsApp**: every quotation, invoice, delivery challan, purchase order, drawing and uploaded document has a green *Send on WhatsApp* button. It makes the PDF (named after the client), fills in the client's number and a ready message. On a phone (or a Windows PC with the WhatsApp app) the PDF is attached directly through the share menu; on other computers the PDF is downloaded and the client's WhatsApp chat opens with the message — attach it with 📎 → Document.
+- **Revoke a payment** (Accounts / Admin): for a bounced cheque or failed transfer — the entry stays, marked *Reversed* with the reason, and stops counting everywhere (invoice balance goes back up; optionally the advance is un-confirmed). **Delete** (Admin) is for test or wrong entries.
+- **Reset test data** (*Settings → Backup & reset*, Admin): when testing is over, download a backup, tick what to clear, type RESET. Clients, orders, invoices, payments, AMC, service, files and photos are deleted (optionally stock, attendance, client logins, audit log and numbering). Staff, teams, staff logins and company settings are always kept. Test client logins also need deleting in the Firebase console → Authentication if you want to reuse those mobile numbers.
 - **Audit log**, **CSV export** on every table, **full backup** in Settings.
 
 ---

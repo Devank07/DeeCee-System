@@ -29,8 +29,11 @@ export function useCol(col, filters = [], enabled = true, opts) {
   useEffect(() => {
     if (!enabled) { setRows([]); return; }
     const [f, o] = JSON.parse(key);
-    return subscribe(col, f, setRows, o || undefined);
+    const { withReversed, ...rest } = o || {};
+    return subscribe(col, f, setRows, Object.keys(rest).length ? rest : undefined);
   }, [col, key, enabled]);
+  // Reversed (revoked) payments stay on record but never count in any total, unless a list asks for them
+  if (col === 'payments' && rows && !opts?.withReversed) return rows.filter((r) => r.status !== 'Reversed');
   return rows || [];
 }
 export function useDoc(col, id) {
