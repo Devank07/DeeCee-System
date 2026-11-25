@@ -43,9 +43,21 @@ function CompanyForm({ s }) {
           <Field label="Phone"><input {...bind('phone')} /></Field>
           <Field label="Email"><input {...bind('email')} /></Field>
           <Field label="Website"><input {...bind('website')} /></Field>
+          <Field label="Client portal address" hint="Sent to clients in the portal invite, e.g. https://portal.deeceeelevators.in"><input {...bind('portalUrl')} placeholder="https://deecee-elevators.web.app" /></Field>
           <Field label="GSTIN"><input {...bind('gstin')} /></Field>
           <Field label="PAN"><input {...bind('pan')} /></Field>
           <Field label="Bank details (printed on quotations & invoices)" span={2} hint="One line per row, e.g. DEE CEE ELEVATORS PVT LTD / INDIAN BANK A/C No. …, IFSC … / BRANCH: …"><textarea rows={3} {...bind('bank')} /></Field>
+        </div>
+        <h4 className="section-title">Tally ledger names (for Billing → Export for CA / Tally)</h4>
+        <div className="form-grid four">
+          <Field label="Sales ledger"><input {...bind('tallySales')} placeholder="Sales - Lifts" /></Field>
+          <Field label="CGST ledger"><input {...bind('tallyCgst')} placeholder="Output CGST" /></Field>
+          <Field label="SGST ledger"><input {...bind('tallySgst')} placeholder="Output SGST" /></Field>
+          <Field label="IGST ledger"><input {...bind('tallyIgst')} placeholder="Output IGST" /></Field>
+          <Field label="Round off ledger"><input {...bind('tallyRound')} placeholder="Round Off" /></Field>
+          <Field label="Bank ledger"><input {...bind('tallyBank')} placeholder="Bank" /></Field>
+          <Field label="Cash ledger"><input {...bind('tallyCash')} placeholder="Cash" /></Field>
+          <Field label="Client ledger group"><input {...bind('tallyDebtors')} placeholder="Sundry Debtors" /></Field>
         </div>
       </Card>
       <Card title="Quotation settings" actions={<button className="btn" onClick={save}>Save</button>}>

@@ -36,7 +36,7 @@ Locked steps show *why* they're locked (e.g. "Waiting for site ready"). Only the
 | Material & Dispatch | Dashboard, Orders (advance, dispatch), Material & Stock |
 | Installation manager | Dashboard, Orders (site, team, installation, handover), Service, Staff & Teams, Field App |
 | Service & AMC | Dashboard, Clients, Orders, Service & AMC, Staff & Teams, Field App |
-| Accounts | Dashboard, Clients, Orders, Billing, Staff & attendance |
+| Accounts | Dashboard, Reports, Clients, Orders, Billing (incl. CA / Tally export), Staff & attendance |
 | **Technician** | **Phone app only — just their own team's sites and jobs**: drawings, site status, installation progress, photos (shared with the client), job reports with customer signature, check-in |
 | Client | Their own portal (phone-first): see the **Client portal** section below |
 
@@ -52,6 +52,20 @@ Clients log in at the same address with the login you create (**Clients → open
 
 **What clients send reaches the office** as *From the client* on the client tab and *From clients* on the Dashboard (with a red count on the menu). On the client tab the buttons do the real work: **Record this payment** (pre-filled), **Mark drawing approved**, **Verified — mark site ready**. Any reply typed there shows up in the client's portal.
 Contact cards are copied automatically from the staff record (salesperson) and the team leader of the assigned site team, so keep their phone numbers filled in under Staff & Teams.
+
+## Owner tools
+- **Reports** (Admin, Accounts): per financial year — sales funnel (enquiries → quoted → won, win rate, lost reasons), orders booked vs money collected by month, **profit per order** (order value without GST minus material purchase orders, or the internal costing), salesperson performance, and who owes us. Every table exports to CSV.
+- **Reminders** on the Dashboard, each with a one-tap **WhatsApp** message: follow-ups due (Sales), invoices due in 3 days or overdue (Accounts), AMC ending in 30 days (Service), site not ready 2+ weeks after the order (Sales / Installation), lift licence pending or expiring (Installation). ✕ hides one for 3 days.
+- **AMC billing**: each AMC has a billing cycle (yearly, half-yearly, quarterly, monthly). *AMC bills due* (Dashboard, Billing, Service → AMC) lists the running period's unbilled invoice — **Raise all** creates them (SAC from Settings, GST 18%, due in 15 days) and the client sees them in the portal.
+- **Lift licence** on every client tab: status (applied → inspection → issued), number, validity, upload a copy. All licences: *Service & AMC → Lift licences*. The client sees the status in the portal.
+- **Handover pack** (client tab, after handover): Handover Certificate, Warranty Card and AMC Offer as PDFs — print, send on WhatsApp, or **Save all 3 to client documents** (they appear in the client's portal).
+- **Client portal invite**: *Client portal* on the client tab or client page (and offered right after *Order confirmed*). Creates the client's login — **their mobile number** + an auto password — and opens WhatsApp with the link and login. Clients can sign in with the mobile number instead of an email. Set the address you send in *Settings → Company → Client portal address*.
+- **Export for CA / Tally** (*Billing → Export for CA / Tally*): pick a period → **Excel** (sales register with CGST/SGST/IGST, receipts, HSN summary, GST summary B2B/B2C, cancelled invoices) and **Tally XML** (1: party ledgers, 2: sales + receipt vouchers with bill references). Ledger names are set in *Settings → Company*; they must match your Tally ledgers.
+
+## Phones
+- **Install as an app**: the ⤓ button (or on iPhone: Share → Add to Home Screen) puts a Dee Cee icon on the home screen; it opens full-screen. The app keeps working when the signal drops — changes are sent when the internet is back.
+- **Technician check-in** with a selfie and GPS location, and check-out; field jobs record where they were started and completed. The office sees the photo and 📍 map links in *Staff & Teams → Mark attendance* and on each job.
+- **Hindi**: the हिंदी / EN button in the technician app and the client portal.
 
 ## Other modules
 - **Billing**: GST tax invoices with HSN/SAC per line and *place of supply* (CGST+SGST in your state, IGST outside), amount in words, cancel invoice (number kept), payments by milestone, **Admin can delete** a wrong/test payment (invoice balance and advance are reversed) or a test invoice (with its payments) — every deletion stays in the Audit log, order balances, invoice ageing, WhatsApp reminders.

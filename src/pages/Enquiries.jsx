@@ -64,7 +64,8 @@ export default function Enquiries({ user, params }) {
 }
 
 /* ---------- Confirm order (sales) ---------- */
-export function ConfirmOrder({ p, onClose }) {
+export function ConfirmOrder({ p, onClose, onConfirmed }) {
+  const [invite, setInvite] = useState(true);
   const teams = useCol('teams');
   const total = quoteTotal(p);
   const terms = p.proposal?.payTerms?.length ? p.proposal.payTerms : DEFAULT_PAY_TERMS;
@@ -88,6 +89,7 @@ export function ConfirmOrder({ p, onClose }) {
       await postActivity({ projectId: p.id, clientId: p.clientId, text: `Order confirmed (${code}) for ${inr(value)}. Next: advance payment.`, visibleToClient: true, kind: 'stage' });
     }, 'Order confirmed — Material, Drawing and Installation teams can now see it');
     onClose();
+    if (invite && onConfirmed) onConfirmed({ invite });
   };
   return (
     <Modal title="Confirm order" wide onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Confirm order</button></>}>
@@ -105,6 +107,7 @@ export function ConfirmOrder({ p, onClose }) {
           <tr key={i}><td><input value={m.name} onChange={(e) => ms(i, 'name', e.target.value)} /></td><td><input type="number" className="r" value={m.percent} onChange={(e) => ms(i, 'percent', e.target.value)} /></td><td className="r">{inr((num(f.value) * num(m.percent)) / 100)}</td></tr>
         ))}</tbody>
       </table>
+      {onConfirmed && <label className="check strong mt"><input type="checkbox" checked={invite} onChange={(e) => setInvite(e.target.checked)} /> Next, invite the client to the client portal on WhatsApp</label>}
     </Modal>
   );
 }

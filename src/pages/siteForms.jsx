@@ -1,3 +1,4 @@
+import { t } from '../i18n';
 import React, { useState } from 'react';
 import { Modal, Field, act, Note } from '../ui';
 import { updateDoc, postActivity, me } from '../data';
@@ -22,20 +23,20 @@ export function SiteForm({ p, onClose }) {
     onClose();
   };
   return (
-    <Modal title="Site readiness" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send site status</button></>}>
+    <Modal title="Site readiness" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Cancel")}</button><button className="btn" onClick={save}>{t("Send site status")}</button></>}>
       <p className="muted small">{p.clientName} · {p.siteAddress}</p>
       <ul className="tick-list">
         {SITE_CHECKLIST.map((c) => (
-          <li key={c}><label><input type="checkbox" checked={!!checks[c]} onChange={(e) => { const n = { ...checks, [c]: e.target.checked }; setChecks(n); setReady(SITE_CHECKLIST.every((x) => n[x])); }} /> {c}</label></li>
+          <li key={c}><label><input type="checkbox" checked={!!checks[c]} onChange={(e) => { const n = { ...checks, [c]: e.target.checked }; setChecks(n); setReady(SITE_CHECKLIST.every((x) => n[x])); }} /> {t(c)}</label></li>
         ))}
       </ul>
       <div className="seg-choice">
-        <button className={ready ? 'on ok' : ''} onClick={() => setReady(true)}>✓ Site is ready</button>
-        <button className={!ready ? 'on bad' : ''} onClick={() => setReady(false)}>✕ Not ready</button>
+        <button className={ready ? 'on ok' : ''} onClick={() => setReady(true)}>{t("✓ Site is ready")}</button>
+        <button className={!ready ? 'on bad' : ''} onClick={() => setReady(false)}>{t("✕ Not ready")}</button>
       </div>
-      {ready && missing.length > 0 && <Note>Some checks are not ticked. Make sure the site really is ready before the material is sent.</Note>}
+      {ready && missing.length > 0 && <Note>{t("Some checks are not ticked. Make sure the site really is ready before the material is sent.")}</Note>}
       <Field label="Notes for office & client"><textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={ready ? 'Anything to note' : 'What is pending at site and who needs to do it'} /></Field>
-      <p className="muted small">The client sees this update on their portal. Add photos from the Site photos section.</p>
+      <p className="muted small">{t("The client sees this update on their portal. Add photos from the Site photos section.")}</p>
     </Modal>
   );
 }
@@ -59,11 +60,11 @@ export function InstallForm({ p, onClose }) {
     onClose();
   };
   return (
-    <Modal title="Installation status" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send status ({progress}%)</button></>}>
+    <Modal title={t("Update installation status")} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Cancel")}</button><button className="btn" onClick={save}>Send status ({progress}%)</button></>}>
       <p className="muted small">{p.clientName} · {p.title}</p>
       <ul className="tick-list">
         {INSTALL_STEPS.map((c) => (
-          <li key={c}><label><input type="checkbox" checked={!!stepsDone[c]} onChange={(e) => setSteps({ ...stepsDone, [c]: e.target.checked })} /> {c}</label></li>
+          <li key={c}><label><input type="checkbox" checked={!!stepsDone[c]} onChange={(e) => setSteps({ ...stepsDone, [c]: e.target.checked })} /> {t(c)}</label></li>
         ))}
       </ul>
       <div className="progress big"><div style={{ width: progress + '%' }} /></div>

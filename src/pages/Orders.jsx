@@ -1,3 +1,4 @@
+import { LicenceCard } from './Reminders';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Pipeline, MiniPipeline, ProgressBar, ActivityFeed, PhotoUploader, PhotoGrid, FileList, FileUpload, Empty, Stat, Note, PrintDoc, useSettings } from '../ui';
 import { updateDoc, deleteDoc, postActivity, restampTeam, me, setDoc } from '../data';
@@ -6,6 +7,8 @@ import { inr, fmtDate, fmtDateTime, today, num, sum, waLink, mapsLink, daysUntil
 import { steps, openTasks, nextText, progressPct, quoteTotal, milestoneStatus } from '../workflow';
 import { VisitForm, InvoiceForm, PaymentForm, DeletePayment, teamOptions, can } from './shared';
 import { ProjectRequests } from './ClientRequests';
+import PortalInvite from './PortalInvite';
+import HandoverPack from './HandoverPack';
 import { ContactSync } from '../contacts';
 import { ConfirmOrder, EnquiryStatus } from './Enquiries';
 import ProposalForm from './ProposalForm';
@@ -133,6 +136,7 @@ function ClientTab({ id, user }) {
         actions={<>
           <button className="btn ghost" onClick={() => go(enquiry ? 'enquiries' : 'orders')}>← Back</button>
           {p.contactPhone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(p.contactPhone, `Dear ${p.contactPerson || p.clientName}, update on your lift ${p.code || ''}: ${nextText(p)}. — ${company.name}`)}>WhatsApp</a>}
+          {p.clientId && can(user, 'sales', 'accounts') && <button className="btn ghost" onClick={() => setModal({ t: 'invite' })}>Client portal</button>}
           {can(user, 'sales', 'projects') && <button className="btn ghost" onClick={() => setModal({ t: 'edit' })}>Edit details</button>}
         </>}
       />
@@ -250,6 +254,7 @@ function ClientTab({ id, user }) {
           <Card title={<>Installation <Badge>{p.install?.status || 'Not started'}</Badge></>} actions={can(user, 'projects') && <>
             <button className="btn ghost sm" disabled={!!lock(dispatched, 'x')} onClick={() => setModal({ t: 'install' })}>Update progress</button>
             {p.install?.status === 'Completed' && !p.handoverAt && <button className="btn sm" onClick={() => setModal({ t: 'handover' })}>Hand over</button>}
+            {p.handoverAt && can(user, 'projects', 'sales', 'service') && <button className={'btn sm' + (p.handoverPack ? ' ghost' : '')} onClick={() => setModal({ t: 'pack' })}>{p.handoverPack ? 'Handover pack ✓' : 'Handover pack'}</button>}
             {p.handoverAt && <button className="btn ghost sm" onClick={() => go('service/amc/new/' + p.id)}>Create AMC</button>}
           </>}>
             <div className="row gap between wrap">
@@ -296,6 +301,7 @@ function ClientTab({ id, user }) {
         </Card>
       </div>
 
+      {!enquiry && <LicenceCard p={p} user={user} />}
       <Card title="Timeline — all teams">
         <div className="composer">
           <textarea rows={2} placeholder="Post an update (e.g. 'Client will fix the machine room hook by Friday')" value={note} onChange={(e) => setNote(e.target.value)} />
@@ -315,7 +321,8 @@ function ClientTab({ id, user }) {
       {modal?.t === 'quote' && <ProposalForm p={p} onClose={close} />}
       {modal?.t === 'revise' && <ProposalForm p={p} revise onClose={close} />}
       {modal?.t === 'printOld' && <ProposalDoc p={{ ...p, ...modal.snap }} onClose={close} />}
-      {modal?.t === 'confirm' && <ConfirmOrder p={p} onClose={close} />}
+      {modal?.t === 'confirm' && <ConfirmOrder p={p} onClose={close} onConfirmed={() => setTimeout(() => setModal({ t: 'invite' }), 50)} />}
+      {modal?.t === 'invite' && <PortalInvite clientId={p.clientId} project={p} onClose={close} />}
       {modal?.t === 'enq' && <EnquiryStatus p={p} onClose={close} />}
       {modal?.t === 'print' && <ProposalDoc p={p} onClose={close} />}
       {modal?.t === 'delpay' && <DeletePayment payment={modal.pay} onClose={close} />}
@@ -331,6 +338,7 @@ function ClientTab({ id, user }) {
       {modal?.t === 'site' && <SiteForm p={p} onClose={close} />}
       {modal?.t === 'install' && <InstallForm p={p} onClose={close} />}
       {modal?.t === 'handover' && <HandoverModal p={p} onClose={close} />}
+      {modal?.t === 'pack' && <HandoverPack p={p} onClose={close} />}
       {modal?.t === 'dispatch' && <DispatchForm preset={{ projectId: p.id }} onClose={close} />}
       {modal?.t === 'visit' && <VisitForm initial={{ type: 'Installation Work', clientId: p.clientId, clientName: p.clientName, projectId: p.id, siteAddress: p.siteAddress, contactPhone: p.contactPhone, teamId: p.teamId || '' }} onClose={close} />}
       {modal?.t === 'edit' && <EditOrder p={p} user={user} onClose={close} />}

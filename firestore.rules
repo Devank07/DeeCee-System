@@ -36,6 +36,9 @@ service cloud.firestore {
     match /users/{uid} {
       allow read: if signedIn() && (request.auth.uid == uid || isAdmin());
       allow create: if isAdmin()
+        // Sales / Accounts / Service can create CLIENT portal logins only
+        || (hasRole(['sales', 'accounts', 'service']) && request.resource.data.role == 'client'
+            && request.resource.data.get('roles', ['client']) == ['client'] && request.resource.data.clientId is string)
         || (signedIn() && request.auth.uid == uid && request.resource.data.role == 'admin'
             && !setupDone() && existsAfter(/databases/$(database)/documents/meta/setup));
       // Admin can edit anyone, but cannot remove their own admin role or disable themselves
@@ -128,7 +131,7 @@ service cloud.firestore {
       allow read: if isOffice() || teamDoc() || ownsDoc();
       allow create: if isOffice();
       allow update: if isOffice()
-        || (teamDoc() && onlyChanges(['status', 'startedAt', 'doneAt', 'doneBy', 'checklist', 'notes', 'partsUsed', 'customerName', 'signature', 'updatedAt', 'updatedBy']))
+        || (teamDoc() && onlyChanges(['status', 'startedAt', 'doneAt', 'doneBy', 'checklist', 'notes', 'partsUsed', 'customerName', 'signature', 'startLoc', 'doneLoc', 'updatedAt', 'updatedBy']))
         || (ownsDoc() && onlyChanges(['rating', 'feedback', 'ratedAt', 'updatedAt', 'updatedBy']));
       allow delete: if hasRole(['service', 'projects']);
     }

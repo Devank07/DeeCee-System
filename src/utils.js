@@ -89,3 +89,14 @@ export const mapsLink = (addr) => `https://www.google.com/maps/search/?api=1&que
 export const sum = (arr, f) => arr.reduce((s, x) => s + num(typeof f === 'function' ? f(x) : x[f]), 0);
 export const byId = (arr) => Object.fromEntries((arr || []).map((x) => [x.id, x]));
 export const sortBy = (arr, f, desc = false) => [...arr].sort((a, b) => { const x = f(a), y = f(b); return (x > y ? 1 : x < y ? -1 : 0) * (desc ? -1 : 1); });
+
+// Clients log in with their mobile number: it is turned into a login id behind the scenes.
+export const PHONE_LOGIN_DOMAIN = 'clients.deeceeelevators.in';
+export const phoneLoginEmail = (phone) => { const d = String(phone || '').replace(/\D/g, '').slice(-10); return d.length === 10 ? `${d}@${PHONE_LOGIN_DOMAIN}` : ''; };
+export const toLoginId = (input) => { const v = String(input || '').trim(); return !v.includes('@') && v.replace(/\D/g, '').length >= 10 ? phoneLoginEmail(v) : v; };
+export const loginLabel = (email) => (String(email || '').endsWith('@' + PHONE_LOGIN_DOMAIN) ? String(email).split('@')[0] : email);
+export function makePassword() {
+  const L = 'ABCDEFGHJKMNPQRSTUVWXYZ', D = '23456789';
+  const pick = (s) => s[Math.floor(Math.random() * s.length)];
+  return 'DC' + pick(D) + pick(D) + pick(D) + pick(D) + pick(L) + pick(L);
+}

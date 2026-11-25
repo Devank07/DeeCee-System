@@ -1,3 +1,4 @@
+import PortalInvite from './PortalInvite';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Stat, ActivityFeed, Empty, MiniPipeline } from '../ui';
 import { addDoc, updateDoc, deleteDoc, backend } from '../data';
@@ -95,7 +96,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
           {c.phone && <a className="btn ghost" href={'tel:' + c.phone}>Call</a>}
           {c.phone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(c.phone, `Hello ${c.contactPerson || ''}, `)}>WhatsApp</a>}
           <button className="btn ghost" onClick={onEdit}>Edit</button>
-          {isAdminU(user) && <button className="btn" onClick={() => setPortal(true)}>Client portal login</button>}
+          {hasAny(user, 'sales', 'accounts', 'service') && <button className="btn" onClick={() => setPortal(true)}>{c.portal ? 'Client portal ✓' : 'Invite to client portal'}</button>}
         </>}
       />
       <div className="stats">
@@ -139,7 +140,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
       </div>
       <Card title="Timeline"><ActivityFeed items={activity} /></Card>
       {form && <ClientForm client={form} onClose={() => setForm(null)} />}
-      {portal && <PortalLogin client={c} onClose={() => setPortal(false)} />}
+      {portal && <PortalInvite clientId={c.id} onClose={() => setPortal(false)} />}
       {isAdminU(user) && !projects.length && !invoices.length && (
         <p className="r">{del ? <button className="btn danger-btn sm" onClick={() => act(() => deleteDoc('clients', c.id, c.name), 'Client deleted').then(() => go('clients'))}>Yes, delete {c.name}</button> : <button className="link danger" onClick={() => setDel(true)}>Delete client</button>}</p>
       )}

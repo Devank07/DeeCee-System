@@ -1,3 +1,5 @@
+import { t, getLang, setLang } from '../i18n';
+import { InstallButton } from '../pwa';
 // Client portal — phone-first. Home · Progress · Documents · Payments · Service
 import React, { useEffect, useMemo, useState } from 'react';
 import { logoUrl, useCol, Badge, Empty, Modal, Field, Select, useForm, act, PrintDoc, PrintFrame, useSettings, ProgressBar, toast, WaIcon } from '../ui';
@@ -69,22 +71,27 @@ export default function Portal({ user }) {
   const [m, setM] = useState(null); // modal
   const p = projects.find((x) => x.id === pid) || projects[0] || null;
   useEffect(() => { if (!pid && projects[0]) setPid(projects[0].id); }, [projects, pid]);
+  useEffect(() => { window.scrollTo(0, 0); }, []);
 
   const ctx = { user, cid, company, projects, orders, invoices, payments, amcs, complaints, visits, activity, files, requests, p, setPid, setTab, setM };
   const contacts = p?.contacts || {};
   const officePhone = company.phone;
+  const [, setL] = useState(getLang());
+  const toggleLang = () => { const n = getLang() === 'hi' ? 'en' : 'hi'; setLang(n); setL(n); };
   const newReplies = activity.filter((a) => a.kind === 'reply' && Date.now() - a.at < 3 * 86400000).length;
 
   return (
     <div className="portal">
       <header className="portal-head">
-        <div className="brand"><img src={logoUrl} alt="" className="brand-logo" /><div><b>Dee Cee Elevators</b><span>Customer portal</span></div></div>
+        <div className="brand"><img src={logoUrl} alt="" className="brand-logo" /><div><b>Dee Cee Elevators</b><span>{t("Customer portal")}</span></div></div>
         <nav className="portal-tabs" aria-label="Portal sections">
-          {TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><Ico n={k} size={18} /><span>{l}</span>{k === 'home' && newReplies > 0 && <i className="dotb" />}</button>)}
+          {TABS.map(([k, l]) => <button key={k} className={tab === k ? 'on' : ''} onClick={() => setTab(k)}><Ico n={k} size={18} /><span>{t(l)}</span>{k === 'home' && newReplies > 0 && <i className="dotb" />}</button>)}
         </nav>
         <div className="row gap portal-head-r">
-          {officePhone && <a className="btn ghost sm" href={'tel:' + officePhone}><Ico n="phone" size={15} /> <span className="hide-sm">Call us</span></a>}
-          <button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button>
+          <InstallButton />
+          <button className="btn ghost sm lang-btn" onClick={toggleLang}>{getLang() === 'hi' ? 'EN' : 'हिंदी'}</button>
+          {officePhone && <a className="btn ghost sm" href={'tel:' + officePhone}><Ico n="phone" size={15} /> <span className="hide-sm">{t("Call us")}</span></a>}
+          <button className="btn ghost sm" onClick={() => backend().logout()}>{t("Sign out")}</button>
         </div>
       </header>
 
@@ -149,12 +156,12 @@ function Home({ user, company, projects, invoices, payments, complaints, activit
   const paid = p ? sum(payments.filter((x) => x.projectId === p.id), 'amount') : 0;
 
   return (<>
-    <h1 className="portal-hello">Namaste{(p?.contactPerson || user.name) ? ', ' + (p?.contactPerson || user.name) : ''}</h1>
-    {!p ? <div className="p-card"><Empty>Your project will appear here once your order is booked.</Empty></div> : (
+    <h1 className="portal-hello">{t('Namaste')}{(p?.contactPerson || user.name) ? ', ' + (p?.contactPerson || user.name) : ''}</h1>
+    {!p ? <div className="p-card"><Empty>{t("Your project will appear here once your order is booked.")}</Empty></div> : (
       <section className="hero">
         <div className="hero-top">
           <div className="grow">
-            <div className="hero-k">{p.status === 'Enquiry' ? 'Proposal' : p.status === 'Completed' ? 'Handed over' : p.status === 'On Hold' ? 'On hold' : 'In progress'} · {p.code || p.quote?.refNo || p.quoteNo}</div>
+            <div className="hero-k">{t(p.status === 'Enquiry' ? 'Proposal' : p.status === 'Completed' ? 'Handed over' : p.status === 'On Hold' ? 'On hold' : 'In progress')} · {p.code || p.quote?.refNo || p.quoteNo}</div>
             <h2>{p.title}</h2>
             <div className="hero-addr">{(p.siteAddress || '').split('\n')[0]}</div>
           </div>
@@ -162,50 +169,50 @@ function Home({ user, company, projects, invoices, payments, complaints, activit
         </div>
         {p.status === 'Enquiry' ? (
           <div className="hero-now">
-            <div><span>Proposal</span><b>{p.quote?.refNo || p.quoteNo}</b></div>
-            <div><span>Amount</span><b>{inr(quoteTotal(p))} <small>incl. GST</small></b></div>
-            <button className="btn hero-btn" onClick={() => setM({ t: 'quote', p })}>View proposal</button>
+            <div><span>{t("Proposal")}</span><b>{p.quote?.refNo || p.quoteNo}</b></div>
+            <div><span>{t("Amount")}</span><b>{inr(quoteTotal(p))} <small>{t("incl. GST")}</small></b></div>
+            <button className="btn hero-btn" onClick={() => setM({ t: 'quote', p })}>{t("View proposal")}</button>
           </div>
         ) : (
           <div className="hero-now">
-            <div><span>Now</span><b>{cur ? cur.label : 'Handed over 🎉'}</b>{cur && <small>{STEP_INFO[cur.key].text}</small>}</div>
-            {p.status === 'Order' && p.expectedHandover && <div><span>Target handover</span><b>{fmtDate(p.expectedHandover)}</b></div>}
-            {p.handoverAt && <div><span>Handed over</span><b>{fmtDate(p.handoverAt)}</b></div>}
-            {num(p.contractValue) > 0 && <div><span>Paid</span><b>{inr(paid)} <small>of {inr(p.contractValue)}</small></b></div>}
+            <div><span>{t("Now")}</span><b>{cur ? t(cur.label) : t('Handed over') + ' 🎉'}</b>{cur && <small>{t(STEP_INFO[cur.key].text)}</small>}</div>
+            {p.status === 'Order' && p.expectedHandover && <div><span>{t("Target handover")}</span><b>{fmtDate(p.expectedHandover)}</b></div>}
+            {p.handoverAt && <div><span>{t("Handed over")}</span><b>{fmtDate(p.handoverAt)}</b></div>}
+            {num(p.contractValue) > 0 && <div><span>{t("Paid")}</span><b>{inr(paid)} <small>of {inr(p.contractValue)}</small></b></div>}
           </div>
         )}
-        {p.status !== 'Enquiry' && <button className="hero-link" onClick={() => setTab('progress')}>See all stages ›</button>}
+        {p.status !== 'Enquiry' && <button className="hero-link" onClick={() => setTab('progress')}>{t("See all stages ›")}</button>}
       </section>
     )}
 
     {todos.length > 0 && (
       <section className="p-card">
-        <h3 className="p-h">Needs your attention</h3>
-        <ul className="todo">{todos.map((t, i) => (
-          <li key={i} className={'t-' + t.tone}><span className="t-dot" /><div className="grow"><b>{t.title}</b>{t.text && <div className="muted small">{t.text}</div>}</div>{t.btn && <button className="btn sm" onClick={t.go}>{t.btn}</button>}</li>
+        <h3 className="p-h">{t("Needs your attention")}</h3>
+        <ul className="todo">{todos.map((td, i) => (
+          <li key={i} className={'t-' + td.tone}><span className="t-dot" /><div className="grow"><b>{t(td.title)}</b>{td.text && <div className="muted small">{t(td.text)}</div>}</div>{td.btn && <button className="btn sm" onClick={td.go}>{t(td.btn)}</button>}</li>
         ))}</ul>
       </section>
     )}
 
     <section className="quick">
-      <button onClick={() => setM({ t: 'payment', projectId: p?.status === 'Order' ? p.id : '' })}><Ico n="pay" /><span>Send payment details</span></button>
-      <button onClick={() => setM({ t: 'message', projectId: p?.id || '' })}><Ico n="chat" /><span>Message our team</span></button>
-      <button onClick={() => setTab('docs')}><Ico n="docs" /><span>Quotes, drawings & invoices</span></button>
-      <button className="q-red" onClick={() => setM({ t: 'complaint' })}><Ico n="alert" /><span>Report a lift problem</span></button>
+      <button onClick={() => setM({ t: 'payment', projectId: p?.status === 'Order' ? p.id : '' })}><Ico n="pay" /><span>{t("Send payment details")}</span></button>
+      <button onClick={() => setM({ t: 'message', projectId: p?.id || '' })}><Ico n="chat" /><span>{t("Message our team")}</span></button>
+      <button onClick={() => setTab('docs')}><Ico n="docs" /><span>{t("Quotes, drawings & invoices")}</span></button>
+      <button className="q-red" onClick={() => setM({ t: 'complaint' })}><Ico n="alert" /><span>{t("Report a lift problem")}</span></button>
     </section>
 
     <section className="p-card">
-      <h3 className="p-h">Your Dee Cee team</h3>
+      <h3 className="p-h">{t("Your Dee Cee team")}</h3>
       <div className="contacts">
-        {contacts.sales?.name && <Contact role="Your sales contact" c={contacts.sales} msg={`Hello ${contacts.sales.name}, this is ${user.name} regarding ${p?.title || 'my lift'} (${p?.code || p?.quoteNo || ''}).`} />}
-        {(contacts.lead?.name || contacts.lead?.team) && p?.status !== 'Enquiry' && <Contact role={`Site team leader${contacts.lead.team ? ' · ' + contacts.lead.team : ''}`} c={contacts.lead} msg={`Hello, this is ${user.name} regarding the lift work at ${(p?.siteAddress || '').split('\n')[0]}.`} />}
-        <Contact role="Office & service helpline" c={{ name: company.name || 'Dee Cee Elevators', phone: company.phone, email: company.email }} msg={`Hello, this is ${user.name}.`} />
+        {contacts.sales?.name && <Contact role={t("Your sales contact")} c={contacts.sales} msg={`Hello ${contacts.sales.name}, this is ${user.name} regarding ${p?.title || 'my lift'} (${p?.code || p?.quoteNo || ''}).`} />}
+        {(contacts.lead?.name || contacts.lead?.team) && p?.status !== 'Enquiry' && <Contact role={`${t('Site team leader')}${contacts.lead.team ? ' · ' + contacts.lead.team : ''}`} c={contacts.lead} msg={`Hello, this is ${user.name} regarding the lift work at ${(p?.siteAddress || '').split('\n')[0]}.`} />}
+        <Contact role={t("Office & service helpline")} c={{ name: company.name || 'Dee Cee Elevators', phone: company.phone, email: company.email }} msg={`Hello, this is ${user.name}.`} />
       </div>
     </section>
 
     <section className="p-card">
-      <div className="row between"><h3 className="p-h">Latest updates</h3>{myUpdates.length > 3 && <button className="link-btn" onClick={() => setTab('progress')}>See all</button>}</div>
-      {myUpdates.length === 0 ? <p className="muted small">Updates from our team will appear here.</p> : <Timeline items={myUpdates.slice(0, 3)} />}
+      <div className="row between"><h3 className="p-h">{t("Latest updates")}</h3>{myUpdates.length > 3 && <button className="link-btn" onClick={() => setTab('progress')}>{t("See all")}</button>}</div>
+      {myUpdates.length === 0 ? <p className="muted small">{t("Updates from our team will appear here.")}</p> : <Timeline items={myUpdates.slice(0, 3)} />}
     </section>
     {p && <Photos cid={user.clientId} pid={p.id} limit={6} />}
   </>);
@@ -234,7 +241,7 @@ function Photos({ cid, pid, limit }) {
   const list = [...photos].sort((a, b) => b.at - a.at).slice(0, limit || 60);
   return (
     <section className="p-card">
-      <h3 className="p-h">Site photos <span className="muted small">({photos.length})</span></h3>
+      <h3 className="p-h">{t("Site photos")} <span className="muted small">({photos.length})</span></h3>
       <div className="p-photos">{list.map((ph) => <img key={ph.id} src={ph.data} alt="Site" onClick={() => setOpen(ph)} />)}</div>
       {open && <div className="lightbox" onClick={() => setOpen(null)}><img src={open.data} alt="" /><span>{open.caption || ''} {fmtDateTime(open.at)}</span></div>}
     </section>
@@ -243,8 +250,8 @@ function Photos({ cid, pid, limit }) {
 
 /* ================= PROGRESS (workflow) ================= */
 function Progress({ user, activity, requests, p, setM }) {
-  if (!p) return <div className="p-card"><Empty>No project yet</Empty></div>;
-  if (p.status === 'Enquiry') return <div className="p-card"><p>This is a proposal. Once you confirm the order, every stage of your lift will be tracked here.</p><button className="btn" onClick={() => setM({ t: 'quote', p })}>View proposal</button></div>;
+  if (!p) return <div className="p-card"><Empty>{t("No project yet")}</Empty></div>;
+  if (p.status === 'Enquiry') return <div className="p-card"><p>{t("This is a proposal. Once you confirm the order, every stage of your lift will be tracked here.")}</p><button className="btn" onClick={() => setM({ t: 'quote', p })}>{t("View proposal")}</button></div>;
   const st = steps(p);
   const curIdx = st.findIndex((s) => !s.done);
   const pend = (type) => requests.some((r) => r.type === type && r.status === 'New' && r.projectId === p.id);
@@ -255,7 +262,7 @@ function Progress({ user, activity, requests, p, setM }) {
   const items = activity.filter((a) => !a.projectId || a.projectId === p.id).sort((a, b) => b.at - a.at);
   return (<>
     <section className="p-card">
-      <div className="row between"><h3 className="p-h">{p.title}</h3><Badge tone={p.status === 'Completed' ? 'green' : 'blue'}>{progressPct(p)}% complete</Badge></div>
+      <div className="row between"><h3 className="p-h">{p.title}</h3><Badge tone={p.status === 'Completed' ? 'green' : 'blue'}>{progressPct(p)}% {t('complete')}</Badge></div>
       <ol className="vsteps">
         {st.map((s, i) => {
           const state = s.done ? 'done' : i === curIdx ? 'now' : 'later';
@@ -264,24 +271,28 @@ function Progress({ user, activity, requests, p, setM }) {
             <li key={s.key} className={state}>
               <span className="vs-dot">{s.done ? <Ico n="check" size={14} /> : i + 1}</span>
               <div className="vs-body">
-                <div className="vs-title"><b>{s.label}</b><span className="muted small">{s.done ? (s.at ? fmtDate(s.at) : 'Done') : i === curIdx ? 'In progress' : ''}</span></div>
-                {(state !== 'later') && <div className="muted small">{info.text}</div>}
+                <div className="vs-title"><b>{t(s.label)}</b><span className="muted small">{s.done ? (s.at ? fmtDate(s.at) : t('Done')) : i === curIdx ? t('In progress') : ''}</span></div>
+                {(state !== 'later') && <div className="muted small">{t(info.text)}</div>}
                 {s.detail && <div className="small">{s.detail}</div>}
                 {s.key === 'site' && p.site?.status === 'Not ready' && <div className="small danger-text">Not ready yet{p.site?.notes ? ': ' + p.site.notes : ''}</div>}
                 {s.key === 'install' && (state === 'now' || (p.install?.progress > 0 && !s.done)) && (
                   <div className="vs-sub"><ProgressBar value={p.install?.progress || 0} tone="green" />
-                    <ul>{INSTALL_STEPS.map((x) => <li key={x} className={p.install?.steps?.[x] ? 'ok' : ''}>{p.install?.steps?.[x] ? '✓' : '○'} {x}</li>)}</ul></div>
+                    <ul>{INSTALL_STEPS.map((x) => <li key={x} className={p.install?.steps?.[x] ? 'ok' : ''}>{p.install?.steps?.[x] ? '✓' : '○'} {t(x)}</li>)}</ul></div>
                 )}
-                {state === 'now' && info.you && <div className="vs-you"><b>Your part:</b> {info.you}{action[s.key] && <button className="btn sm" onClick={action[s.key].go}>{action[s.key].label}</button>}{s.key === 'drawing' && <span className="muted small"> Open the Documents tab.</span>}</div>}
-                {state === 'now' && !info.you && <div className="vs-who">With our {s.team} team</div>}
+                {state === 'now' && info.you && <div className="vs-you"><b>{t("Your part:")}</b> {t(info.you)}{action[s.key] && <button className="btn sm" onClick={action[s.key].go}>{t(action[s.key].label)}</button>}{s.key === 'drawing' && <span className="muted small"> {t("Open the Documents tab.")}</span>}</div>}
+                {state === 'now' && !info.you && <div className="vs-who">{getLang() === 'hi' ? `हमारी ${s.team} टीम के पास` : `With our ${s.team} team`}</div>}
               </div>
             </li>
           );
         })}
       </ol>
     </section>
+    {(p.licence?.status && p.licence.status !== 'Not required') && (
+      <section className="p-card"><div className="row between"><h3 className="p-h">{t("Lift licence")}</h3><Badge tone={p.licence.status === 'Issued' ? 'green' : 'amber'}>{p.licence.status}</Badge></div>
+        <div className="muted small">{[p.licence.number && 'No. ' + p.licence.number, p.licence.issuedOn && 'issued ' + fmtDate(p.licence.issuedOn), p.licence.validTill && 'valid till ' + fmtDate(p.licence.validTill)].filter(Boolean).join(' · ') || 'Our team is handling the licence for you.'}</div></section>
+    )}
     <Photos cid={user.clientId} pid={p.id} />
-    <section className="p-card"><h3 className="p-h">All updates</h3>{items.length ? <Timeline items={items.slice(0, 80)} /> : <p className="muted small">No updates yet</p>}</section>
+    <section className="p-card"><h3 className="p-h">{t("All updates")}</h3>{items.length ? <Timeline items={items.slice(0, 80)} /> : <p className="muted small">{t("No updates yet")}</p>}</section>
   </>);
 }
 
@@ -309,24 +320,24 @@ function Documents({ projects, invoices, payments, files, requests, setM }) {
       <div className="grow"><b>{f.title || f.name}</b><div className="muted small">{byP[f.projectId]?.code || ''} · {fmtDate(f.at)}</div>{children}</div>
       <div className="doc-btns">
         <button className="btn ghost sm" disabled={!!busy} onClick={() => run(f, false)}>{busy === f.id + false ? '…' : 'Open'}</button>
-        <button className="btn ghost sm" disabled={!!busy} onClick={() => run(f, true)}>Download</button>
+        <button className="btn ghost sm" disabled={!!busy} onClick={() => run(f, true)}>{t("Download")}</button>
       </div>
     </li>
   );
   return (<>
     <section className="p-card">
-      <h3 className="p-h">Quotations</h3>
-      {projects.length === 0 ? <p className="muted small">No quotations yet</p> : (
+      <h3 className="p-h">{t("Quotations")}</h3>
+      {projects.length === 0 ? <p className="muted small">{t("No quotations yet")}</p> : (
         <ul className="docs">{projects.map((x) => (
           <React.Fragment key={x.id}>
             <li className="doc">
               <span className="doc-ico q">QT</span>
-              <div className="grow"><b>{x.quote?.refNo || x.quoteNo}</b><div className="muted small">{x.title} · {fmtDate(x.quote?.date)} · {inr(quoteTotal(x))} incl. GST</div>{x.status !== 'Enquiry' && <Badge tone="green">Order confirmed</Badge>}</div>
-              <div className="doc-btns"><button className="btn sm" onClick={() => setM({ t: 'quote', p: x })}>View / PDF</button></div>
+              <div className="grow"><b>{x.quote?.refNo || x.quoteNo}</b><div className="muted small">{x.title} · {fmtDate(x.quote?.date)} · {inr(quoteTotal(x))} incl. GST</div>{x.status !== 'Enquiry' && <Badge tone="green">{t("Order confirmed")}</Badge>}</div>
+              <div className="doc-btns"><button className="btn sm" onClick={() => setM({ t: 'quote', p: x })}>{t("View / PDF")}</button></div>
             </li>
             {(x.revisions || []).filter((r) => r.refNo !== (x.quote?.refNo || x.quoteNo)).reverse().map((r, i) => (
-              <li className="doc old" key={i}><span className="doc-ico q">QT</span><div className="grow"><b>{r.refNo}</b><div className="muted small">Earlier version · {fmtDate(r.quote?.date)}</div></div>
-                <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'quote', p: { ...x, ...r } })}>View</button></div></li>
+              <li className="doc old" key={i}><span className="doc-ico q">QT</span><div className="grow"><b>{r.refNo}</b><div className="muted small">{t('Earlier version')} · {fmtDate(r.quote?.date)}</div></div>
+                <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'quote', p: { ...x, ...r } })}>{t("View")}</button></div></li>
             ))}
           </React.Fragment>
         ))}</ul>
@@ -334,8 +345,8 @@ function Documents({ projects, invoices, payments, files, requests, setM }) {
     </section>
 
     <section className="p-card">
-      <h3 className="p-h">Drawings</h3>
-      {drawings.length === 0 ? <p className="muted small">Your lift drawing will appear here once it is issued.</p> : (
+      <h3 className="p-h">{t("Drawings")}</h3>
+      {drawings.length === 0 ? <p className="muted small">{t("Your lift drawing will appear here once it is issued.")}</p> : (
         <ul className="docs">{drawings.map((f) => {
           const latest = latestOf[f.projectId] === f.id;
           const proj = byP[f.projectId];
@@ -345,13 +356,13 @@ function Documents({ projects, invoices, payments, files, requests, setM }) {
             <FileRow key={f.id} f={f}>
               <div className="row gap wrap mt-s">
                 <Badge tone={latest ? 'blue' : 'grey'}>Rev {f.rev}{latest ? ' · latest' : ''}</Badge>
-                {approved && <Badge tone="green">Approved</Badge>}
+                {approved && <Badge tone="green">{t("Approved")}</Badge>}
                 {!approved && myReq && <Badge tone={myReq.decision === 'Approved' ? 'green' : 'amber'}>You: {myReq.decision}</Badge>}
               </div>
               {latest && !approved && !(myReq && myReq.status === 'New') && proj?.status === 'Order' && (
                 <div className="row gap wrap mt-s">
-                  <button className="btn sm green-btn" onClick={() => setM({ t: 'drawing', file: f, p: proj, decision: 'Approved' })}>✓ Approve drawing</button>
-                  <button className="btn ghost sm" onClick={() => setM({ t: 'drawing', file: f, p: proj, decision: 'Changes requested' })}>Ask for changes</button>
+                  <button className="btn sm green-btn" onClick={() => setM({ t: 'drawing', file: f, p: proj, decision: 'Approved' })}>{t("✓ Approve drawing")}</button>
+                  <button className="btn ghost sm" onClick={() => setM({ t: 'drawing', file: f, p: proj, decision: 'Changes requested' })}>{t("Ask for changes")}</button>
                 </div>
               )}
             </FileRow>
@@ -361,30 +372,30 @@ function Documents({ projects, invoices, payments, files, requests, setM }) {
     </section>
 
     <section className="p-card">
-      <h3 className="p-h">Invoices</h3>
-      {invoices.length === 0 ? <p className="muted small">No invoices yet</p> : (
+      <h3 className="p-h">{t("Invoices")}</h3>
+      {invoices.length === 0 ? <p className="muted small">{t("No invoices yet")}</p> : (
         <ul className="docs">{[...invoices].sort((a, b) => (a.date < b.date ? 1 : -1)).map((i) => (
           <li className="doc" key={i.id}><span className="doc-ico inv">INV</span>
             <div className="grow"><b>{i.number}</b><div className="muted small">{fmtDate(i.date)} · {inr(i.total)}</div><Badge>{invStatus(i)}</Badge></div>
-            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'invoice', doc: i })}>View / PDF</button></div></li>
+            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'invoice', doc: i })}>{t("View / PDF")}</button></div></li>
         ))}</ul>
       )}
     </section>
 
     <section className="p-card">
-      <h3 className="p-h">Payment receipts</h3>
-      {payments.length === 0 ? <p className="muted small">Receipts appear here for every payment we receive.</p> : (
+      <h3 className="p-h">{t("Payment receipts")}</h3>
+      {payments.length === 0 ? <p className="muted small">{t("Receipts appear here for every payment we receive.")}</p> : (
         <ul className="docs">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => (
           <li className="doc" key={x.id}><span className="doc-ico rc">RCT</span>
             <div className="grow"><b>{inr(x.amount)}</b><div className="muted small">{fmtDate(x.date)} · {x.mode}{x.invoiceNumber ? ' · ' + x.invoiceNumber : ''}</div></div>
-            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'receipt', doc: x })}>Receipt</button></div></li>
+            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'receipt', doc: x })}>{t("Receipt")}</button></div></li>
         ))}</ul>
       )}
     </section>
 
     <section className="p-card">
-      <h3 className="p-h">Other documents</h3>
-      {others.length === 0 ? <p className="muted small">Handover papers, licences, warranty and other files will appear here.</p> : <ul className="docs">{others.map((f) => <FileRow key={f.id} f={f} />)}</ul>}
+      <h3 className="p-h">{t("Other documents")}</h3>
+      {others.length === 0 ? <p className="muted small">{t("Handover papers, licences, warranty and other files will appear here.")}</p> : <ul className="docs">{others.map((f) => <FileRow key={f.id} f={f} />)}</ul>}
     </section>
   </>);
 }
@@ -400,31 +411,31 @@ function Payments({ company, orders, invoices, payments, requests, setM }) {
     {orders.length > 0 && (
       <section className="p-card">
         <div className="pay-sum">
-          <div><span>Order value</span><b>{inr(value)}</b></div>
-          <div><span>Paid</span><b className="ok-text">{inr(paid)}</b></div>
-          <div><span>Balance</span><b>{inr(Math.max(0, value - paid))}</b></div>
+          <div><span>{t("Order value")}</span><b>{inr(value)}</b></div>
+          <div><span>{t("Paid")}</span><b className="ok-text">{inr(paid)}</b></div>
+          <div><span>{t("Balance")}</span><b>{inr(Math.max(0, value - paid))}</b></div>
         </div>
         <ProgressBar value={(paid / (value || 1)) * 100} tone="green" />
       </section>
     )}
-    <button className="btn wide big" onClick={() => setM({ t: 'payment' })}>I have made a payment — send details</button>
+    <button className="btn wide big" onClick={() => setM({ t: 'payment' })}>{t("I have made a payment — send details")}</button>
 
     {due.length > 0 && (
       <section className="p-card">
-        <h3 className="p-h">Invoices to pay</h3>
+        <h3 className="p-h">{t("Invoices to pay")}</h3>
         <ul className="docs">{due.map((i) => (
           <li className="doc" key={i.id}><span className="doc-ico inv">INV</span>
             <div className="grow"><b>{i.number} · {inr(num(i.total) - num(i.paid))}</b><div className="muted small">{i.dueDate ? 'Due ' + fmtDate(i.dueDate) : fmtDate(i.date)}</div><Badge>{invStatus(i)}</Badge></div>
-            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'invoice', doc: i })}>View</button><button className="btn sm" onClick={() => setM({ t: 'payment', invoiceId: i.id, projectId: i.projectId, amount: num(i.total) - num(i.paid) })}>Paid?</button></div></li>
+            <div className="doc-btns"><button className="btn ghost sm" onClick={() => setM({ t: 'invoice', doc: i })}>{t("View")}</button><button className="btn sm" onClick={() => setM({ t: 'payment', invoiceId: i.id, projectId: i.projectId, amount: num(i.total) - num(i.paid) })}>{t("Paid?")}</button></div></li>
         ))}</ul>
       </section>
     )}
 
     {company.bank && (
       <section className="p-card">
-        <div className="row between"><h3 className="p-h">Pay by bank transfer</h3><button className="btn ghost sm" onClick={() => copy(company.bank)}>Copy</button></div>
+        <div className="row between"><h3 className="p-h">{t("Pay by bank transfer")}</h3><button className="btn ghost sm" onClick={() => copy(company.bank)}>{t("Copy")}</button></div>
         <div className="bank pre">{company.bank}</div>
-        <p className="muted small">After paying, tap “send details” above with the UTR / cheque number so we can confirm it quickly.</p>
+        <p className="muted small">{t("After paying, tap “send details” above with the UTR / cheque number so we can confirm it quickly.")}</p>
       </section>
     )}
 
@@ -445,15 +456,15 @@ function Payments({ company, orders, invoices, payments, requests, setM }) {
 
     {sent.length > 0 && (
       <section className="p-card">
-        <h3 className="p-h">Payment details you sent</h3>
-        <ul className="docs">{sent.map((r) => <li key={r.id} className="doc"><div className="grow"><b>{inr(r.amount)}</b> <span className="muted small">{fmtDate(r.date)} · {r.mode}{r.ref ? ' · ' + r.ref : ''}</span>{r.reply && <div className="small">{r.reply}</div>}</div><Badge tone={r.status === 'New' ? 'amber' : 'green'}>{r.status === 'New' ? 'Being confirmed' : 'Confirmed'}</Badge></li>)}</ul>
+        <h3 className="p-h">{t("Payment details you sent")}</h3>
+        <ul className="docs">{sent.map((r) => <li key={r.id} className="doc"><div className="grow"><b>{inr(r.amount)}</b> <span className="muted small">{fmtDate(r.date)} · {r.mode}{r.ref ? ' · ' + r.ref : ''}</span>{r.reply && <div className="small">{r.reply}</div>}</div><Badge tone={r.status === 'New' ? 'amber' : 'green'}>{t(r.status === 'New' ? 'Being confirmed' : 'Confirmed')}</Badge></li>)}</ul>
       </section>
     )}
 
     <section className="p-card">
-      <h3 className="p-h">Payments received</h3>
-      {payments.length === 0 ? <p className="muted small">No payments yet</p> : (
-        <ul className="docs">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => <li key={x.id} className="doc"><div className="grow"><b>{inr(x.amount)}</b><div className="muted small">{fmtDate(x.date)} · {x.mode}</div></div><button className="btn ghost sm" onClick={() => setM({ t: 'receipt', doc: x })}>Receipt</button></li>)}</ul>
+      <h3 className="p-h">{t("Payments received")}</h3>
+      {payments.length === 0 ? <p className="muted small">{t("No payments yet")}</p> : (
+        <ul className="docs">{[...payments].sort((a, b) => (a.date < b.date ? 1 : -1)).map((x) => <li key={x.id} className="doc"><div className="grow"><b>{inr(x.amount)}</b><div className="muted small">{fmtDate(x.date)} · {x.mode}</div></div><button className="btn ghost sm" onClick={() => setM({ t: 'receipt', doc: x })}>{t("Receipt")}</button></li>)}</ul>
       )}
     </section>
   </>);
@@ -468,28 +479,28 @@ function Service({ user, company, amcs, complaints, visits, requests, setM }) {
   const renewReq = (a) => requests.find((r) => r.type === 'amc' && r.amcId === a.id && r.status === 'New');
   const askRenew = (a) => act(() => addDoc('clientRequests', { type: 'amc', status: 'New', at: Date.now(), clientId: user.clientId, clientName: user.name, projectId: a.projectId || null, amcId: a.id, amcNumber: a.number, text: `Please renew AMC ${a.number} (${a.type}, ${a.lifts} lift(s)).` }), 'Renewal request sent');
   return (<>
-    <button className="btn danger-btn wide big" onClick={() => setM({ t: 'complaint' })}>🚨 Report a lift problem</button>
-    {company.phone && <p className="muted small center">Someone stuck inside the lift? Call us now: <a href={'tel:' + company.phone}><b>{company.phone}</b></a></p>}
+    <button className="btn danger-btn wide big" onClick={() => setM({ t: 'complaint' })}>{t("🚨 Report a lift problem")}</button>
+    {company.phone && <p className="muted small center">{t("Someone stuck inside the lift? Call us now:")} <a href={'tel:' + company.phone}><b>{company.phone}</b></a></p>}
 
     <section className="p-card">
-      <h3 className="p-h">Your complaints</h3>
-      {open.length === 0 && <p className="muted small">No open complaints.</p>}
+      <h3 className="p-h">{t("Your complaints")}</h3>
+      {open.length === 0 && <p className="muted small">{t("No open complaints.")}</p>}
       {open.map((c) => {
         const idx = Math.max(0, COMPLAINT_FLOW.indexOf(c.status));
         return (
           <div className="cmp" key={c.id}>
             <div className="row between"><b>{c.issue}</b><Badge tone={c.priority?.startsWith('Critical') ? 'red' : 'amber'}>{c.status}</Badge></div>
             <div className="muted small">{c.number} · {c.liftRef || ''} · reported {fmtDateTime(c.reportedAt)}</div>
-            <ol className="cmp-track">{COMPLAINT_FLOW.map((s, i) => <li key={s} className={i <= idx ? 'on' : ''}><span />{s === 'Open' ? 'Received' : s}</li>)}</ol>
-            {c.teamName && <div className="small">Attending: <b>{c.teamName}</b></div>}
+            <ol className="cmp-track">{COMPLAINT_FLOW.map((s, i) => <li key={s} className={i <= idx ? 'on' : ''}><span />{t(s === 'Open' ? 'Received' : s)}</li>)}</ol>
+            {c.teamName && <div className="small">{t("Attending:")} <b>{c.teamName}</b></div>}
           </div>
         );
       })}
       {past.length > 0 && (
-        <details className="mt"><summary className="muted small">Earlier complaints ({past.length})</summary>
+        <details className="mt"><summary className="muted small">{t('Earlier complaints')} ({past.length})</summary>
           <ul className="docs">{past.map((c) => (
             <li key={c.id} className="doc"><div className="grow"><b>{c.issue}</b><div className="muted small">{c.number} · {fmtDate(c.resolvedAt || c.reportedAt)}{c.resolution ? ' · ' + c.resolution : ''}</div></div>
-              {c.rating ? <span className="stars-s">{'★'.repeat(c.rating)}</span> : <button className="btn ghost sm" onClick={() => setM({ t: 'rate', col: 'complaints', doc: c })}>Rate</button>}</li>
+              {c.rating ? <span className="stars-s">{'★'.repeat(c.rating)}</span> : <button className="btn ghost sm" onClick={() => setM({ t: 'rate', col: 'complaints', doc: c })}>{t("Rate")}</button>}</li>
           ))}</ul>
         </details>
       )}
@@ -497,7 +508,7 @@ function Service({ user, company, amcs, complaints, visits, requests, setM }) {
 
     {amcs.length > 0 && (
       <section className="p-card">
-        <h3 className="p-h">Maintenance contract (AMC)</h3>
+        <h3 className="p-h">{t("Maintenance contract (AMC)")}</h3>
         {amcs.map((a) => {
           const d = daysUntil(a.end);
           const req = renewReq(a);
@@ -505,7 +516,7 @@ function Service({ user, company, amcs, complaints, visits, requests, setM }) {
             <div className="amc" key={a.id}>
               <div className="row between"><b>{a.number}</b><Badge tone={d < 0 ? 'red' : d <= 30 ? 'amber' : 'green'}>{d < 0 ? 'Expired' : d <= 30 ? `Ends in ${d} days` : 'Active'}</Badge></div>
               <div className="muted small">{a.type} · {a.lifts} lift(s) · {fmtDate(a.start)} → {fmtDate(a.end)}{a.visitsPerYear ? ` · ${a.visitsPerYear} visits/year` : ''}</div>
-              {d <= 45 && (req ? <p className="small ok-text">Renewal requested — our team will contact you.</p> : <button className="btn sm mt-s" onClick={() => askRenew(a)}>Request renewal</button>)}
+              {d <= 45 && (req ? <p className="small ok-text">{t("Renewal requested — our team will contact you.")}</p> : <button className="btn sm mt-s" onClick={() => askRenew(a)}>{t("Request renewal")}</button>)}
             </div>
           );
         })}
@@ -513,16 +524,16 @@ function Service({ user, company, amcs, complaints, visits, requests, setM }) {
     )}
 
     {upcoming.length > 0 && (
-      <section className="p-card"><h3 className="p-h">Upcoming visits</h3>
+      <section className="p-card"><h3 className="p-h">{t("Upcoming visits")}</h3>
         <ul className="docs">{upcoming.slice(0, 6).map((v) => <li key={v.id} className="doc"><div className="grow"><b>{v.type}</b><div className="muted small">{fmtDate(v.date)}{v.teamName ? ' · ' + v.teamName : ''}</div></div><Badge tone="blue">{v.status}</Badge></li>)}</ul>
       </section>
     )}
 
-    <section className="p-card"><h3 className="p-h">Service history</h3>
-      {done.length === 0 ? <p className="muted small">No visits yet</p> : (
+    <section className="p-card"><h3 className="p-h">{t("Service history")}</h3>
+      {done.length === 0 ? <p className="muted small">{t("No visits yet")}</p> : (
         <ul className="docs">{done.slice(0, 30).map((v) => (
           <li key={v.id} className="doc"><div className="grow"><b>{v.type}</b><div className="muted small">{fmtDate(v.date)}{v.teamName ? ' · ' + v.teamName : ''}{v.notes ? ' · ' + v.notes : ''}</div></div>
-            {v.rating ? <span className="stars-s">{'★'.repeat(v.rating)}</span> : <button className="btn ghost sm" onClick={() => setM({ t: 'rate', col: 'visits', doc: v })}>Rate</button>}</li>
+            {v.rating ? <span className="stars-s">{'★'.repeat(v.rating)}</span> : <button className="btn ghost sm" onClick={() => setM({ t: 'rate', col: 'visits', doc: v })}>{t("Rate")}</button>}</li>
         ))}</ul>
       )}
     </section>
@@ -561,17 +572,17 @@ function PaymentProof({ user, orders, invoices, payments, preset, onClose }) {
     onClose();
   };
   return (
-    <Modal title="Send payment details" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send</button></>}>
+    <Modal title={t("Send payment details")} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Cancel")}</button><button className="btn" onClick={save}>{t("Send")}</button></>}>
       <div className="form-grid">
-        {orders.length > 1 && <Field label="For which lift / order" span={2}><Select options={orders.map((o) => ({ value: o.id, label: `${o.title} · ${o.code}` }))} placeholder="— choose —" value={f.projectId} onChange={(e) => setF((x) => ({ ...x, projectId: e.target.value, milestone: '', invoiceId: '' }))} /></Field>}
-        {p?.milestones?.length > 0 && <Field label="Payment for" span={2}><Select options={p.milestones.map((m, i) => ({ value: i, label: `${m.name} — ${inr(m.amount)} (${milestoneStatus(m, paidFor(i))})` }))} placeholder="— not sure —" value={f.milestone} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, milestone: v, amount: v === '' ? x.amount : Math.max(0, Math.round(num(p.milestones[v].amount) - paidFor(Number(v)))) })); }} /></Field>}
-        {myInv.length > 0 && <Field label="Against invoice (optional)" span={2}><Select options={myInv.map((i) => ({ value: i.id, label: `${i.number} — ${inr(num(i.total) - num(i.paid))} due` }))} placeholder="— none —" {...bind('invoiceId')} /></Field>}
-        <Field label="Amount paid (₹)"><input type="number" inputMode="decimal" {...bind('amount')} /></Field>
-        <Field label="Date paid"><input type="date" {...bind('date')} /></Field>
-        <Field label="Paid by"><Select options={PAY_MODES} placeholder={false} {...bind('mode')} /></Field>
-        <Field label="UTR / cheque / UPI ref."><input {...bind('ref')} placeholder="e.g. UTR 4321…" /></Field>
-        <Field label="Screenshot / cheque photo (optional)" span={2}><ImagePicker images={images} setImages={setImages} max={2} label="Add" /></Field>
-        <Field label="Note (optional)" span={2}><input {...bind('text')} /></Field>
+        {orders.length > 1 && <Field label={t("For which lift / order")} span={2}><Select options={orders.map((o) => ({ value: o.id, label: `${o.title} · ${o.code}` }))} placeholder="— choose —" value={f.projectId} onChange={(e) => setF((x) => ({ ...x, projectId: e.target.value, milestone: '', invoiceId: '' }))} /></Field>}
+        {p?.milestones?.length > 0 && <Field label={t("Payment for")} span={2}><Select options={p.milestones.map((m, i) => ({ value: i, label: `${m.name} — ${inr(m.amount)} (${milestoneStatus(m, paidFor(i))})` }))} placeholder="— not sure —" value={f.milestone} onChange={(e) => { const v = e.target.value; setF((x) => ({ ...x, milestone: v, amount: v === '' ? x.amount : Math.max(0, Math.round(num(p.milestones[v].amount) - paidFor(Number(v)))) })); }} /></Field>}
+        {myInv.length > 0 && <Field label={t("Against invoice (optional)")} span={2}><Select options={myInv.map((i) => ({ value: i.id, label: `${i.number} — ${inr(num(i.total) - num(i.paid))} due` }))} placeholder="— none —" {...bind('invoiceId')} /></Field>}
+        <Field label={t("Amount paid (₹)")}><input type="number" inputMode="decimal" {...bind('amount')} /></Field>
+        <Field label={t("Date paid")}><input type="date" {...bind('date')} /></Field>
+        <Field label={t("Paid by")}><Select options={PAY_MODES} placeholder={false} {...bind('mode')} /></Field>
+        <Field label={t("UTR / cheque / UPI ref.")}><input {...bind('ref')} placeholder="e.g. UTR 4321…" /></Field>
+        <Field label={t("Screenshot / cheque photo (optional)")} span={2}><ImagePicker images={images} setImages={setImages} max={2} label="Add" /></Field>
+        <Field label={t("Note (optional)")} span={2}><input {...bind('text')} /></Field>
       </div>
     </Modal>
   );
@@ -588,12 +599,12 @@ function SiteReady({ p, user, onClose }) {
     onClose();
   };
   return (
-    <Modal title="Is your site ready?" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send to installation team</button></>}>
-      <p className="muted small">Tick what is complete. Our team will check and confirm before sending the material.</p>
-      <div className="checks">{SITE_CHECKLIST.map((c) => <label key={c} className="check"><input type="checkbox" checked={checks[c]} onChange={(e) => setChecks({ ...checks, [c]: e.target.checked })} /> {c}</label>)}</div>
-      {!all && <p className="small amber-text">Some items are not ticked — you can still send, and tell us what is pending below.</p>}
-      <Field label="Photos of the shaft, pit and top (up to 3)"><ImagePicker images={images} setImages={setImages} /></Field>
-      <Field label="Anything we should know?"><textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} /></Field>
+    <Modal title={t("Is your site ready?")} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Cancel")}</button><button className="btn" onClick={save}>{t("Send to installation team")}</button></>}>
+      <p className="muted small">{t("Tick what is complete. Our team will check and confirm before sending the material.")}</p>
+      <div className="checks">{SITE_CHECKLIST.map((c) => <label key={c} className="check"><input type="checkbox" checked={checks[c]} onChange={(e) => setChecks({ ...checks, [c]: e.target.checked })} /> {t(c)}</label>)}</div>
+      {!all && <p className="small amber-text">{t("Some items are not ticked — you can still send, and tell us what is pending below.")}</p>}
+      <Field label={t("Photos of the shaft, pit and top (up to 3)")}><ImagePicker images={images} setImages={setImages} /></Field>
+      <Field label={t("Anything we should know?")}><textarea rows={2} value={text} onChange={(e) => setText(e.target.value)} /></Field>
     </Modal>
   );
 }
@@ -608,14 +619,14 @@ function MessageForm({ user, projects, preset, onClose }) {
     onClose();
   };
   return (
-    <Modal title="Message our team" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Send</button></>}>
+    <Modal title={t("Message our team")} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Cancel")}</button><button className="btn" onClick={save}>{t("Send")}</button></>}>
       <div className="form-grid">
-        {projects.length > 1 && <Field label="About" span={2}><Select options={projects.map((o) => ({ value: o.id, label: `${o.title} · ${o.code || o.quoteNo}` }))} placeholder="— general —" {...bind('projectId')} /></Field>}
-        <Field label="Topic" span={2}><Select options={['Question about my order', 'Change in lift / finish', 'Site or schedule', 'Payment or invoice', 'Something else']} placeholder={false} {...bind('subject')} /></Field>
-        <Field label="Message" span={2}><textarea rows={4} {...bind('text')} autoFocus /></Field>
-        <Field label="Photo (optional)" span={2}><ImagePicker images={images} setImages={setImages} max={2} /></Field>
+        {projects.length > 1 && <Field label={t("About")} span={2}><Select options={projects.map((o) => ({ value: o.id, label: `${o.title} · ${o.code || o.quoteNo}` }))} placeholder="— general —" {...bind('projectId')} /></Field>}
+        <Field label={t("Topic")} span={2}><Select options={['Question about my order', 'Change in lift / finish', 'Site or schedule', 'Payment or invoice', 'Something else']} placeholder={false} {...bind('subject')} /></Field>
+        <Field label={t("Message")} span={2}><textarea rows={4} {...bind('text')} autoFocus /></Field>
+        <Field label={t("Photo (optional)")} span={2}><ImagePicker images={images} setImages={setImages} max={2} /></Field>
       </div>
-      <p className="muted small">For a breakdown, use “Report a lift problem” instead — it alerts our service team immediately.</p>
+      <p className="muted small">{t("For a breakdown, use “Report a lift problem” instead — it alerts our service team immediately.")}</p>
     </Modal>
   );
 }
@@ -630,11 +641,11 @@ function DrawingReview({ file, p, decision, user, onClose }) {
     onClose();
   };
   return (
-    <Modal title={approve ? 'Approve drawing' : 'Ask for changes'} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className={'btn' + (approve ? ' green-btn' : '')} onClick={save}>{approve ? 'I approve this drawing' : 'Send'}</button></>}>
+    <Modal title={approve ? 'Approve drawing' : 'Ask for changes'} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Cancel")}</button><button className={'btn' + (approve ? ' green-btn' : '')} onClick={save}>{approve ? 'I approve this drawing' : 'Send'}</button></>}>
       <p><b>{file.title || file.name}</b> · Rev {file.rev}</p>
-      {approve ? <p className="small">By approving, you confirm the shaft size, door and cabin details in this drawing are correct. Manufacturing will go ahead as per this drawing.</p> : <p className="small muted">Describe the changes. You can add a photo of a marked-up print.</p>}
+      {approve ? <p className="small">{t("By approving, you confirm the shaft size, door and cabin details in this drawing are correct. Manufacturing will go ahead as per this drawing.")}</p> : <p className="small muted">{t("Describe the changes. You can add a photo of a marked-up print.")}</p>}
       <Field label={approve ? 'Comment (optional)' : 'What should change?'}><textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} /></Field>
-      {!approve && <Field label="Photo (optional)"><ImagePicker images={images} setImages={setImages} max={2} /></Field>}
+      {!approve && <Field label={t("Photo (optional)")}><ImagePicker images={images} setImages={setImages} max={2} /></Field>}
     </Modal>
   );
 }
@@ -648,10 +659,10 @@ function Rate({ col, doc, onClose }) {
     onClose();
   };
   return (
-    <Modal title="Rate our service" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Later</button><button className="btn" onClick={save}>Submit</button></>}>
+    <Modal title={t("Rate our service")} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Later")}</button><button className="btn" onClick={save}>{t("Submit")}</button></>}>
       <p className="small muted">{doc.issue || doc.type} · {fmtDate(doc.resolvedAt || doc.date)}</p>
       <div className="stars">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" className={n <= stars ? 'on' : ''} onClick={() => setStars(n)} aria-label={n + ' stars'}>★</button>)}</div>
-      <Field label="Comments (optional)"><textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} /></Field>
+      <Field label={t("Comments (optional)")}><textarea rows={3} value={text} onChange={(e) => setText(e.target.value)} /></Field>
     </Modal>
   );
 }
@@ -667,15 +678,15 @@ function RaiseComplaint({ user, amcs, projects, onClose }) {
     await act(() => addDoc('complaints', { ...f, images, number, clientId: user.clientId, clientName: user.name, amcId: a?.id || null, projectId: a?.projectId || projects[0]?.id || null, status: 'Open', teamId: null, assignedTo: null, reportedVia: 'Client Portal', reportedAt: Date.now() }));
     setDone(number);
   };
-  if (done) return <Modal title="Complaint registered" onClose={onClose} footer={<button className="btn" onClick={onClose}>OK</button>}><p>Your complaint number is <b>{done}</b>. Our service team has been alerted and will contact you shortly. You can track it in the Service tab.</p><p className="muted small">If someone is trapped inside the lift, please also call us immediately.</p></Modal>;
+  if (done) return <Modal title={t("Complaint registered")} onClose={onClose} footer={<button className="btn" onClick={onClose}>{t("OK")}</button>}><p>{t("Your complaint number is")} <b>{done}</b>{t(". Our service team has been alerted and will contact you shortly. You can track it in the Service tab.")}</p><p className="muted small">{t("If someone is trapped inside the lift, please also call us immediately.")}</p></Modal>;
   return (
-    <Modal title="Report a lift problem" onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>Cancel</button><button className="btn" onClick={save}>Submit</button></>}>
+    <Modal title={t("Report a lift problem")} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t("Cancel")}</button><button className="btn" onClick={save}>{t("Submit")}</button></>}>
       <div className="form-grid">
-        <Field label="Which lift / location"><input {...bind('liftRef')} placeholder="e.g. Tower A, Lift 1" /></Field>
-        <Field label="How urgent?"><Select options={['Normal', 'High', 'Critical (Trapped / Stuck)']} placeholder={false} {...bind('priority')} /></Field>
-        <Field label="What's the problem?" span={2}><textarea rows={4} {...bind('issue')} placeholder="Describe what is happening" /></Field>
-        <Field label="Photo (optional)" span={2}><ImagePicker images={images} setImages={setImages} max={2} /></Field>
-        <Field label="Your phone number" span={2}><input {...bind('contactPhone')} inputMode="tel" /></Field>
+        <Field label={t("Which lift / location")}><input {...bind('liftRef')} placeholder="e.g. Tower A, Lift 1" /></Field>
+        <Field label={t("How urgent?")}><Select options={['Normal', 'High', 'Critical (Trapped / Stuck)']} placeholder={false} {...bind('priority')} /></Field>
+        <Field label={t("What's the problem?")} span={2}><textarea rows={4} {...bind('issue')} placeholder="Describe what is happening" /></Field>
+        <Field label={t("Photo (optional)")} span={2}><ImagePicker images={images} setImages={setImages} max={2} /></Field>
+        <Field label={t("Your phone number")} span={2}><input {...bind('contactPhone')} inputMode="tel" /></Field>
       </div>
     </Modal>
   );

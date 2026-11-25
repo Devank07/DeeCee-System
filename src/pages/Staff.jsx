@@ -235,7 +235,9 @@ function Attendance({ staff }) {
           const a = att.find((x) => x.staffId === s.id);
           return (
             <li key={s.id}>
-              <div><b>{s.name}</b><div className="muted small">{s.department}{a?.inTime ? ' · in ' + a.inTime : ''}{a?.via ? ' · ' + a.via : ''}</div></div>
+              <div className="row gap">{a?.inPhoto && <img className="att-selfie" src={a.inPhoto} alt="" onClick={() => window.open(a.inPhoto, '_blank')} />}<div><b>{s.name}</b><div className="muted small">{s.department}{a?.inTime ? ' · in ' + a.inTime : ''}{a?.outTime ? ' · out ' + a.outTime : ''}{a?.via ? ' · ' + a.via : ''}
+                {(a?.inLat ?? a?.lat) != null && <> · <a href={`https://www.google.com/maps?q=${a.inLat ?? a.lat},${a.inLng ?? a.lng}`} target="_blank" rel="noreferrer">📍 check-in location</a></>}
+                {a?.outLat != null && <> · <a href={`https://www.google.com/maps?q=${a.outLat},${a.outLng}`} target="_blank" rel="noreferrer">📍 check-out</a></>}</div></div></div>
               <div className="seg">{MARKS.map(([k, l]) => <button key={k} title={l} className={a?.status === k ? 'on ' + k : ''} onClick={() => mark(s, k)}>{k}</button>)}</div>
             </li>
           );

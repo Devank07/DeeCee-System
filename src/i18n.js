@@ -1,0 +1,88 @@
+// Hindi for the client portal and the technician app. English text is the key; missing keys stay in English.
+let LANG = (() => { try { return localStorage.getItem('deecee_lang') || 'en'; } catch { return 'en'; } })();
+export const getLang = () => LANG;
+export function setLang(l) { LANG = l; try { localStorage.setItem('deecee_lang', l); } catch { /* ignore */ } }
+export const t = (s) => (LANG === 'hi' && HI[s]) || s;
+
+const HI = {
+  // common
+  'Home': 'होम', 'Progress': 'प्रगति', 'Documents': 'दस्तावेज़', 'Payments': 'भुगतान', 'Service': 'सर्विस',
+  'Customer portal': 'ग्राहक पोर्टल', 'Call us': 'कॉल करें', 'Sign out': 'साइन आउट', 'Cancel': 'रद्द करें', 'Send': 'भेजें', 'Submit': 'जमा करें', 'OK': 'ठीक है', 'Later': 'बाद में',
+  'Save': 'सेव करें', 'Download': 'डाउनलोड', 'View': 'देखें', 'View / PDF': 'देखें / PDF', 'Copy': 'कॉपी', 'Rate': 'रेटिंग दें', 'See all': 'सभी देखें', 'Loading…': 'लोड हो रहा है…',
+  'Install app': 'ऐप इंस्टॉल करें', 'You are offline — changes will be sent when the internet is back.': 'आप ऑफ़लाइन हैं — इंटरनेट आने पर बदलाव भेज दिए जाएंगे।',
+  // portal home
+  'Namaste': 'नमस्ते', 'Proposal': 'प्रस्ताव', 'In progress': 'काम जारी', 'Handed over': 'हैंडओवर हो गया', 'On hold': 'रुका हुआ', 'Amount': 'राशि', 'incl. GST': 'GST सहित',
+  'View proposal': 'प्रस्ताव देखें', 'Now': 'अभी', 'Target handover': 'हैंडओवर का लक्ष्य', 'Paid': 'भुगतान हुआ', 'See all stages ›': 'सभी चरण देखें ›',
+  'Needs your attention': 'आपका ध्यान चाहिए', 'Send payment details': 'भुगतान की जानकारी भेजें', 'Message our team': 'हमारी टीम को संदेश', 'Quotes, drawings & invoices': 'कोटेशन, ड्रॉइंग और बिल',
+  'Report a lift problem': 'लिफ्ट की समस्या बताएं', '🚨 Report a lift problem': '🚨 लिफ्ट की समस्या बताएं', 'Your Dee Cee team': 'आपकी डी सी टीम', 'Latest updates': 'ताज़ा अपडेट',
+  'Updates from our team will appear here.': 'हमारी टीम के अपडेट यहाँ दिखेंगे।', 'Site photos': 'साइट की फ़ोटो', 'Your project will appear here once your order is booked.': 'ऑर्डर बुक होने के बाद आपका प्रोजेक्ट यहाँ दिखेगा।',
+  'Your sales contact': 'आपके सेल्स संपर्क', 'Site team leader': 'साइट टीम लीडर', 'Office & service helpline': 'ऑफिस और सर्विस हेल्पलाइन',
+  'Pay the advance': 'एडवांस का भुगतान करें', 'I have paid': 'मैंने भुगतान कर दिया', 'Advance payment details sent': 'एडवांस भुगतान की जानकारी भेज दी गई', 'Our accounts team is confirming it.': 'हमारी अकाउंट्स टीम इसकी पुष्टि कर रही है।',
+  'Approve your drawing': 'अपनी ड्रॉइंग स्वीकृत करें', 'Review': 'देखें', 'Drawing feedback sent': 'ड्रॉइंग पर राय भेज दी गई', 'Our drawing team will reply soon.': 'हमारी ड्रॉइंग टीम जल्द जवाब देगी।',
+  'Get your site ready': 'अपनी साइट तैयार करें', 'Site is ready': 'साइट तैयार है', 'Site-ready report sent': 'साइट तैयार होने की सूचना भेज दी गई', 'Our installation team will verify it.': 'हमारी इंस्टॉलेशन टीम जांच करेगी।',
+  'Shaft, pit, hook, openings & power': 'शाफ्ट, पिट, हुक, दरवाज़ों की जगह और बिजली', 'Pay / send details': 'भुगतान / जानकारी भेजें', 'How did we do?': 'हमारी सेवा कैसी रही?',
+  // progress
+  'No project yet': 'अभी कोई प्रोजेक्ट नहीं', 'This is a proposal. Once you confirm the order, every stage of your lift will be tracked here.': 'यह एक प्रस्ताव है। ऑर्डर पक्का होने के बाद आपकी लिफ्ट का हर चरण यहाँ दिखेगा।',
+  'Your part:': 'आपका काम:', 'Open the Documents tab.': 'दस्तावेज़ टैब खोलें।', 'Lift licence': 'लिफ्ट लाइसेंस', 'All updates': 'सभी अपडेट', 'No updates yet': 'अभी कोई अपडेट नहीं',
+  'complete': 'पूरा', 'Done': 'पूरा', 'With our': 'हमारी', 'team': 'टीम के पास', 'Send payment details ': 'भुगतान की जानकारी भेजें', 'Tell us the site is ready': 'बताएं कि साइट तैयार है',
+  'Quotation': 'कोटेशन', 'Order Confirmed': 'ऑर्डर पक्का', 'Advance Received': 'एडवांस मिला', 'Drawing Issued': 'ड्रॉइंग जारी', 'Site Ready': 'साइट तैयार', 'Material Dispatched': 'सामान भेजा गया', 'Installation': 'इंस्टॉलेशन', 'Handover': 'हैंडओवर',
+  'Our proposal with the lift specifications and price.': 'लिफ्ट की जानकारी और कीमत के साथ हमारा प्रस्ताव।',
+  'Your order is booked and your project file is opened.': 'आपका ऑर्डर बुक हो गया है और प्रोजेक्ट फ़ाइल खुल गई है।',
+  'The advance payment starts the drawing and the manufacturing of your lift.': 'एडवांस भुगतान से ड्रॉइंग और आपकी लिफ्ट का निर्माण शुरू होता है।',
+  'Our drawing team prepares the lift layout drawing (GA drawing) for your approval.': 'हमारी ड्रॉइंग टीम आपकी स्वीकृति के लिए लिफ्ट की लेआउट ड्रॉइंग (GA ड्रॉइंग) बनाती है।',
+  'The shaft, pit, machine room / top and power supply must be ready before material arrives.': 'सामान आने से पहले शाफ्ट, पिट, मशीन रूम / टॉप और बिजली तैयार होनी चाहिए।',
+  'Your lift material is manufactured, packed and sent to your site.': 'आपकी लिफ्ट का सामान बनाकर, पैक करके साइट पर भेजा जाता है।',
+  'Our installation team fits the rails, machine, cabin, doors and wiring, then tests the lift.': 'हमारी टीम रेल, मशीन, केबिन, दरवाज़े और वायरिंग लगाकर लिफ्ट की टेस्टिंग करती है।',
+  'Final testing, lift licence and handover of keys, manuals and warranty.': 'अंतिम टेस्टिंग, लिफ्ट लाइसेंस और चाबी, मैनुअल व वारंटी का हैंडओवर।',
+  'Pay the advance and send us the payment details.': 'एडवांस का भुगतान करें और हमें जानकारी भेजें।',
+  'Check the drawing, then approve it or ask for changes.': 'ड्रॉइंग देखें, फिर स्वीकृत करें या बदलाव बताएं।',
+  'Get the site ready as per the checklist and tell us.': 'चेकलिस्ट के अनुसार साइट तैयार करें और हमें बताएं।',
+  'Receive the lift and sign the handover.': 'लिफ्ट प्राप्त करें और हैंडओवर पर हस्ताक्षर करें।',
+  // documents
+  'Quotations': 'कोटेशन', 'No quotations yet': 'अभी कोई कोटेशन नहीं', 'Order confirmed': 'ऑर्डर पक्का', 'Drawings': 'ड्रॉइंग', 'Your lift drawing will appear here once it is issued.': 'ड्रॉइंग जारी होने पर यहाँ दिखेगी।',
+  'Approved': 'स्वीकृत', '✓ Approve drawing': '✓ ड्रॉइंग स्वीकृत करें', 'Ask for changes': 'बदलाव बताएं', 'Invoices': 'बिल', 'No invoices yet': 'अभी कोई बिल नहीं', 'Payment receipts': 'भुगतान रसीदें',
+  'Receipts appear here for every payment we receive.': 'हर भुगतान की रसीद यहाँ दिखेगी।', 'Receipt': 'रसीद', 'Other documents': 'अन्य दस्तावेज़', 'Open': 'खोलें',
+  'Handover papers, licences, warranty and other files will appear here.': 'हैंडओवर के कागज़, लाइसेंस, वारंटी और अन्य फ़ाइलें यहाँ दिखेंगी।', 'Earlier version': 'पुराना संस्करण',
+  // payments
+  'Order value': 'ऑर्डर राशि', 'Balance': 'बकाया', 'I have made a payment — send details': 'मैंने भुगतान किया — जानकारी भेजें', 'Invoices to pay': 'भुगतान के लिए बिल', 'Paid?': 'भुगतान किया?',
+  'Pay by bank transfer': 'बैंक ट्रांसफर से भुगतान', 'After paying, tap “send details” above with the UTR / cheque number so we can confirm it quickly.': 'भुगतान के बाद ऊपर “जानकारी भेजें” दबाकर UTR / चेक नंबर भेजें, ताकि हम जल्दी पुष्टि कर सकें।',
+  'Payment details you sent': 'आपके द्वारा भेजी गई भुगतान जानकारी', 'Payments received': 'प्राप्त भुगतान', 'No payments yet': 'अभी कोई भुगतान नहीं', 'Being confirmed': 'पुष्टि हो रही है', 'Confirmed': 'पुष्टि हो गई',
+  // service
+  'Someone stuck inside the lift? Call us now:': 'कोई लिफ्ट में फंसा है? तुरंत कॉल करें:', 'Your complaints': 'आपकी शिकायतें', 'No open complaints.': 'कोई खुली शिकायत नहीं।', 'Attending:': 'देख रहे हैं:',
+  'Received': 'प्राप्त', 'Assigned': 'टीम तय', 'In Progress': 'काम जारी', 'Resolved': 'ठीक हो गया',
+  'Maintenance contract (AMC)': 'मेंटेनेंस कॉन्ट्रैक्ट (AMC)', 'Renewal requested — our team will contact you.': 'रिन्यूअल का अनुरोध भेजा — हमारी टीम संपर्क करेगी।', 'Request renewal': 'रिन्यूअल का अनुरोध',
+  'Upcoming visits': 'आने वाली विज़िट', 'Service history': 'सर्विस इतिहास', 'No visits yet': 'अभी कोई विज़िट नहीं', 'Earlier complaints': 'पुरानी शिकायतें',
+  // forms
+  'Send to installation team': 'इंस्टॉलेशन टीम को भेजें', 'Is your site ready?': 'क्या आपकी साइट तैयार है?', 'Send payment details ': 'भुगतान की जानकारी भेजें', 'Message': 'संदेश', 'Topic': 'विषय', 'About': 'किस बारे में',
+  'Tick what is complete. Our team will check and confirm before sending the material.': 'जो काम पूरा है उस पर टिक करें। सामान भेजने से पहले हमारी टीम जांच करेगी।',
+  'Some items are not ticked — you can still send, and tell us what is pending below.': 'कुछ चीज़ें टिक नहीं हैं — फिर भी भेज सकते हैं, नीचे बताएं क्या बाकी है।',
+  'For a breakdown, use “Report a lift problem” instead — it alerts our service team immediately.': 'खराबी के लिए “लिफ्ट की समस्या बताएं” का उपयोग करें — इससे सर्विस टीम को तुरंत सूचना मिलती है।',
+  'By approving, you confirm the shaft size, door and cabin details in this drawing are correct. Manufacturing will go ahead as per this drawing.': 'स्वीकृत करके आप पुष्टि करते हैं कि ड्रॉइंग में शाफ्ट का माप, दरवाज़ा और केबिन सही हैं। निर्माण इसी ड्रॉइंग के अनुसार होगा।',
+  'Describe the changes. You can add a photo of a marked-up print.': 'बदलाव लिखें। आप निशान लगी प्रिंट की फ़ोटो भी जोड़ सकते हैं।',
+  'Approve drawing': 'ड्रॉइंग स्वीकृत करें', 'I approve this drawing': 'मैं यह ड्रॉइंग स्वीकृत करता/करती हूँ', 'Rate our service': 'हमारी सेवा को रेटिंग दें', 'Comments (optional)': 'टिप्पणी (वैकल्पिक)',
+  'Complaint registered': 'शिकायत दर्ज हो गई', 'Your complaint number is': 'आपकी शिकायत संख्या है', '. Our service team has been alerted and will contact you shortly. You can track it in the Service tab.': '। हमारी सर्विस टीम को सूचना दे दी गई है, वे जल्द संपर्क करेंगे। आप सर्विस टैब में इसे देख सकते हैं।',
+  'If someone is trapped inside the lift, please also call us immediately.': 'अगर कोई लिफ्ट में फंसा है, तो तुरंत कॉल भी करें।',
+  'Which lift / location': 'कौन सी लिफ्ट / जगह', 'How urgent?': 'कितना ज़रूरी?', "What's the problem?": 'क्या समस्या है?', 'Photo (optional)': 'फ़ोटो (वैकल्पिक)', 'Your phone number': 'आपका फ़ोन नंबर',
+  'Amount paid (₹)': 'भुगतान राशि (₹)', 'Date paid': 'भुगतान की तारीख', 'Paid by': 'भुगतान का तरीका', 'UTR / cheque / UPI ref.': 'UTR / चेक / UPI नंबर', 'Payment for': 'किस लिए भुगतान',
+  'Screenshot / cheque photo (optional)': 'स्क्रीनशॉट / चेक की फ़ोटो (वैकल्पिक)', 'Note (optional)': 'नोट (वैकल्पिक)', 'For which lift / order': 'किस लिफ्ट / ऑर्डर के लिए', 'Against invoice (optional)': 'किस बिल के लिए (वैकल्पिक)',
+  'Photos of the shaft, pit and top (up to 3)': 'शाफ्ट, पिट और टॉप की फ़ोटो (3 तक)', 'Anything we should know?': 'कुछ और बताना है?', 'What should change?': 'क्या बदलना है?', 'Comment (optional)': 'टिप्पणी (वैकल्पिक)',
+  // field app
+  'Today': 'आज', 'Sites': 'साइट', 'Upcoming': 'आगे', 'Check in': 'हाज़िरी लगाएं', 'Check out': 'छुट्टी लगाएं', '‹ Back': '‹ वापस', '‹ Jobs': '‹ काम',
+  'No installation sites assigned to your team': 'आपकी टीम को कोई साइट नहीं दी गई', 'No jobs for today 🎉': 'आज कोई काम नहीं 🎉', 'Nothing here': 'यहाँ कुछ नहीं',
+  'This site is not assigned to your team.': 'यह साइट आपकी टीम की नहीं है।', '📞 Call site': '📞 साइट पर कॉल', '🧭 Navigate': '🧭 रास्ता', 'Site status': 'साइट की स्थिति',
+  'Update installation status': 'इंस्टॉलेशन की स्थिति अपडेट करें', 'Photos are shared with the office and the client.': 'फ़ोटो ऑफिस और ग्राहक दोनों को दिखती हैं।', 'Message to office': 'ऑफिस को संदेश',
+  'Send to office': 'ऑफिस को भेजें', 'This job is not assigned to your team.': 'यह काम आपकी टीम का नहीं है।', '📞 Call': '📞 कॉल', 'Office instructions:': 'ऑफिस के निर्देश:',
+  'Open site — drawings & status ›': 'साइट खोलें — ड्रॉइंग और स्थिति ›', 'Checklist': 'चेकलिस्ट', 'Work done': 'किया गया काम', 'Photos': 'फ़ोटो', 'Customer sign-off': 'ग्राहक के हस्ताक्षर',
+  'Sign again': 'फिर से हस्ताक्षर', '✍️ Take signature': '✍️ हस्ताक्षर लें', "Take the customer's signature before completing the job.": 'काम पूरा करने से पहले ग्राहक के हस्ताक्षर लें।', 'Complete job ✓': 'काम पूरा ✓',
+  'Start job': 'काम शुरू करें', 'Send site status': 'साइट की स्थिति भेजें', '✓ Site is ready': '✓ साइट तैयार है', '✕ Not ready': '✕ तैयार नहीं',
+  'Some checks are not ticked. Make sure the site really is ready before the material is sent.': 'कुछ चीज़ें टिक नहीं हैं। सामान भेजने से पहले पक्का करें कि साइट सच में तैयार है।',
+  'The client sees this update on their portal. Add photos from the Site photos section.': 'ग्राहक यह अपडेट पोर्टल पर देखेगा। फ़ोटो “साइट की फ़ोटो” में जोड़ें।',
+  'Check in with photo': 'फ़ोटो के साथ हाज़िरी', 'Take a selfie at the site and we save your location.': 'साइट पर सेल्फ़ी लें, आपकी लोकेशन सेव होगी।', 'Take selfie': 'सेल्फ़ी लें', 'Getting your location…': 'लोकेशन ली जा रही है…',
+  'Location saved': 'लोकेशन सेव हुई', 'Location not available — check-in will be saved without it.': 'लोकेशन नहीं मिली — हाज़िरी बिना लोकेशन के सेव होगी।', 'In at': 'आए', 'Out at': 'गए',
+  // checklists
+  'Shaft construction complete & plastered': 'शाफ्ट का निर्माण पूरा और प्लास्टर हो गया', 'Pit ready, dry & at correct depth': 'पिट तैयार, सूखा और सही गहराई पर', 'Machine room / top lifting hook ready': 'मशीन रूम / टॉप पर लिफ्टिंग हुक तैयार',
+  'Door openings at all floors as per drawing': 'सभी मंज़िलों पर ड्रॉइंग के अनुसार दरवाज़े की जगह', '3-phase power supply available at site': 'साइट पर 3-फेज़ बिजली उपलब्ध', 'Scaffolding arranged': 'मचान (स्कैफ़ोल्डिंग) की व्यवस्था',
+  'Safe storage space for material': 'सामान रखने की सुरक्षित जगह',
+  'Scaffolding & plumbing': 'मचान और प्लंबिंग', 'Guide rails & brackets': 'गाइड रेल और ब्रैकेट', 'Machine & controller': 'मशीन और कंट्रोलर', 'Car frame & cabin': 'कार फ्रेम और केबिन',
+  'Counterweight & ropes / belts': 'काउंटरवेट और रस्सी / बेल्ट', 'Landing doors & car door': 'लैंडिंग दरवाज़े और कार दरवाज़ा', 'Wiring & travelling cable': 'वायरिंग और ट्रैवलिंग केबल', 'Testing & commissioning': 'टेस्टिंग और कमीशनिंग',
+};

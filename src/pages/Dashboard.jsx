@@ -1,3 +1,4 @@
+import { Reminders } from './Reminders';
 import React from 'react';
 import { useCol, PageHeader, Card, Stat, go, ActivityFeed, Badge, Empty } from '../ui';
 import { inr, sum, today, daysUntil, fmtDate, num } from '../utils';
@@ -68,6 +69,7 @@ export default function Dashboard({ user }) {
       </div>
 
       <DashboardRequests user={user} />
+      <Reminders user={user} />
 
       <div className="grid-2">
         <Card title={isAdminU(user) ? `Orders waiting on a team (${tasks.length})` : `Waiting for your team (${tasks.length})`}>

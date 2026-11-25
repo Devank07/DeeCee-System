@@ -14,11 +14,14 @@ import Inventory from './pages/Inventory';
 import Staff from './pages/Staff';
 import FieldApp from './pages/FieldApp';
 import Portal from './pages/Portal';
+import { toLoginId } from './utils';
+import Reports from './pages/Reports';
+import { InstallButton, OfflineBanner } from './pwa';
 import { REQ_TYPES } from './pages/ClientRequests';
 import Audit from './pages/Audit';
 import Settings from './pages/Settings';
 
-const PAGES = { dashboard: Dashboard, clients: Clients, enquiries: Enquiries, orders: Orders, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings };
+const PAGES = { dashboard: Dashboard, reports: Reports, clients: Clients, enquiries: Enquiries, orders: Orders, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings };
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -36,6 +39,7 @@ export default function App() {
   return (
     <>
       {!user ? <Login /> : user.noProfile ? <NoProfile user={user} /> : user.active === false ? <Disabled /> : isClientU(user) ? <Portal user={user} /> : !rolesOf(user).some((r) => ROLES[r]) ? <Disabled msg="Your login has an unknown role. Ask the Admin to set it in Settings → Users." /> : <Shell user={user} />}
+      <OfflineBanner />
       <Toaster />
     </>
   );
@@ -147,6 +151,7 @@ export function UserBox({ user, compact }) {
       <div className="avatar">{(user.name || user.email || '?').slice(0, 1).toUpperCase()}</div>
       <div className="ub-text"><b>{user.name || user.email}</b><span>{roleLabel(user)}</span></div>
       <button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button>
+      {!compact && <InstallButton className="btn ghost sm ub-install" />}
     </div>
   );
 }
@@ -174,8 +179,8 @@ function Login() {
     e.preventDefault();
     setBusy(true); setMsg('');
     try {
-      if (mode === 'login') await backend().login(email, pw);
-      else if (mode === 'reset') { await backend().resetPassword(email); setMsg('Password reset email sent.'); }
+      if (mode === 'login') await backend().login(toLoginId(email), pw);
+      else if (mode === 'reset') { if (toLoginId(email) !== email.trim()) throw new Error('Password reset by email is for staff. Clients: please ask Dee Cee Elevators to resend your login.'); await backend().resetPassword(email); setMsg('Password reset email sent.'); }
       else await backend().signUp(email, pw);
     } catch (e2) { setMsg(prettyAuthError(e2)); }
     setBusy(false);
@@ -196,7 +201,7 @@ function Login() {
           </div>
         )}
         <form onSubmit={submit} className="stack">
-          <input type="email" required placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
+          <input type="text" inputMode="email" required placeholder="Email or mobile number" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" />
           {mode !== 'reset' && <input type="password" required placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} minLength={6} />}
           <button className="btn wide" disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : mode === 'reset' ? 'Send reset link' : 'Create admin login'}</button>
           {msg && <div className="form-msg">{msg}</div>}

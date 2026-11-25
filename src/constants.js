@@ -16,6 +16,7 @@ export const DEPARTMENTS = ['Management', 'Sales', 'Drawing', 'Installation', 'S
 // Which pages each role sees (in sidebar order)
 export const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: '◧', roles: OFFICE_ROLES },
+  { key: 'reports', label: 'Reports', icon: '◔', roles: ['admin', 'accounts'] },
   { key: 'enquiries', label: 'Enquiries & Quotes', icon: '✦', roles: ['admin', 'sales'] },
   { key: 'orders', label: 'Orders', icon: '▤', roles: OFFICE_ROLES },
   { key: 'clients', label: 'Clients', icon: '◉', roles: ['admin', 'sales', 'service', 'accounts'] },

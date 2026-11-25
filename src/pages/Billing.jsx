@@ -1,3 +1,5 @@
+import CaExport from './CaExport';
+import { AmcBillsDue } from './Reminders';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, act, go, Badge, Tabs, PrintDoc, useSettings, Stat, Note } from '../ui';
 import { updateDoc, getOne } from '../data';
@@ -15,7 +17,7 @@ export const invStatus = (i) => {
 const live = (i) => i.status !== 'Cancelled';
 
 export default function Billing({ user, params }) {
-  const tab = ['payments', 'receivables', 'orders'].includes(params[0]) ? params[0] : 'invoices';
+  const tab = ['payments', 'receivables', 'orders', 'ca'].includes(params[0]) ? params[0] : 'invoices';
   const invoices = useCol('invoices');
   const payments = useCol('payments', [['date', '>=', addDays(today(), -400)]], true, { orderBy: ['date', 'desc'] });
   const [newInv, setNewInv] = useState(false);
@@ -34,7 +36,8 @@ export default function Billing({ user, params }) {
         <Stat label="Invoiced this month" value={inr(sum(invoices.filter((i) => live(i) && (i.date || '').startsWith(month)), 'total'))} />
         <Stat label="Received this month" value={inr(sum(payments.filter((p) => (p.date || '').startsWith(month)), 'amount'))} tone="green" />
       </div>
-      <Tabs value={tab} onChange={(k) => go('billing/' + k)} tabs={[{ key: 'invoices', label: 'Invoices' }, { key: 'payments', label: 'Payments received' }, { key: 'orders', label: 'Order balances' }, { key: 'receivables', label: 'Invoice ageing' }]} />
+      <Tabs value={tab} onChange={(k) => go('billing/' + k)} tabs={[{ key: 'invoices', label: 'Invoices' }, { key: 'payments', label: 'Payments received' }, { key: 'orders', label: 'Order balances' }, { key: 'receivables', label: 'Invoice ageing' }, { key: 'ca', label: 'Export for CA / Tally' }]} />
+      {tab === 'invoices' && <AmcBillsDue user={user} compact />}
       {tab === 'invoices' && (
         <Card pad={false}>
           <DataTable
@@ -72,6 +75,7 @@ export default function Billing({ user, params }) {
       )}
       {tab === 'orders' && <OrderBalances />}
       {tab === 'receivables' && <Receivables invoices={invoices.filter(live)} />}
+      {tab === 'ca' && <CaExport />}
       {newInv && <InvoiceForm onClose={() => setNewInv(false)} onSaved={(id) => go('billing/invoices/' + id)} />}
       {openId && <InvoiceView id={openId} canWrite={canWrite} admin={admin} onClose={() => go('billing/invoices')} />}
       {delPay && <DeletePayment payment={delPay} onClose={() => setDelPay(null)} />}

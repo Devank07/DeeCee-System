@@ -1,3 +1,4 @@
+import { AmcBillsDue, LicenceList, AMC_BILLING } from './Reminders';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, PhotoGrid, Empty, Note } from '../ui';
 import { addDoc, updateDoc, deleteDoc, nextNumber, postActivity, getOne } from '../data';
@@ -10,7 +11,7 @@ const OPEN_C = ['Open', 'Assigned', 'In Progress'];
 
 export default function Service({ user, params }) {
   const [tab, id, extra] = params;
-  const t = ['amc', 'visits'].includes(tab) ? tab : 'complaints';
+  const t = ['amc', 'visits', 'licences'].includes(tab) ? tab : 'complaints';
   const openC = useCol('complaints', [['status', 'in', OPEN_C]]);
   const amcs = useCol('amcs');
   const todayJobs = useCol('visits', [['date', '==', today()]]);
@@ -24,10 +25,11 @@ export default function Service({ user, params }) {
         <Stat label="Renewals due (30 d)" value={amcs.filter((a) => a.status === 'Active' && daysUntil(a.end) <= 30).length} tone="amber" onClick={() => go('service/amc')} />
         <Stat label="Jobs today" value={todayJobs.length} sub={`${todayJobs.filter((v) => v.status === 'Done').length} done`} onClick={() => go('service/visits')} />
       </div>
-      <Tabs value={t} onChange={(k) => go('service/' + k)} tabs={[{ key: 'complaints', label: 'Complaints' }, { key: 'amc', label: 'AMC contracts' }, { key: 'visits', label: 'Field jobs' }]} />
+      <Tabs value={t} onChange={(k) => go('service/' + k)} tabs={[{ key: 'complaints', label: 'Complaints' }, { key: 'amc', label: 'AMC contracts' }, { key: 'visits', label: 'Field jobs' }, { key: 'licences', label: 'Lift licences' }]} />
       {t === 'complaints' && <Complaints openId={id} user={user} />}
       {t === 'amc' && <Amcs rows={amcs} openId={id} newFromProject={id === 'new' ? extra : null} user={user} />}
       {t === 'visits' && <Visits openId={id} user={user} />}
+      {t === 'licences' && <LicenceList />}
     </div>
   );
 }
@@ -157,6 +159,7 @@ function Amcs({ rows, openId, newFromProject, user }) {
   const canWrite = hasAny(user, 'service');
   return (
     <>
+      <AmcBillsDue user={user} compact />
       <div className="chips"><span className="spacer" />{canWrite && <button className="btn" onClick={() => setCreate({})}>+ New AMC</button>}</div>
       <Card pad={false}>
         <DataTable
@@ -207,6 +210,7 @@ function AmcForm({ initial = {}, onClose }) {
         <Field label="End"><input type="date" {...bind('end')} /></Field>
         <Field label="Contract value / year (₹, incl. GST)"><input type="number" {...bind('value', 'number')} /></Field>
         <Field label="Preventive visits / year"><input type="number" {...bind('visitsPerYear', 'number')} /></Field>
+        <Field label="Billing" hint="Invoices for each period show up under “AMC bills due”"><Select options={Object.keys(AMC_BILLING)} placeholder={false} value={f.billing || 'Yearly'} onChange={(e) => setF((p) => ({ ...p, billing: e.target.value }))} /></Field>
         <Field label="Status"><Select options={['Active', 'Cancelled', 'Renewed']} placeholder={false} {...bind('status')} /></Field>
         <Field label="Scope / notes" span={2}><textarea rows={2} {...bind('notes')} /></Field>
       </div>
@@ -256,7 +260,7 @@ function AmcView({ a, canWrite, onClose }) {
           <dt>Status</dt><dd><Badge>{amcState(a)}</Badge> {daysUntil(a.end) >= 0 ? `${daysUntil(a.end)} days left` : `expired ${-daysUntil(a.end)} days ago`}</dd>
           <dt>Type</dt><dd>{a.type} · {a.lifts} lift(s)</dd>
           <dt>Period</dt><dd>{fmtDate(a.start)} → {fmtDate(a.end)}</dd>
-          <dt>Value</dt><dd>{inr(a.value)} / year</dd>
+          <dt>Value</dt><dd>{inr(a.value)} / year · billed {(a.billing || 'Yearly').toLowerCase()}</dd>
           <dt>Site</dt><dd>{a.siteAddress}</dd>
           <dt>Visits</dt><dd>{done} done of {a.visitsPerYear} planned · {visits.filter((v) => v.status === 'Scheduled').length} scheduled</dd>
           <dt>Complaints</dt><dd>{complaints.length} under this contract</dd>
@@ -338,6 +342,7 @@ export function VisitReport({ id, user, onClose }) {
           {v.projectId && <><dt>Order</dt><dd><a href={'#/orders/' + v.projectId}>Open client tab</a></dd></>}
           <dt>Date</dt><dd>{fmtDate(v.date)}</dd>
           <dt>Team</dt><dd>{v.teamName || '—'}</dd>
+          {(v.startLoc || v.doneLoc) && <><dt>Location</dt><dd>{v.startLoc && <a href={`https://www.google.com/maps?q=${v.startLoc.lat},${v.startLoc.lng}`} target="_blank" rel="noreferrer">📍 started here</a>}{v.startLoc && v.doneLoc && ' · '}{v.doneLoc && <a href={`https://www.google.com/maps?q=${v.doneLoc.lat},${v.doneLoc.lng}`} target="_blank" rel="noreferrer">📍 completed here</a>}</dd></>}
           <dt>Site</dt><dd>{v.siteAddress || '—'}</dd>
           {v.instructions && <><dt>Instructions</dt><dd>{v.instructions}</dd></>}
           {v.notes && <><dt>Work done</dt><dd className="pre">{v.notes}</dd></>}
