@@ -1,3 +1,4 @@
+import { VersionTag, UpdateBanner } from './version';
 import React, { useEffect, useRef, useState } from 'react';
 import { initBackend, backend, DEMO, setMe } from './data';
 import { NAV, ROLES, OFFICE_ROLES } from './constants';
@@ -40,6 +41,7 @@ export default function App() {
     <>
       {!user ? <Login /> : user.noProfile ? <NoProfile user={user} /> : user.active === false ? <Disabled /> : isClientU(user) ? <Portal user={user} /> : !rolesOf(user).some((r) => ROLES[r]) ? <Disabled msg="Your login has an unknown role. Ask the Admin to set it in Settings → Users." /> : <Shell user={user} />}
       <OfflineBanner />
+      <UpdateBanner />
       <Toaster />
     </>
   );
@@ -149,7 +151,7 @@ export function UserBox({ user, compact }) {
   return (
     <div className={'userbox' + (compact ? ' compact' : '')}>
       <div className="avatar">{(user.name || user.email || '?').slice(0, 1).toUpperCase()}</div>
-      <div className="ub-text"><b>{user.name || user.email}</b><span>{roleLabel(user)}</span></div>
+      <div className="ub-text"><b>{user.name || user.email}</b><span>{roleLabel(user)} · <VersionTag /></span></div>
       <button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button>
       {!compact && <InstallButton className="btn ghost sm ub-install" />}
     </div>
@@ -206,6 +208,7 @@ function Login() {
           <button className="btn wide" disabled={busy}>{busy ? 'Please wait…' : mode === 'login' ? 'Sign in' : mode === 'reset' ? 'Send reset link' : 'Create admin login'}</button>
           {msg && <div className="form-msg">{msg}</div>}
         </form>
+        <div className="login-ver"><VersionTag /></div>
         {!DEMO && (
           <div className="login-links">
             {mode !== 'login' && <button className="link" onClick={() => setMode('login')}>Back to sign in</button>}

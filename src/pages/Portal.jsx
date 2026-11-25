@@ -1,3 +1,4 @@
+import { VersionTag } from '../version';
 import { t, getLang, setLang } from '../i18n';
 import { InstallButton } from '../pwa';
 // Client portal — phone-first. Home · Progress · Documents · Payments · Service
@@ -104,6 +105,7 @@ export default function Portal({ user }) {
         {tab === 'docs' && <Documents {...ctx} />}
         {tab === 'pay' && <Payments {...ctx} />}
         {tab === 'service' && <Service {...ctx} />}
+        <div className="portal-foot">{company.name || 'Dee Cee Elevators'} · <VersionTag /></div>
       </main>
 
       {m?.t === 'payment' && <PaymentProof {...ctx} preset={m} onClose={() => setM(null)} />}

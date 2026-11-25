@@ -78,6 +78,10 @@ Contact cards are copied automatically from the staff record (salesperson) and t
 
 ---
 
+## Version number
+The version (e.g. **v2.1.0**) shows on the login screen, under your name in the sidebar, at the bottom of the client portal and in the technician app. Click it to see what changed in each version. When a newer version is deployed, everyone with the app open gets a **“A new version is available — Refresh now”** notice.
+For every release: add an entry at the top of `src/changelog.js` and set the same number in `package.json` → `"version"`.
+
 ## Update the live site (after pulling new code)
 
 On your computer, in the `DeeCee-System` folder:
