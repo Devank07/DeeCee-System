@@ -1,6 +1,7 @@
 // Version history shown in the app (click the version number). Add a new entry at the TOP for every release
 // and set the same number in package.json "version".
 export const CHANGELOG = [
+  { v: '2.3.1', date: '2026-11-25', items: ['Client no. column in Enquiries & Quotations and Orders lists (sortable, exported in CSV)', 'Numbering of existing clients is much faster and shows its progress'] },
   { v: '2.3.0', date: '2026-11-25', items: ['Client number for every client (DCC-0001…) — existing clients numbered automatically, oldest first', 'Client number on client tab, lists, quotations, invoices, receipts, handover pack, portal and portal invite', 'Phone number with tap-to-call and WhatsApp on client lists, client page and client tab', '“Find client” box in the sidebar (Ctrl+K): search by name, client no., phone, quotation ref or order no.', 'Every list’s search also matches client no. and phone'] },
   { v: '2.2.0', date: '2026-11-25', items: ['Revoke a payment (cheque bounced, transfer failed, entered twice…) — kept on record marked Reversed, removed from all totals; Accounts can revoke', 'Settings → Backup & reset: clear all test data when going live (staff, teams, staff logins and settings are kept), restart numbering, set the next quotation serial'] },
   { v: '2.1.0', date: '2026-11-25', items: ['Version number on every screen, with this list of changes', 'Notice when a newer version has been deployed — tap Refresh to load it'] },

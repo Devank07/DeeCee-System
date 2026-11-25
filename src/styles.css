@@ -875,3 +875,4 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .find-res li:hover { background: var(--grey-soft); }
 .find-k { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); min-width: 44px; padding-top: 2px; }
 @media (max-width: 900px) { .find-res { right: 12px; } }
+.sync-bar { position: fixed; left: 50%; transform: translateX(-50%); top: 10px; z-index: 96; background: #1d1d1f; color: #fff; border-radius: 12px; padding: 8px 14px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }

@@ -395,21 +395,29 @@ export async function wipeData(cols, onProgress) {
   return done;
 }
 
-/* Gives client numbers to clients that don't have one yet (oldest first) and copies number + phone onto linked records. */
+/* Gives client numbers to clients that don't have one yet (oldest first) and copies number + phone onto linked records.
+   Done in parallel batches so a few thousand records take well under a minute. */
 export async function backfillClientNos(onProgress) {
-  const clients = (await B.query('clients', [], undefined)).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
-  let changed = 0;
-  for (const c of clients) {
-    if (!c.clientNo) { c.clientNo = await nextClientNo(); await B.set('clients', c.id, { clientNo: c.clientNo }, true); changed++; onProgress?.(changed); }
+  const clients = (await B.query('clients', [], undefined)).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0) || String(a.id).localeCompare(String(b.id)));
+  const used = clients.map((c) => parseInt(String(c.clientNo || '').replace(/\D/g, ''), 10) || 0);
+  let next = Math.max(0, ...used, (await B.getOne('counters', 'CLIENTNO').catch(() => null))?.n || 0);
+  const missing = clients.filter((c) => !c.clientNo);
+  missing.forEach((c) => { c.clientNo = fmtClientNo(++next); });
+  let done = 0;
+  for (let i = 0; i < missing.length; i += 25) {
+    await Promise.all(missing.slice(i, i + 25).map((c) => B.set('clients', c.id, { clientNo: c.clientNo }, true)));
+    done += Math.min(25, missing.length - i); onProgress?.(`Numbering clients ${done}/${missing.length}`);
   }
+  if (missing.length) await B.set('counters', 'CLIENTNO', { n: next }, true);
   const map = Object.fromEntries(clients.map((c) => [c.id, c]));
+  let linked = 0;
   for (const col of CLIENT_LINKED) {
     const rows = await B.query(col, [], undefined).catch(() => []);
     const todo = rows.filter((r) => r.clientId && map[r.clientId] && (r.clientNo !== map[r.clientId].clientNo || (map[r.clientId].phone && !r.clientPhone)));
-    for (let i = 0; i < todo.length; i += 20) {
-      await Promise.all(todo.slice(i, i + 20).map((r) => B.set(col, r.id, { clientNo: map[r.clientId].clientNo, ...(map[r.clientId].phone ? { clientPhone: map[r.clientId].phone } : {}) }, true).catch(() => {})));
-      changed += Math.min(20, todo.length - i); onProgress?.(changed);
+    for (let i = 0; i < todo.length; i += 25) {
+      await Promise.all(todo.slice(i, i + 25).map((r) => B.set(col, r.id, { clientNo: map[r.clientId].clientNo, ...(map[r.clientId].phone ? { clientPhone: map[r.clientId].phone } : {}) }, true).catch(() => {})));
+      linked += Math.min(25, todo.length - i); onProgress?.(`Adding client numbers to records… ${linked}`);
     }
   }
-  return changed;
+  return missing.length + linked;
 }

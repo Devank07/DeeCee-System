@@ -23,15 +23,17 @@ export function ClientNoSync({ user }) {
   const clients = useCol('clients', [], admin);
   const projects = useCol('projects', [], admin);
   const ran = useRef(false);
+  const [msg, setMsg] = useState(null);
   useEffect(() => {
     if (!admin || ran.current || !clients.length) return;
     const byId = Object.fromEntries(clients.map((c) => [c.id, c]));
     const need = clients.some((c) => !c.clientNo) || projects.some((p) => p.clientId && byId[p.clientId]?.clientNo && p.clientNo !== byId[p.clientId].clientNo);
     if (!need) return;
     ran.current = true;
-    backfillClientNos().then((n) => { if (n) toast(`Client numbers updated on ${n} records`); }).catch(() => { ran.current = false; });
+    setMsg('Giving client numbers…');
+    backfillClientNos(setMsg).then((n) => { setMsg(null); if (n) toast(`Client numbers added (${n} records updated)`); }).catch(() => { setMsg(null); ran.current = false; });
   }, [admin, clients, projects]);
-  return null;
+  return msg ? <div className="sync-bar">⏳ {msg} — please keep this page open</div> : null;
 }
 
 /* Quick search: name, client number, phone, quotation ref, order no. */
@@ -73,4 +75,10 @@ export function FindClient({ user }) {
       )}
     </div>
   );
+}
+
+/* clientId → client number, for lists where a record hasn't got its copy yet */
+export function useClientNos(enabled = true) {
+  const clients = useCol('clients', [], enabled);
+  return useMemo(() => Object.fromEntries(clients.map((c) => [c.id, c.clientNo])), [clients]);
 }

@@ -1,4 +1,4 @@
-import { ClientNo, Phone } from '../clientRef';
+import { ClientNo, Phone, useClientNos } from '../clientRef';
 import { LicenceCard } from './Reminders';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Pipeline, MiniPipeline, ProgressBar, ActivityFeed, PhotoUploader, PhotoGrid, FileList, FileUpload, Empty, Stat, Note, PrintDoc, useSettings } from '../ui';
@@ -28,6 +28,7 @@ export default function Orders({ user, params }) {
 
 function OrderList({ user }) {
   const projects = useCol('projects', [['status', 'in', ['Order', 'On Hold', 'Completed']]]);
+  const cnos = useClientNos(isOfficeU(user));
   const payments = useCol('payments', [], hasAny(user, 'accounts', 'stores', 'sales'));
   const mine = projects.filter((p) => p.status === 'Order' && openTasks(p, rolesOf(user)).length);
   const [tab, setTab] = useState(isAdminU(user) ? 'Active' : 'mine');
@@ -56,7 +57,8 @@ function OrderList({ user }) {
           csvName="orders" rows={groups[tab]} onRow={(r) => go('orders/' + r.id)} initialSort={{ key: 'code', desc: true }}
           empty={tab === 'mine' ? 'Nothing is waiting for your team right now' : undefined}
           columns={[
-            { key: 'code', label: 'Order', render: (r) => <><b>{r.clientName}</b> <ClientNo no={r.clientNo} /><div className="muted small">{r.title} · {r.code}{r.contactPhone ? ' · ' + r.contactPhone : ''}</div></>, csv: (r) => `${r.code} ${r.clientNo || ''} ${r.clientName} / ${r.title}` },
+            { key: 'clientNo', label: 'Client no.', render: (r) => <ClientNo no={r.clientNo || cnos[r.clientId]} />, sortValue: (r) => r.clientNo || cnos[r.clientId] || 'ZZZ', csv: (r) => r.clientNo || cnos[r.clientId] || '' },
+            { key: 'code', label: 'Order', render: (r) => <><b>{r.clientName}</b><div className="muted small">{r.title} · {r.code}{r.contactPhone ? ' · ' + r.contactPhone : ''}</div></>, csv: (r) => `${r.code} ${r.clientName} / ${r.title}` },
             { key: 'progress', label: 'Progress', render: (r) => <div className="stage-cell"><MiniPipeline p={r} /><span className="muted small">{progressPct(r)}%</span></div>, sortValue: progressPct, csv: progressPct },
             { key: 'next', label: 'Next step', render: (r) => <span className="small">{nextText(r)}</span>, csv: nextText },
             { key: 'teamName', label: 'Site team', value: (r) => r.teamName || '—' },
