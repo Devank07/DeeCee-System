@@ -53,6 +53,12 @@ Clients log in at the same address with the login you create (**Clients → open
 **What clients send reaches the office** as *From the client* on the client tab and *From clients* on the Dashboard (with a red count on the menu). On the client tab the buttons do the real work: **Record this payment** (pre-filled), **Mark drawing approved**, **Verified — mark site ready**. Any reply typed there shows up in the client's portal.
 Contact cards are copied automatically from the staff record (salesperson) and the team leader of the assigned site team, so keep their phone numbers filled in under Staff & Teams.
 
+## Client number & phone
+- Every client gets a permanent **client number** (DCC-0001, DCC-0002…) when created; existing clients were numbered oldest first the first time the Admin opened the new version. The number is copied onto the client's enquiries/orders, invoices, payments, AMCs and complaints.
+- It shows on the client page and client tab, in the Clients / Orders / Enquiries / Invoices / Service lists, on quotations (ref box), invoices and challans (“Client No.”), payment receipts, the handover pack, the client portal and the portal invite.
+- Phone numbers show with **📞 tap-to-call** and **WhatsApp** buttons.
+- **Find client** (top of the sidebar, or Ctrl+K): type a name, client number, phone (any 4+ digits), quotation ref or order number and press Enter. Every table's search box also matches client number and phone.
+
 ## Owner tools
 - **Reports** (Admin, Accounts): per financial year — sales funnel (enquiries → quoted → won, win rate, lost reasons), orders booked vs money collected by month, **profit per order** (order value without GST minus material purchase orders, or the internal costing), salesperson performance, and who owes us. Every table exports to CSV.
 - **Reminders** on the Dashboard, each with a one-tap **WhatsApp** message: follow-ups due (Sales), invoices due in 3 days or overdue (Accounts), AMC ending in 30 days (Service), site not ready 2+ weeks after the order (Sales / Installation), lift licence pending or expiring (Installation). ✕ hides one for 3 days.

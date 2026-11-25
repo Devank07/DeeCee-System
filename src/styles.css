@@ -861,3 +861,17 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .version-host { font-size: 14px; color: var(--ink); text-align: left; }
 .reset-card { border: 1px solid var(--red-soft); }
 .reset-confirm { width: 130px; text-transform: uppercase; }
+
+/* ================= Client number & phone ================= */
+.cno { display: inline-block; font: 600 11px/1.6 ui-monospace, Menlo, monospace; background: #eef3fb; color: #0a4fb0; border: 1px solid #d4e2f7; border-radius: 6px; padding: 0 6px; vertical-align: 1px; white-space: nowrap; }
+.phone-links { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.phone-links a { color: var(--accent); text-decoration: none; }
+.phone-links a.wa { color: #1a9e50; display: inline-flex; }
+.portal-id { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin-top: -6px; }
+.find { position: relative; padding: 0 12px 10px; }
+.find input { width: 100%; font-size: 13px; padding: 8px 10px; border-radius: 10px; }
+.find-res { position: absolute; left: 12px; right: -220px; top: 100%; z-index: 60; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.15); list-style: none; margin: 4px 0 0; padding: 6px; max-height: 420px; overflow: auto; }
+.find-res li { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border-radius: 8px; cursor: pointer; }
+.find-res li:hover { background: var(--grey-soft); }
+.find-k { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); min-width: 44px; padding-top: 2px; }
+@media (max-width: 900px) { .find-res { right: 12px; } }

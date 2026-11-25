@@ -164,7 +164,7 @@ export function DataTable({ columns, rows, onRow, csvName, searchable = true, em
     let r = rows;
     if (q) {
       const s = q.toLowerCase();
-      r = r.filter((row) => columns.some((c) => String(c.csv ? c.csv(row) : c.value ? c.value(row) : row[c.key] ?? '').toLowerCase().includes(s)));
+      r = r.filter((row) => [row.clientNo, row.phone, row.contactPhone, row.clientPhone].some((x) => x && String(x).toLowerCase().includes(s)) || columns.some((c) => String(c.csv ? c.csv(row) : c.value ? c.value(row) : row[c.key] ?? '').toLowerCase().includes(s)));
     }
     if (sort) {
       const c = columns.find((x) => x.key === sort.key);
@@ -503,6 +503,7 @@ export function PrintDoc({ kind, doc, company, onClose }) {
         <div className="pd-to">
           <div className="pd-small muted">{isChallan ? 'Deliver to' : kind === 'Purchase Order' ? 'Supplier' : 'Bill to'}</div>
           <b>{doc.clientName}</b>
+          {doc.clientNo && kind !== 'Purchase Order' && <div className="pd-small">Client No.: <b>{doc.clientNo}</b></div>}
           {doc.clientContact && <div className="pd-small">{doc.clientContact}</div>}
           <div className="pd-small pre">{doc.address || doc.siteAddress || ''}</div>
           {doc.phone && <div className="pd-small">Ph: {doc.phone}</div>}

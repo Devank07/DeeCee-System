@@ -1,3 +1,4 @@
+import { ClientNo, Phone } from '../clientRef';
 import CaExport from './CaExport';
 import { AmcBillsDue } from './Reminders';
 import React, { useState } from 'react';
@@ -47,7 +48,7 @@ export default function Billing({ user, params }) {
             columns={[
               { key: 'number', label: 'Invoice' },
               { key: 'date', label: 'Date', value: (r) => fmtDate(r.date), sortValue: (r) => r.date, csv: (r) => r.date },
-              { key: 'clientName', label: 'Client' },
+              { key: 'clientName', label: 'Client', render: (r) => <>{r.clientName} <ClientNo no={r.clientNo} /></>, csv: (r) => r.clientName },
               { key: 'placeOfSupply', label: 'Place of supply' },
               { key: 'total', label: 'Amount', align: 'r', value: (r) => inr(r.total), sortValue: (r) => num(r.total), csv: (r) => r.total },
               { key: 'bal', label: 'Balance', align: 'r', value: (r) => (live(r) ? inr(num(r.total) - num(r.paid)) : '—'), sortValue: (r) => num(r.total) - num(r.paid), csv: (r) => (live(r) ? num(r.total) - num(r.paid) : 0) },

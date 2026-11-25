@@ -1,3 +1,4 @@
+import { ClientNo, Phone } from '../clientRef';
 import { LicenceCard } from './Reminders';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Pipeline, MiniPipeline, ProgressBar, ActivityFeed, PhotoUploader, PhotoGrid, FileList, FileUpload, Empty, Stat, Note, PrintDoc, useSettings } from '../ui';
@@ -55,7 +56,7 @@ function OrderList({ user }) {
           csvName="orders" rows={groups[tab]} onRow={(r) => go('orders/' + r.id)} initialSort={{ key: 'code', desc: true }}
           empty={tab === 'mine' ? 'Nothing is waiting for your team right now' : undefined}
           columns={[
-            { key: 'code', label: 'Order', render: (r) => <><b>{r.clientName}</b><div className="muted small">{r.title} · {r.code}</div></>, csv: (r) => `${r.code} ${r.clientName} / ${r.title}` },
+            { key: 'code', label: 'Order', render: (r) => <><b>{r.clientName}</b> <ClientNo no={r.clientNo} /><div className="muted small">{r.title} · {r.code}{r.contactPhone ? ' · ' + r.contactPhone : ''}</div></>, csv: (r) => `${r.code} ${r.clientNo || ''} ${r.clientName} / ${r.title}` },
             { key: 'progress', label: 'Progress', render: (r) => <div className="stage-cell"><MiniPipeline p={r} /><span className="muted small">{progressPct(r)}%</span></div>, sortValue: progressPct, csv: progressPct },
             { key: 'next', label: 'Next step', render: (r) => <span className="small">{nextText(r)}</span>, csv: nextText },
             { key: 'teamName', label: 'Site team', value: (r) => r.teamName || '—' },
@@ -133,7 +134,7 @@ function ClientTab({ id, user }) {
     <div className="page">
       <PageHeader
         title={p.clientName}
-        sub={<>{p.title} · {p.code || p.quoteNo} · <Badge>{p.status}</Badge>{p.teamName && <> · {p.teamName}</>}</>}
+        sub={<><ClientNo no={p.clientNo} /> {p.title} · {p.code || p.quoteNo} · <Badge>{p.status}</Badge>{p.teamName && <> · {p.teamName}</>}{p.contactPhone && <> · <Phone phone={p.contactPhone} msg={`Dear ${p.contactPerson || p.clientName}, `} /></>}</>}
         actions={<>
           <button className="btn ghost" onClick={() => go(enquiry ? 'enquiries' : 'orders')}>← Back</button>
           {p.contactPhone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(p.contactPhone, `Dear ${p.contactPerson || p.clientName}, update on your lift ${p.code || ''}: ${nextText(p)}. — ${company.name}`)}>WhatsApp</a>}

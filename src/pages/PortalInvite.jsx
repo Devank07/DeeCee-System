@@ -6,8 +6,8 @@ import { phoneLoginEmail, makePassword, waLink, fmtDate } from '../utils';
 
 export const portalUrlOf = (company) => (company.portalUrl || (typeof location !== 'undefined' ? location.origin : '')).replace(/\/+$/, '');
 
-export function inviteText({ name, url, loginId, password, company }) {
-  return `Namaste ${name || ''},\n\nYou can now track your lift project with ${company.name || 'Dee Cee Elevators'} online — progress, drawings, photos, quotations, invoices and payments, and report any problem.\n\nOpen: ${url}\nLogin: ${loginId}\nPassword: ${password}\n\nTip: open the link on your phone and choose “Add to Home Screen”.\n— ${company.name || 'Dee Cee Elevators'}${company.phone ? ', ' + company.phone : ''}`;
+export function inviteText({ name, url, loginId, password, company, clientNo }) {
+  return `Namaste ${name || ''},${clientNo ? `\nYour client no.: ${clientNo}` : ''}\n\nYou can now track your lift project with ${company.name || 'Dee Cee Elevators'} online — progress, drawings, photos, quotations, invoices and payments, and report any problem.\n\nOpen: ${url}\nLogin: ${loginId}\nPassword: ${password}\n\nTip: open the link on your phone and choose “Add to Home Screen”.\n— ${company.name || 'Dee Cee Elevators'}${company.phone ? ', ' + company.phone : ''}`;
 }
 
 export default function PortalInvite({ clientId, project, onClose }) {
@@ -41,13 +41,13 @@ export default function PortalInvite({ clientId, project, onClose }) {
         const loginId = loginEmail.split('@')[0];
         await updateDoc('clients', client.id, { portal: { uid, loginId, loginEmail, password, createdAt: Date.now(), createdBy: me()?.name || '', invitedAt: Date.now() } }, client.name);
         await postActivity({ projectId: project?.id || null, clientId: client.id, text: 'Client portal login created and sent to the client.', visibleToClient: false, kind: 'portal' });
-        setReady({ phone: ph, text: inviteText({ name, url, loginId, password, company }) });
+        setReady({ phone: ph, text: inviteText({ name, url, loginId, password, company, clientNo: client.clientNo }) });
       }, 'Portal login created');
     } catch { /* toast shown */ }
     setBusy(false);
   };
   const resend = async () => {
-    const text = inviteText({ name, url, loginId: portal.loginId || portal.loginEmail, password: portal.password || '(the password sent earlier)', company });
+    const text = inviteText({ name, url, loginId: portal.loginId || portal.loginEmail, password: portal.password || '(the password sent earlier)', company, clientNo: client.clientNo });
     await updateDoc('clients', client.id, { portal: { ...portal, invitedAt: Date.now() } }, client.name).catch(() => {});
     setReady({ phone: ph, text });
   };

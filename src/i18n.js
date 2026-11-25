@@ -6,7 +6,7 @@ export const t = (s) => (LANG === 'hi' && HI[s]) || s;
 
 const HI = {
   // common
-  'Home': 'होम', 'Progress': 'प्रगति', 'Documents': 'दस्तावेज़', 'Payments': 'भुगतान', 'Service': 'सर्विस',
+  'Client No.': 'ग्राहक नं.', 'Home': 'होम', 'Progress': 'प्रगति', 'Documents': 'दस्तावेज़', 'Payments': 'भुगतान', 'Service': 'सर्विस',
   'Customer portal': 'ग्राहक पोर्टल', 'Call us': 'कॉल करें', 'Sign out': 'साइन आउट', 'Cancel': 'रद्द करें', 'Send': 'भेजें', 'Submit': 'जमा करें', 'OK': 'ठीक है', 'Later': 'बाद में',
   'Save': 'सेव करें', 'Download': 'डाउनलोड', 'View': 'देखें', 'View / PDF': 'देखें / PDF', 'Copy': 'कॉपी', 'Rate': 'रेटिंग दें', 'See all': 'सभी देखें', 'Loading…': 'लोड हो रहा है…',
   'Install app': 'ऐप इंस्टॉल करें', 'You are offline — changes will be sent when the internet is back.': 'आप ऑफ़लाइन हैं — इंटरनेट आने पर बदलाव भेज दिए जाएंगे।',

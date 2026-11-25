@@ -1,3 +1,4 @@
+import { ClientNo, Phone } from '../clientRef';
 import { AmcBillsDue, LicenceList, AMC_BILLING } from './Reminders';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, PhotoGrid, Empty, Note } from '../ui';
@@ -53,7 +54,7 @@ function Complaints({ openId, user }) {
           csvName="complaints" rows={rows} onRow={(r) => go('service/complaints/' + r.id)} initialSort={{ key: 'priority', desc: true }}
           columns={[
             { key: 'number', label: 'No.', render: (r) => <><b>{r.number}</b><div className="muted small">{fmtDateTime(r.reportedAt)}</div></>, csv: (r) => r.number },
-            { key: 'clientName', label: 'Client / Lift', render: (r) => <>{r.clientName}<div className="muted small">{r.liftRef}</div></>, csv: (r) => r.clientName + ' / ' + (r.liftRef || '') },
+            { key: 'clientName', label: 'Client / Lift', render: (r) => <>{r.clientName} <ClientNo no={r.clientNo} /><div className="muted small">{r.liftRef}{r.contactPhone ? ' · ' + r.contactPhone : ''}</div></>, csv: (r) => r.clientName + ' / ' + (r.liftRef || '') },
             { key: 'issue', label: 'Issue' },
             { key: 'priority', label: 'Priority', render: (r) => <Badge tone={pr(r.priority) >= 2 ? 'red' : pr(r.priority) === 1 ? 'blue' : 'grey'}>{r.priority}</Badge>, sortValue: (r) => pr(r.priority), csv: (r) => r.priority },
             { key: 'teamName', label: 'Team', value: (r) => r.teamName || '—' },
@@ -166,7 +167,7 @@ function Amcs({ rows, openId, newFromProject, user }) {
           csvName="amc-contracts" rows={rows} onRow={(r) => go('service/amc/' + r.id)} initialSort={{ key: 'end' }}
           columns={[
             { key: 'number', label: 'AMC' },
-            { key: 'clientName', label: 'Client', render: (r) => <>{r.clientName}<div className="muted small">{r.siteAddress}</div></>, csv: (r) => r.clientName },
+            { key: 'clientName', label: 'Client', render: (r) => <>{r.clientName} <ClientNo no={r.clientNo} /><div className="muted small">{r.siteAddress}</div></>, csv: (r) => r.clientName },
             { key: 'type', label: 'Type' },
             { key: 'lifts', label: 'Lifts', align: 'r' },
             { key: 'end', label: 'Period', value: (r) => `${fmtDate(r.start)} → ${fmtDate(r.end)}`, sortValue: (r) => r.end, csv: (r) => r.start + ' to ' + r.end },

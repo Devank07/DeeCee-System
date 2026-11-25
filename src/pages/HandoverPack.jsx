@@ -43,7 +43,7 @@ function Certificate({ p, d, company }) {
   return (
     <div className="print-area hp-doc">
       <Letterhead company={company} title="HANDOVER CERTIFICATE" no={`HO/${p.code || p.quoteNo}`} date={d.date} />
-      <div className="pd-to"><div className="pd-small muted">Handed over to</div><b>{p.clientName}</b><div className="pd-small pre">{p.siteAddress}</div></div>
+      <div className="pd-to"><div className="pd-small muted">Handed over to</div><b>{p.clientName}</b>{p.clientNo && <div className="pd-small">Client No.: <b>{p.clientNo}</b></div>}<div className="pd-small pre">{p.siteAddress}</div></div>
       <p className="hp-p">This is to certify that the lift installation described below has been completed, tested and commissioned by <b>{company.name}</b>, and handed over to the client in good working condition on <b>{fmtDate(d.date)}</b>.</p>
       <table className="pd-table"><tbody>{liftRows(p, d).map(([k, v]) => <tr key={k}><td style={{ width: '38%' }}>{k}</td><td><b>{v}</b></td></tr>)}
         <tr><td>Order no.</td><td>{p.code}{p.orderRef ? ` (client ref. ${p.orderRef})` : ''}</td></tr>
@@ -63,7 +63,7 @@ function Warranty({ p, d, company }) {
   return (
     <div className="print-area hp-doc">
       <Letterhead company={company} title="WARRANTY CARD" no={`WC/${p.code || p.quoteNo}`} date={d.date} />
-      <div className="pd-to"><div className="pd-small muted">Issued to</div><b>{p.clientName}</b><div className="pd-small pre">{p.siteAddress}</div></div>
+      <div className="pd-to"><div className="pd-small muted">Issued to</div><b>{p.clientName}</b>{p.clientNo && <div className="pd-small">Client No.: <b>{p.clientNo}</b></div>}<div className="pd-small pre">{p.siteAddress}</div></div>
       <div className="hp-box">
         <div><span>Warranty period</span><b>{d.warrantyMonths} months</b></div>
         <div><span>Valid from</span><b>{fmtDate(d.date)}</b></div>
@@ -100,7 +100,7 @@ function AmcOffer({ p, d, company }) {
   return (
     <div className="print-area hp-doc">
       <Letterhead company={company} title="AMC OFFER" no={`AMC-OFF/${p.code || p.quoteNo}`} date={d.date} />
-      <div className="pd-to"><div className="pd-small muted">To</div><b>{p.clientName}</b><div className="pd-small pre">{p.siteAddress}</div></div>
+      <div className="pd-to"><div className="pd-small muted">To</div><b>{p.clientName}</b>{p.clientNo && <div className="pd-small">Client No.: <b>{p.clientNo}</b></div>}<div className="pd-small pre">{p.siteAddress}</div></div>
       <p className="hp-p">Dear Sir / Madam,<br />Thank you for choosing {company.name}. Your free maintenance period ends on <b>{fmtDate(start)}</b>. To keep your lift{num(p.lifts) > 1 ? 's' : ''} safe and running smoothly, we are pleased to offer our Annual Maintenance Contract from <b>{fmtDate(start)}</b> to <b>{fmtDate(addMonths(start, 12))}</b>.</p>
       <table className="pd-table">
         <thead><tr><th>Plan</th><th>What you get</th><th className="r">Per year</th></tr></thead>

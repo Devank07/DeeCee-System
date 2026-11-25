@@ -238,8 +238,24 @@ function audit(action, col, docId, label) {
   B.add('audit', { at: Date.now(), uid: u.id, name: u.name || u.email, role: rolesOf(u).join(','), action, col, docId, label: label || '' }).catch(() => {});
 }
 
+/* ---- Client number (DCC-0001…): given to every new client and copied onto everything linked to that client ---- */
+export const CLIENT_LINKED = ['projects', 'invoices', 'payments', 'amcs', 'complaints', 'visits', 'clientRequests', 'dispatches'];
+export const fmtClientNo = (n) => 'DCC-' + String(n).padStart(4, '0');
+export const nextClientNo = async () => fmtClientNo(await B.nextNumber('CLIENTNO', 1));
+async function withClientNo(col, data) {
+  try {
+    if (col === 'clients' && !data.clientNo) return { ...data, clientNo: await nextClientNo() };
+    if (CLIENT_LINKED.includes(col) && data.clientId && !data.clientNo) {
+      const c = await B.getOne('clients', data.clientId);
+      if (c?.clientNo) return { ...data, clientNo: c.clientNo, ...(c.phone && !data.clientPhone ? { clientPhone: c.phone } : {}) };
+    }
+  } catch { /* client portal can't read client records — the office fills these in later */ }
+  return data;
+}
+
 export async function addDoc(col, data, label) {
   const u = me();
+  data = await withClientNo(col, data);
   const id = await B.add(col, clean({ ...data, createdAt: Date.now(), createdBy: u?.id || null, createdByName: u?.name || '' }));
   audit('Created', col, id, label);
   return id;
@@ -247,6 +263,7 @@ export async function addDoc(col, data, label) {
 // Bulk import: no per-row audit entry (one summary entry is written instead)
 export async function addQuiet(col, data) {
   const u = me();
+  data = await withClientNo(col, data);
   return B.add(col, clean({ createdAt: Date.now(), ...data, createdBy: u?.id || null, createdByName: u?.name || '' }));
 }
 export async function setQuiet(col, id, data, merge = true) { await B.set(col, id, clean(data), merge); }
@@ -376,4 +393,23 @@ export async function wipeData(cols, onProgress) {
     }
   }
   return done;
+}
+
+/* Gives client numbers to clients that don't have one yet (oldest first) and copies number + phone onto linked records. */
+export async function backfillClientNos(onProgress) {
+  const clients = (await B.query('clients', [], undefined)).sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  let changed = 0;
+  for (const c of clients) {
+    if (!c.clientNo) { c.clientNo = await nextClientNo(); await B.set('clients', c.id, { clientNo: c.clientNo }, true); changed++; onProgress?.(changed); }
+  }
+  const map = Object.fromEntries(clients.map((c) => [c.id, c]));
+  for (const col of CLIENT_LINKED) {
+    const rows = await B.query(col, [], undefined).catch(() => []);
+    const todo = rows.filter((r) => r.clientId && map[r.clientId] && (r.clientNo !== map[r.clientId].clientNo || (map[r.clientId].phone && !r.clientPhone)));
+    for (let i = 0; i < todo.length; i += 20) {
+      await Promise.all(todo.slice(i, i + 20).map((r) => B.set(col, r.id, { clientNo: map[r.clientId].clientNo, ...(map[r.clientId].phone ? { clientPhone: map[r.clientId].phone } : {}) }, true).catch(() => {})));
+      changed += Math.min(20, todo.length - i); onProgress?.(changed);
+    }
+  }
+  return changed;
 }

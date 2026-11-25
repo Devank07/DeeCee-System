@@ -1,3 +1,4 @@
+import { ClientNo, Phone } from '../clientRef';
 import PortalInvite from './PortalInvite';
 import React, { useState } from 'react';
 import { useCol, useDoc, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Stat, ActivityFeed, Empty, MiniPipeline } from '../ui';
@@ -57,8 +58,9 @@ export default function Clients({ user, params }) {
           onRow={(r) => go('clients/' + r.id)}
           initialSort={{ key: 'name' }}
           columns={[
+            { key: 'clientNo', label: 'Client no.', render: (r) => <ClientNo no={r.clientNo} />, sortValue: (r) => r.clientNo || 'ZZZ', csv: (r) => r.clientNo || '' },
             { key: 'name', label: 'Client', render: (r) => <><b>{r.name}</b><div className="muted small">{r.contactPerson}</div></> , csv: (r) => r.name },
-            { key: 'phone', label: 'Phone' },
+            { key: 'phone', label: 'Phone', render: (r) => <Phone phone={r.phone} msg={`Hello ${r.contactPerson || r.name}, `} />, csv: (r) => r.phone || '' },
             { key: 'city', label: 'City' },
             { key: 'projects', label: 'Projects', align: 'r', value: (r) => projects.filter((p) => p.clientId === r.id).length },
             { key: 'amc', label: 'AMC', render: (r) => { const a = amcs.find((x) => x.clientId === r.id && x.status === 'Active'); return a ? <Badge tone={daysUntil(a.end) < 0 ? 'red' : daysUntil(a.end) <= 30 ? 'amber' : 'green'}>{daysUntil(a.end) < 0 ? 'Expired' : 'Till ' + fmtDate(a.end)}</Badge> : <span className="muted">—</span>; }, csv: (r) => amcs.find((x) => x.clientId === r.id)?.end || '' },
@@ -90,7 +92,7 @@ function ClientDetail({ c, user, onEdit, form, setForm }) {
     <div className="page">
       <PageHeader
         title={c.name}
-        sub={[c.contactPerson, c.city].filter(Boolean).join(' · ')}
+        sub={<><ClientNo no={c.clientNo} /> {[c.contactPerson, c.city].filter(Boolean).join(' · ')} {c.phone && <> · <Phone phone={c.phone} msg={`Hello ${c.contactPerson || c.name}, `} /></>}</>}
         actions={<>
           <button className="btn ghost" onClick={() => go('clients')}>← All clients</button>
           {c.phone && <a className="btn ghost" href={'tel:' + c.phone}>Call</a>}

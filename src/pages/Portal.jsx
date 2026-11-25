@@ -159,6 +159,7 @@ function Home({ user, company, projects, invoices, payments, complaints, activit
 
   return (<>
     <h1 className="portal-hello">{t('Namaste')}{(p?.contactPerson || user.name) ? ', ' + (p?.contactPerson || user.name) : ''}</h1>
+    {(projects.find((x) => x.clientNo)?.clientNo || user.phone) && <div className="portal-id">{projects.find((x) => x.clientNo)?.clientNo && <span>{t('Client No.')} <b>{projects.find((x) => x.clientNo).clientNo}</b></span>}{user.phone && <span>📱 {user.phone}</span>}</div>}
     {!p ? <div className="p-card"><Empty>{t("Your project will appear here once your order is booked.")}</Empty></div> : (
       <section className="hero">
         <div className="hero-top">
@@ -711,7 +712,7 @@ export function Receipt({ pay, company, user, onClose }) {
           </div>
           <div className="pd-title"><div>PAYMENT RECEIPT</div><div className="pd-small">No: <b>{no}</b></div><div className="pd-small">Date: {fmtDate(pay.date)}</div></div>
         </div>
-        <div className="pd-to"><div className="pd-small muted">Received with thanks from</div><b>{pay.clientName || user?.name}</b></div>
+        <div className="pd-to"><div className="pd-small muted">Received with thanks from</div><b>{pay.clientName || user?.name}</b>{pay.clientNo && <div className="pd-small">Client No.: <b>{pay.clientNo}</b></div>}</div>
         <table className="pd-table"><tbody>
           <tr><td>Amount</td><td className="r"><b>{inr(pay.amount)}</b></td></tr>
           <tr><td>In words</td><td className="r">{amountInWords(pay.amount)}</td></tr>

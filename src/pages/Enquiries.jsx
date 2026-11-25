@@ -1,3 +1,4 @@
+import { ClientNo, Phone } from '../clientRef';
 import { ContactSync } from '../contacts';
 import React, { useState } from 'react';
 import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, LineItems, useSettings, Note } from '../ui';
@@ -48,7 +49,7 @@ export default function Enquiries({ user, params }) {
         <DataTable
           csvName="enquiries" rows={groups[filter]} onRow={(r) => go('orders/' + r.id)} initialSort={{ key: 'follow' }}
           columns={[
-            { key: 'clientName', label: 'Client', render: (r) => <><b>{r.clientName}</b><div className="muted small">{r.contactPerson} · {r.contactPhone}</div></>, csv: (r) => r.clientName },
+            { key: 'clientName', label: 'Client', render: (r) => <><b>{r.clientName}</b> <ClientNo no={r.clientNo} /><div className="muted small">{r.contactPerson} · {r.contactPhone}</div></>, csv: (r) => r.clientName },
             { key: 'title', label: 'Requirement', render: (r) => <>{r.title}<div className="muted small">{r.quoteNo}{r.quote?.rev ? ' R' + r.quote.rev : ''}</div></>, csv: (r) => r.title },
             { key: 'value', label: 'Quotation', align: 'r', render: (r) => (priceMissing(r) ? <Badge tone="red">Price to enter</Badge> : <b>{inr(quoteTotal(r))}</b>), sortValue: quoteTotal, csv: quoteTotal },
             { key: 'status', label: 'Stage', render: (r) => <Badge>{r.status === 'Lost' ? 'Lost' : r.enquiry?.status || 'New'}</Badge>, csv: (r) => (r.status === 'Lost' ? 'Lost' : r.enquiry?.status) },

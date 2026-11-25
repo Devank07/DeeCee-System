@@ -88,6 +88,7 @@ export default function ProposalDoc({ p, onClose, clientView }) {
             </div>
             <table className="pp-refbox"><tbody>
               <tr><th>Ref No.</th><td>{refNo}</td></tr>
+              {p.clientNo && <tr><th>Client No.</th><td>{p.clientNo}</td></tr>}
               <tr><th>Date</th><td>{dmy(q.date)}</td></tr>
               {prev && <tr><th>Supersedes</th><td>{prev}</td></tr>}
               <tr><th>Valid till</th><td>{dmy(q.validTill)}</td></tr>

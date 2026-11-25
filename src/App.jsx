@@ -1,3 +1,4 @@
+import { FindClient, ClientNoSync } from './clientRef';
 import { VersionTag, UpdateBanner } from './version';
 import React, { useEffect, useRef, useState } from 'react';
 import { initBackend, backend, DEMO, setMe } from './data';
@@ -77,6 +78,8 @@ function Shell({ user }) {
       {!tech && (
         <aside className={'sidebar' + (menu ? ' open' : '')}>
           <div className="brand"><img src={logoUrl} alt="Dee Cee Elevators" className="brand-logo" /><div><b>Dee Cee Elevators</b><span>Company OS</span></div></div>
+          <FindClient user={user} />
+          <ClientNoSync user={user} />
           <nav>
             {allowed.map((n) => (
               <a key={n.key} href={'#/' + n.key} className={current === n.key ? 'on' : ''}>
