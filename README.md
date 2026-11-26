@@ -66,6 +66,8 @@ Dispatch still needs the advance and site ready (Admin can override). If you lat
 ## Team
 - **Team calendar** (Admin, Installation, Service): week view — each team's installation sites, survey / installation / service / AMC jobs and site-diary entries per day. Click an empty day to plan a job. Shows delay reasons of the last 30 days.
 - **Daily site diary**: on the site screen of the phone app — men, hours, work done, delay reason. Shown on the client tab (man-days, delay days) and the calendar.
+- **Hierarchy**: in each staff record set **Level in company** (Director → CEO / GM → Head of department → Manager → Supervisor → Executive / office staff; field: Site team leader → Technician / Fitter → Helper) and **Reports to**. *Staff & Teams → Organisation* shows the chart and lists anyone without a manager. Only field levels (or the *Field technician* tick) get a site team and the phone app — a Director in the Installation department is not a technician. Older records without a level are guessed from their designation until you set it.
+- **Managers**: see *My team* in Tasks (everyone under them) and approve their team's leave from the Dashboard.
 - **Tasks**: give anyone a task with due date and priority (Tasks page, or *+ Task* on a client tab). Everyone sees *My tasks* on the Dashboard; the menu shows how many are due.
 - **Leave**: everyone (office and technicians) has a *Leave* button next to Sign out. Accounts / Admin approve in *Staff & Teams → Leave requests*; approval marks the days in attendance (Unpaid leave = Absent).
 - **Salary slips** (*Staff & Teams → Salary slips*): uses the salary in each staff record and that month's attendance; add allowance / advance; print or WhatsApp the slip; *Mark paid* keeps a record.

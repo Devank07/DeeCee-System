@@ -926,3 +926,18 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .slip-table td, .slip-table th { padding: 8px 10px; }
 .ub-btns { width: 100%; }
 .ub-btns .btn { flex: 1; }
+
+/* ================= Organisation chart ================= */
+.org, .org ul { list-style: none; margin: 0; padding: 0; }
+.org ul { margin-left: 22px; padding-left: 16px; border-left: 2px solid var(--line); }
+.org li { position: relative; padding: 4px 0; }
+.org ul > li::before { content: ''; position: absolute; left: -16px; top: 26px; width: 14px; border-top: 2px solid var(--line); }
+.org.flat li::before { display: none; }
+.org-node { display: flex; align-items: center; gap: 10px; background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; max-width: 640px; cursor: pointer; }
+.org-node:hover { border-color: var(--accent); }
+.org-node.r1 { border-left: 4px solid #b26a00; } .org-node.r2 { border-left: 4px solid #d08a1a; }
+.org-node.r3, .org-node.r4 { border-left: 4px solid var(--accent); }
+.org-node.r7, .org-node.r8 { border-left: 4px solid var(--green); }
+.org-av { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
+.org-node.r1 .org-av, .org-node.r2 .org-av { background: var(--amber-soft); color: var(--amber); }
+.org-tog { border: 1px solid var(--line-2); background: var(--grey-soft); border-radius: 8px; padding: 2px 8px; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }

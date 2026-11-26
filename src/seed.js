@@ -302,6 +302,13 @@ export function seedData() {
     },
   };
 
+  // Company hierarchy (demo)
+  Object.entries({
+    s_owner: ['Director', null], s_rahul: ['Manager', 's_owner'], s_amit: ['Manager', 's_owner'], s_neha: ['Supervisor / Coordinator', 's_owner'],
+    s_kiran: ['Executive / Office staff', 's_owner'], s_vikas: ['Executive / Office staff', 's_owner'], s_pooja: ['Executive / Office staff', 's_owner'],
+    s_sunil: ['Site team leader', 's_amit'], s_deepak: ['Helper / Trainee', 's_sunil'], s_manoj: ['Site team leader', 's_amit'], s_arjun: ['Helper / Trainee', 's_manoj'],
+    s_ravi: ['Technician / Fitter', 's_neha'], s_rakesh: ['Technician / Fitter', 's_neha'],
+  }).forEach(([id, [level, to]]) => { if (staff[id]) Object.assign(staff[id], { level, reportsTo: to, isTechnician: ['Site team leader', 'Technician / Fitter', 'Helper / Trainee'].includes(level) }); });
   // Contact cards the client sees in the portal (normally kept up to date by the office app)
   Object.values(projects).forEach((p) => {
     const s = staff[p.salesBy]; const t = teams[p.teamId]; const l = t && staff[t.leaderId];

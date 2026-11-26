@@ -1,4 +1,4 @@
-import { MyTasksCard } from './Team';
+import { MyTasksCard, TeamLeaveCard } from './Team';
 import { Reminders } from './Reminders';
 import React from 'react';
 import { useCol, PageHeader, Card, Stat, go, ActivityFeed, Badge, Empty } from '../ui';
@@ -71,6 +71,7 @@ export default function Dashboard({ user }) {
 
       <DashboardRequests user={user} />
       <MyTasksCard user={user} />
+      <TeamLeaveCard user={user} />
       <Reminders user={user} />
 
       <div className="grid-2">

@@ -1,7 +1,8 @@
+import { reportsUnder } from '../org';
 // Team tools: tasks between staff, leave requests, salary slips, monthly performance.
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useCol, PageHeader, Card, Badge, Modal, Field, Select, useForm, act, go, Empty, DataTable, Tabs, PrintFrame, useSettings, logoUrl, Stat } from '../ui';
+import { useDoc, useCol, PageHeader, Card, Badge, Modal, Field, Select, useForm, act, go, Empty, DataTable, Tabs, PrintFrame, useSettings, logoUrl, Stat } from '../ui';
 import { addDoc, updateDoc, setDoc, me } from '../data';
 import { today, addDays, fmtDate, num, inr, daysUntil, amountInWords } from '../utils';
 import { hasAny, isAdminU } from '../roles';
@@ -14,12 +15,15 @@ const isLate = (x) => x.status !== 'Done' && x.due && x.due < today();
 export default function Tasks({ user, params }) {
   const admin = isAdminU(user);
   const tasks = useCol('tasks');
-  const [view, setView] = useState(params[0] === 'by-me' ? 'by-me' : params[0] === 'all' && admin ? 'all' : 'mine');
+  const staffAll = useCol('staff');
+  const myTeam = reportsUnder(user.staffId, staffAll);
+  const [view, setView] = useState(params[0] === 'by-me' ? 'by-me' : params[0] === 'team' ? 'team' : params[0] === 'all' && admin ? 'all' : 'mine');
   const [form, setForm] = useState(null);
   const [showDone, setShowDone] = useState(false);
   const lists = {
     mine: tasks.filter((x) => mine(x, user)),
     'by-me': tasks.filter((x) => x.byUid === user.id),
+    team: tasks.filter((x) => myTeam.has(x.assigneeStaffId)),
     all: tasks,
   };
   const rows = lists[view].filter((x) => showDone || x.status !== 'Done').sort((a, b) => (a.status === 'Done') - (b.status === 'Done') || (a.due || '9') .localeCompare(b.due || '9'));
@@ -33,7 +37,7 @@ export default function Tasks({ user, params }) {
         <Stat label="Given by me, open" value={lists['by-me'].filter((x) => x.status !== 'Done').length} sub={`${lists['by-me'].filter(isLate).length} overdue`} onClick={() => setView('by-me')} />
       </div>
       <div className="row between wrap">
-        <Tabs value={view} onChange={setView} tabs={[{ key: 'mine', label: `My tasks (${open.length})` }, { key: 'by-me', label: 'Given by me' }, ...(admin ? [{ key: 'all', label: 'Everyone' }] : [])]} />
+        <Tabs value={view} onChange={setView} tabs={[{ key: 'mine', label: `My tasks (${open.length})` }, { key: 'by-me', label: 'Given by me' }, ...(myTeam.size ? [{ key: 'team', label: `My team (${lists.team.filter((x) => x.status !== 'Done').length})` }] : []), ...(admin ? [{ key: 'all', label: 'Everyone' }] : [])]} />
         <label className="check small"><input type="checkbox" checked={showDone} onChange={(e) => setShowDone(e.target.checked)} /> Show done</label>
       </div>
       <Card pad={false}>
@@ -127,10 +131,11 @@ export function LeaveButton({ user, className = 'btn ghost sm' }) {
 
 function MyLeave({ user, onClose }) {
   const leaves = useCol('leaves', [['staffId', '==', user.staffId]]);
+  const meStaff = useDoc('staff', user.staffId);
   const { f, bind } = useForm({ from: addDays(today(), 1), to: addDays(today(), 1), type: LEAVE_TYPES[0], reason: '' });
   const apply = async () => {
     if (f.to < f.from) return act(async () => { throw new Error(t('“To” date is before “From”')); });
-    await act(() => addDoc('leaves', { ...f, days: dayCount(f.from, f.to), staffId: user.staffId, staffName: user.name || '', status: 'Pending', appliedAt: Date.now() }, 'Leave request'), t('Leave request sent'));
+    await act(() => addDoc('leaves', { ...f, days: dayCount(f.from, f.to), staffId: user.staffId, staffName: user.name || '', managerId: meStaff?.reportsTo || null, status: 'Pending', appliedAt: Date.now() }, 'Leave request'), t('Leave request sent'));
   };
   const list = [...leaves].sort((a, b) => (a.from < b.from ? 1 : -1));
   return (
@@ -155,12 +160,7 @@ export function LeaveRequests() {
   const [note, setNote] = useState({});
   const pending = leaves.filter((l) => l.status === 'Pending').sort((a, b) => (a.from > b.from ? 1 : -1));
   const past = leaves.filter((l) => l.status !== 'Pending').sort((a, b) => (a.from < b.from ? 1 : -1)).slice(0, 40);
-  const decide = (l, status) => act(async () => {
-    await updateDoc('leaves', l.id, { status, decidedBy: me()?.name || '', decidedAt: Date.now(), note: note[l.id] || '' }, `${l.staffName} leave`);
-    if (status === 'Approved') {
-      for (let d = l.from; d <= l.to; d = addDays(d, 1)) await setDoc('attendance', `${d}_${l.staffId}`, { date: d, staffId: l.staffId, staffName: l.staffName, status: l.type === 'Unpaid leave' ? 'A' : 'L', leaveType: l.type }, true, 'Leave');
-    }
-  }, status === 'Approved' ? 'Approved — attendance marked' : 'Rejected');
+  const decide = (l, status) => decideLeave(l, status, note[l.id]);
   return (<>
     <Card title={<>Waiting for approval <Badge tone={pending.length ? 'amber' : 'grey'}>{pending.length}</Badge></>}>
       {pending.length === 0 ? <Empty>No pending requests</Empty> : (
@@ -301,6 +301,30 @@ export function Performance({ staff }) {
           { key: 'diary', label: 'Diary days', align: 'r', value: (r) => r.diary || '—', sortValue: (r) => r.diary },
         ]} />
       <p className="muted small" style={{ padding: '8px 16px' }}>Jobs done counts completed field jobs of the person's team. Orders won and enquiries use the salesperson on the client tab.</p>
+    </Card>
+  );
+}
+
+export const decideLeave = (l, status, note = '') => act(async () => {
+  await updateDoc('leaves', l.id, { status, decidedBy: me()?.name || '', decidedAt: Date.now(), note: note || '' }, `${l.staffName} leave`);
+  if (status === 'Approved') {
+    for (let d = l.from; d <= l.to; d = addDays(d, 1)) await setDoc('attendance', `${d}_${l.staffId}`, { date: d, staffId: l.staffId, staffName: l.staffName, status: l.type === 'Unpaid leave' ? 'A' : 'L', leaveType: l.type }, true, 'Leave');
+  }
+}, status === 'Approved' ? 'Approved — attendance marked' : 'Rejected');
+
+/* Dashboard: leave requests from the people who report to me */
+export function TeamLeaveCard({ user }) {
+  const leaves = useCol('leaves', [['managerId', '==', user.staffId || '_none_'], ['status', '==', 'Pending']], !!user.staffId);
+  if (!leaves.length) return null;
+  return (
+    <Card title={<>Leave requests from your team <Badge tone="amber">{leaves.length}</Badge></>}>
+      <ul className="list">{[...leaves].sort((a, b) => (a.from > b.from ? 1 : -1)).map((l) => (
+        <li key={l.id} className="leave-row">
+          <div className="grow"><b>{l.staffName}</b> <span className="muted small">· {l.type} · {l.days} day{l.days > 1 ? 's' : ''}</span><div className="small">{fmtDate(l.from)}{l.to !== l.from ? ' – ' + fmtDate(l.to) : ''}{l.reason ? ' · ' + l.reason : ''}</div></div>
+          <button className="btn ghost sm danger" onClick={() => decideLeave(l, 'Rejected')}>Reject</button>
+          <button className="btn sm" onClick={() => decideLeave(l, 'Approved')}>Approve</button>
+        </li>
+      ))}</ul>
     </Card>
   );
 }

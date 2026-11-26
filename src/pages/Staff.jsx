@@ -1,3 +1,4 @@
+import { LEVELS, levelOf, rankOf, isFieldLevel, isTechStaff, reportsUnder, LevelBadge, OrgChart } from '../org';
 import { LeaveRequests, SalarySlips, Performance } from './Team';
 import React, { useState } from 'react';
 import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, Empty, toast } from '../ui';
@@ -7,12 +8,11 @@ import { inr, fmtDate, today, num } from '../utils';
 import { hasAny, isAdminU, rolesOf, roleLabel } from '../roles';
 import { RoleChecks } from './Access';
 
-const isTechStaff = (s) => s.isTechnician || ['Installation', 'Service'].includes(s.department);
 
 export default function Staff({ user, params }) {
   const hr = hasAny(user, 'accounts');
   const pendingLeave = useCol('leaves', [['status', '==', 'Pending']], hr).length;
-  const tabs = hr ? [{ key: 'directory', label: 'Staff directory' }, { key: 'teams', label: 'Site teams' }, { key: 'attendance', label: 'Mark attendance' }, { key: 'leave', label: `Leave requests${pendingLeave ? ' (' + pendingLeave + ')' : ''}` }, { key: 'report', label: 'Monthly report' }, { key: 'salary', label: 'Salary slips' }, { key: 'performance', label: 'Performance' }] : [{ key: 'teams', label: 'Site teams' }, { key: 'directory', label: 'Staff directory' }];
+  const tabs = hr ? [{ key: 'directory', label: 'Staff directory' }, { key: 'teams', label: 'Site teams' }, { key: 'attendance', label: 'Mark attendance' }, { key: 'leave', label: `Leave requests${pendingLeave ? ' (' + pendingLeave + ')' : ''}` }, { key: 'report', label: 'Monthly report' }, { key: 'salary', label: 'Salary slips' }, { key: 'performance', label: 'Performance' }, { key: 'org', label: 'Organisation' }] : [{ key: 'teams', label: 'Site teams' }, { key: 'directory', label: 'Staff directory' }, { key: 'org', label: 'Organisation' }];
   const tab = tabs.some((t) => t.key === params[0]) ? params[0] : tabs[0].key;
   const staff = useCol('staff');
   const att = useCol('attendance', [['date', '==', today()]]);
@@ -34,6 +34,7 @@ export default function Staff({ user, params }) {
       {tab === 'leave' && <LeaveRequests />}
       {tab === 'salary' && <SalarySlips staff={active} />}
       {tab === 'performance' && <Performance staff={active} />}
+      {tab === 'org' && <OrgTab staff={staff} hr={hr} user={user} />}
     </div>
   );
 }
@@ -61,7 +62,7 @@ function Teams({ staff }) {
       {teams.length === 0 && <Empty>No teams yet. Create one team per installation crew and one for service.</Empty>}
       {unassigned.length > 0 && (
         <Card title="Technicians not in any team">
-          <p className="muted small">They won't see any jobs until they are added to a team.</p>
+          <p className="muted small">They won't see any jobs until they are added to a team. If someone here is not a site person (e.g. a director or manager), open them in the Staff directory and change their <b>Level</b>.</p>
           <ul className="list">{unassigned.map((s) => <li key={s.id}><span>{s.name} <span className="muted small">· {s.designation || s.department}</span></span></li>)}</ul>
         </Card>
       )}
@@ -127,10 +128,12 @@ function Directory({ staff, user, canEdit }) {
         {canEdit && <button className="btn" onClick={() => setForm({})}>+ Add staff</button>}
       </div>
       <Card pad={false}>
-        <DataTable csvName="staff" rows={rows} onRow={canEdit ? setForm : undefined} initialSort={{ key: 'department' }}
+        <DataTable csvName="staff" rows={rows} onRow={canEdit ? setForm : undefined} initialSort={{ key: 'level' }}
           columns={[
             { key: 'name', label: 'Name', render: (r) => <><b>{r.name}</b><div className="muted small">{r.designation}</div></>, csv: (r) => r.name },
+            { key: 'level', label: 'Level', render: (r) => <LevelBadge s={r} />, sortValue: (r) => rankOf(r), csv: (r) => levelOf(r) },
             { key: 'department', label: 'Department' },
+            { key: 'reportsTo', label: 'Reports to', value: (r) => staff.find((x) => x.id === r.reportsTo)?.name || '—' },
             { key: 'team', label: 'Team', value: (r) => teams.find((t) => t.id === r.teamId)?.name || (isTechStaff(r) ? 'Not in a team' : '—') },
             { key: 'phone', label: 'Phone', render: (r) => (r.phone ? <a href={'tel:' + r.phone} onClick={(e) => e.stopPropagation()}>{r.phone}</a> : '—'), csv: (r) => r.phone },
             { key: 'joiningDate', label: 'Joined', value: (r) => fmtDate(r.joiningDate), sortValue: (r) => r.joiningDate, csv: (r) => r.joiningDate },
@@ -138,19 +141,22 @@ function Directory({ staff, user, canEdit }) {
             { key: 'active', label: 'Status', render: (r) => <Badge>{r.active === false ? 'Disabled' : 'Active'}</Badge>, csv: (r) => (r.active === false ? 'Left' : 'Active') },
           ]} />
       </Card>
-      {form && <StaffForm s={form.id ? form : null} teams={teams} canSeePay={canSeePay} admin={admin} login={form.id ? loginOf(form.id) : null} salary={payroll.find((x) => x.id === form.id)?.salary ?? ''} onClose={() => setForm(null)} />}
+      {form && <StaffForm s={form.id ? form : null} staff={staff} teams={teams} canSeePay={canSeePay} admin={admin} login={form.id ? loginOf(form.id) : null} salary={payroll.find((x) => x.id === form.id)?.salary ?? ''} onClose={() => setForm(null)} />}
     </>
   );
 }
 
 const DEPT_ROLE = { Sales: 'sales', Drawing: 'drawing', 'Material & Dispatch': 'stores', Installation: 'projects', Service: 'service', Accounts: 'accounts', Management: 'admin' };
 
-function StaffForm({ s, teams, canSeePay, admin, login, salary, onClose }) {
-  const { f, bind, set } = useForm({ ...(s || { name: '', phone: '', email: '', department: 'Installation', designation: '', joiningDate: today(), dob: '', address: '', emergencyContact: '', bloodGroup: '', isTechnician: false, teamId: '', active: true, notes: '' }), salary });
+function StaffForm({ s, staff = [], teams, canSeePay, admin, login, salary, onClose }) {
+  const { f, bind, set, setF } = useForm({ ...(s || { name: '', phone: '', email: '', department: 'Office', designation: '', joiningDate: today(), dob: '', address: '', emergencyContact: '', bloodGroup: '', isTechnician: false, teamId: '', active: true, notes: '', level: 'Executive / Office staff', reportsTo: '' }), ...(s && !s.level ? { level: levelOf(s) } : {}), salary });
+  const under = s ? reportsUnder(s.id, staff) : new Set();
+  const managers = staff.filter((x) => x.active !== false && x.id !== s?.id && !under.has(x.id) && rankOf(x) <= 6 && !isFieldLevel(levelOf(x)) || (x.id !== s?.id && levelOf(x) === 'Site team leader' && isFieldLevel(f.level))).sort((a, b) => rankOf(a) - rankOf(b) || a.name.localeCompare(b.name));
+  const pickLevel = (lv) => setF((x) => ({ ...x, level: lv, isTechnician: isFieldLevel(lv), ...(isFieldLevel(lv) ? {} : { teamId: '' }), ...(lv === 'Director' && (!x.department || x.department === 'Office') ? { department: 'Management' } : {}) }));
   const self = login && login.id === me()?.id;
   const [acc, setAcc] = useState({ give: !!login, email: login?.email || s?.email || '', password: '', roles: login ? rolesOf(login) : [], active: login ? login.active !== false : true });
   const setA = (k, v) => setAcc((a) => ({ ...a, [k]: v }));
-  const suggest = () => [...new Set([f.isTechnician ? 'technician' : DEPT_ROLE[f.department]].filter(Boolean))];
+  const suggest = () => [...new Set([f.isTechnician ? 'technician' : ['Director', 'CEO / General Manager'].includes(f.level) ? 'admin' : DEPT_ROLE[f.department]].filter(Boolean))];
   const save = async () => {
     const fail = (m) => act(async () => { throw new Error(m); });
     if (!f.name) return fail('Name is required');
@@ -162,7 +168,8 @@ function StaffForm({ s, teams, canSeePay, admin, login, salary, onClose }) {
       if (self && !acc.roles.includes('admin')) return fail("You can't remove your own Admin access");
     }
     const { id, createdAt, createdBy, createdByName, updatedAt, updatedBy, salary: pay, ...data } = f;
-    data.teamId = data.teamId || null;
+    data.teamId = data.isTechnician ? data.teamId || null : null;
+    data.reportsTo = data.reportsTo || null;
     if (acc.roles.includes('technician')) data.isTechnician = true;
     let sid = s?.id;
     if (sid) await act(() => updateDoc('staff', sid, data, data.name), 'Saved'); else sid = await act(() => addDoc('staff', data, data.name), 'Staff added');
@@ -181,19 +188,21 @@ function StaffForm({ s, teams, canSeePay, admin, login, salary, onClose }) {
         <Field label="Full name *"><input {...bind('name')} /></Field>
         <Field label="Phone"><input {...bind('phone')} inputMode="tel" /></Field>
         <Field label="Email"><input {...bind('email')} /></Field>
+        <Field label="Level in company" hint="Decides the organisation chart. Field levels get a site team and the phone app."><Select options={LEVELS.map((l) => ({ value: l.k, label: l.k }))} placeholder={false} value={f.level} onChange={(e) => pickLevel(e.target.value)} /></Field>
+        <Field label="Reports to"><Select options={managers.map((m) => ({ value: m.id, label: `${m.name} — ${m.designation || levelOf(m)}` }))} placeholder={f.level === 'Director' ? '— Top of company —' : '— Choose manager —'} {...bind('reportsTo')} /></Field>
         <Field label="Department"><Select options={DEPARTMENTS} placeholder={false} {...bind('department')} /></Field>
-        <Field label="Designation"><input {...bind('designation')} placeholder="Fitter, Helper, Draughtsman…" /></Field>
+        <Field label="Designation"><input {...bind('designation')} placeholder="Director, Sales Manager, Fitter, Draughtsman…" /></Field>
         <Field label="Joining date"><input type="date" {...bind('joiningDate')} /></Field>
         <Field label="Date of birth"><input type="date" {...bind('dob')} /></Field>
         <Field label="Blood group"><input {...bind('bloodGroup')} /></Field>
         <Field label="Address" span={2}><input {...bind('address')} /></Field>
         <Field label="Emergency contact" span={2}><input {...bind('emergencyContact')} placeholder="Name & phone" /></Field>
         {canSeePay && <Field label="Monthly salary (₹)" hint="Only Admin & Accounts can see this"><input type="number" {...bind('salary', 'number')} /></Field>}
-        {(f.isTechnician || ['Installation', 'Service'].includes(f.department)) && <Field label="Site team"><Select options={teams.filter((t) => t.active !== false).map((t) => ({ value: t.id, label: t.name }))} placeholder="— Not in a team —" {...bind('teamId')} /></Field>}
+        {f.isTechnician && <Field label="Site team"><Select options={teams.filter((t) => t.active !== false).map((t) => ({ value: t.id, label: t.name }))} placeholder="— Not in a team —" {...bind('teamId')} /></Field>}
         <Field label="Notes (documents, skills, licences)" span={2}><textarea rows={2} {...bind('notes')} /></Field>
         {['Sales', 'Management'].includes(f.department) && <Field label="Quotation sign-off (page 1)" span={2} hint="One line per row. First two lines print in bold."><textarea rows={5} {...bind('quoteSignature')} placeholder={'VIVEK AGARWAL\nVee Kay Engineers\n2/49 Ram Nagar Colony-AGRA-282002\nMobile: 98xxxxxxxx\nEmail: name@example.com'} /></Field>}
       </div>
-      <label className="check"><input type="checkbox" checked={!!f.isTechnician} onChange={(e) => set('isTechnician', e.target.checked)} /> Field technician (works at sites)</label>
+      <label className="check"><input type="checkbox" checked={!!f.isTechnician} onChange={(e) => set('isTechnician', e.target.checked)} /> Field technician — works at sites, is put in a site team and uses the phone app</label>
       <label className="check"><input type="checkbox" checked={f.active !== false} onChange={(e) => set('active', e.target.checked)} /> Currently working</label>
       {canSeePay && salary ? <p className="muted small">Salary on record: {inr(salary)} / month</p> : null}
 
@@ -267,4 +276,14 @@ function Report({ staff }) {
         columns={[{ key: 'name', label: 'Staff' }, { key: 'department', label: 'Dept' }, { key: 'P', label: 'Present', align: 'r' }, { key: 'H', label: 'Half', align: 'r' }, { key: 'L', label: 'Leave', align: 'r' }, { key: 'A', label: 'Absent', align: 'r' }, { key: 'days', label: 'Paid days', align: 'r' }]} />
     </Card>
   );
+}
+
+function OrgTab({ staff, hr, user }) {
+  const teams = useCol('teams');
+  const [open, setOpen] = useState(null);
+  const canSeePay = hasAny(user, 'accounts');
+  return (<>
+    <OrgChart staff={staff} teams={teams} onOpen={hr ? setOpen : undefined} />
+    {open && <StaffForm s={open} staff={staff} teams={teams} canSeePay={canSeePay} admin={isAdminU(user)} login={null} salary="" onClose={() => setOpen(null)} />}
+  </>);
 }

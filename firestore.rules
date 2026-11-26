@@ -68,7 +68,10 @@ service cloud.firestore {
     match /attendance/{id} {
       allow read: if isOffice() || (isTech() && resource.data.staffId == profile().staffId);
       allow write: if hasRole(['accounts'])
-        || (isStaff() && request.resource.data.staffId == profile().staffId);
+        || (isStaff() && request.resource.data.staffId == profile().staffId)
+        // a manager approving leave marks those days for their own team member
+        || (isOffice() && request.resource.data.get('leaveType', null) is string
+            && get(/databases/$(database)/documents/staff/$(request.resource.data.staffId)).data.get('reportsTo', '') == profile().staffId);
     }
 
     // ---- Office-only records ----
@@ -116,9 +119,12 @@ service cloud.firestore {
     }
     // Leave: anyone applies for themselves; Accounts / Admin decide
     match /leaves/{id} {
-      allow read: if hasRole(['accounts']) || (isStaff() && resource.data.staffId == profile().staffId);
+      function myReport() { return isOffice() && resource.data.get('managerId', null) != null && resource.data.managerId == profile().staffId; }
+      allow read: if hasRole(['accounts']) || (isStaff() && resource.data.staffId == profile().staffId) || myReport();
       allow create: if isStaff() && request.resource.data.staffId == profile().staffId && request.resource.data.status == 'Pending';
-      allow update, delete: if hasRole(['accounts']);
+      allow update: if hasRole(['accounts'])
+        || (myReport() && onlyChanges(['status', 'decidedBy', 'decidedAt', 'note', 'updatedAt', 'updatedBy']));
+      allow delete: if hasRole(['accounts']);
     }
     match /payslips/{id} { allow read, write: if hasRole(['accounts']); }
 

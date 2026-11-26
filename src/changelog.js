@@ -1,6 +1,12 @@
 // Version history shown in the app (click the version number). Add a new entry at the TOP for every release
 // and set the same number in package.json "version".
 export const CHANGELOG = [
+  { v: '2.5.0', date: '2026-11-26', items: [
+    'Company hierarchy: every staff record has a Level (Director, CEO / GM, Head of department, Manager, Supervisor, Executive, Site team leader, Technician, Helper) and “Reports to”',
+    'Staff & Teams → Organisation: organisation chart, plus a list of people with no manager set',
+    'Fix: directors and managers in the Installation / Service department are no longer treated as technicians or asked to join a site team — only field levels (or the “Field technician” tick) are',
+    'Managers see “My team” in Tasks and approve leave of the people who report to them (Accounts / Admin still can)',
+  ] },
   { v: '2.4.0', date: '2026-11-26', items: [
     'Material made simple: Installation marks the site ready and requests material in one step (needed-by date, note); Material team updates Procuring → Ready → Dispatched with a typed list and a printed challan; site team confirms “Material received”',
     'Stock tracking is now optional (Settings → Quotation settings → Stock tracking); Material & Stock is hidden while it is off',
