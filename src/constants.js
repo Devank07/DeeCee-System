@@ -16,11 +16,13 @@ export const DEPARTMENTS = ['Management', 'Sales', 'Drawing', 'Installation', 'S
 // Which pages each role sees (in sidebar order)
 export const NAV = [
   { key: 'dashboard', label: 'Dashboard', icon: '◧', roles: OFFICE_ROLES },
+  { key: 'tasks', label: 'Tasks', icon: '☑', roles: OFFICE_ROLES },
   { key: 'reports', label: 'Reports', icon: '◔', roles: ['admin', 'accounts'] },
   { key: 'enquiries', label: 'Enquiries & Quotes', icon: '✦', roles: ['admin', 'sales'] },
   { key: 'orders', label: 'Orders', icon: '▤', roles: OFFICE_ROLES },
   { key: 'clients', label: 'Clients', icon: '◉', roles: ['admin', 'sales', 'service', 'accounts'] },
   { key: 'billing', label: 'Billing & Payments', icon: '₹', roles: ['admin', 'accounts'] },
+  { key: 'calendar', label: 'Team calendar', icon: '▦', roles: ['admin', 'projects', 'service'] },
   { key: 'service', label: 'Service & AMC', icon: '⚙', roles: ['admin', 'service', 'projects'] },
   { key: 'inventory', label: 'Material & Stock', icon: '▦', roles: ['admin', 'stores', 'projects'] },
   { key: 'staff', label: 'Staff & Teams', icon: '☺', roles: ['admin', 'accounts', 'projects', 'service'] },
@@ -32,7 +34,7 @@ export const NAV = [
 export const PROJECT_STATUSES = ['Enquiry', 'Order', 'On Hold', 'Completed', 'Lost', 'Cancelled'];
 export const ENQ_STATUSES = ['New', 'Contacted', 'Site Visit', 'Quoted', 'Negotiation'];
 export const LEAD_SOURCES = ['Website', 'WhatsApp', 'Phone', 'Referral', 'Architect / Builder', 'IndiaMART', 'Walk-in', 'Existing client', 'Other'];
-export const MATERIAL_STATUSES = ['Pending', 'Procuring', 'Ready to dispatch', 'Dispatched', 'Delivered'];
+export const MATERIAL_STATUSES = ['Pending', 'Requested', 'Procuring', 'Ready to dispatch', 'Dispatched', 'Delivered'];
 export const TEAM_TYPES = ['Installation', 'Service'];
 
 export const SITE_CHECKLIST = [

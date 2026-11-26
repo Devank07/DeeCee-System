@@ -53,6 +53,24 @@ Clients log in at the same address with the login you create (**Clients → open
 **What clients send reaches the office** as *From the client* on the client tab and *From clients* on the Dashboard (with a red count on the menu). On the client tab the buttons do the real work: **Record this payment** (pre-filled), **Mark drawing approved**, **Verified — mark site ready**. Any reply typed there shows up in the client's portal.
 Contact cards are copied automatically from the staff record (salesperson) and the team leader of the assigned site team, so keep their phone numbers filled in under Staff & Teams.
 
+## Material (no stock-keeping needed)
+1. **Installation** marks the site ready (*Update site status*, or the site team on the phone) — the same form **requests material** with a *needed by* date and a note. (A separate *Request material* button exists too.)
+2. **Material team** sees the request on the order (highlighted) and updates **Procuring → Ready to dispatch → Dispatch to site**. Dispatch asks for date, vehicle, driver and a typed list of what is sent (pre-filled for a full lift set) and prints a **delivery challan**.
+3. The **site team** taps *✓ Material received at site* on their phone (or the office uses *Mark delivered*). Installation then starts.
+Dispatch still needs the advance and site ready (Admin can override). If you later want item-wise stock, switch on **Settings → Quotation settings → Stock tracking** — the Material & Stock page comes back and dispatch reduces stock.
+
+## Winning the order
+- **Site survey** (client tab → *Site survey*): Sales fills shaft width/depth, pit, overhead, floors, stops, travel, door width, machine room, 3-phase power, photos (location is saved) — or *Send team* puts a survey job on a site team's phones. **Use in quotation** copies the sizes into the proposal.
+- **Client accepts online**: in the portal the client taps **Accept quotation** (name, PO no., PO photo/PDF). Sales sees *Quotation accepted* under *From the client* / Dashboard → **Confirm order →** opens the usual order form with the PO no. filled in; the PO copy is saved to the order's documents.
+
+## Team
+- **Team calendar** (Admin, Installation, Service): week view — each team's installation sites, survey / installation / service / AMC jobs and site-diary entries per day. Click an empty day to plan a job. Shows delay reasons of the last 30 days.
+- **Daily site diary**: on the site screen of the phone app — men, hours, work done, delay reason. Shown on the client tab (man-days, delay days) and the calendar.
+- **Tasks**: give anyone a task with due date and priority (Tasks page, or *+ Task* on a client tab). Everyone sees *My tasks* on the Dashboard; the menu shows how many are due.
+- **Leave**: everyone (office and technicians) has a *Leave* button next to Sign out. Accounts / Admin approve in *Staff & Teams → Leave requests*; approval marks the days in attendance (Unpaid leave = Absent).
+- **Salary slips** (*Staff & Teams → Salary slips*): uses the salary in each staff record and that month's attendance; add allowance / advance; print or WhatsApp the slip; *Mark paid* keeps a record.
+- **Performance** (*Staff & Teams → Performance*): per person per month — attendance, tasks done and on time, enquiries and orders won, jobs done, diary days.
+
 ## Client number & phone
 - Every client gets a permanent **client number** (DCC-0001, DCC-0002…) when created; existing clients were numbered oldest first the first time the Admin opened the new version. The number is copied onto the client's enquiries/orders, invoices, payments, AMCs and complaints.
 - It shows on the client page and client tab, in the Clients / Orders / Enquiries / Invoices / Service lists, on quotations (ref box), invoices and challans (“Client No.”), payment receipts, the handover pack, the client portal and the portal invite.

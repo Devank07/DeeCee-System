@@ -1,3 +1,7 @@
+import { TaskForm } from './Team';
+import { DiaryCard } from './Calendar';
+import { SurveyCard } from './Survey';
+import { MaterialCard } from './material';
 import { ClientNo, Phone, useClientNos } from '../clientRef';
 import { LicenceCard } from './Reminders';
 import React, { useState } from 'react';
@@ -140,6 +144,7 @@ function ClientTab({ id, user }) {
         actions={<>
           <button className="btn ghost" onClick={() => go(enquiry ? 'enquiries' : 'orders')}>← Back</button>
           {p.contactPhone && <a className="btn ghost" target="_blank" rel="noreferrer" href={waLink(p.contactPhone, `Dear ${p.contactPerson || p.clientName}, update on your lift ${p.code || ''}: ${nextText(p)}. — ${company.name}`)}>WhatsApp</a>}
+          <button className="btn ghost" onClick={() => setModal({ t: 'task' })}>+ Task</button>
           {p.clientId && can(user, 'sales', 'accounts') && <button className="btn ghost" onClick={() => setModal({ t: 'invite' })}>Client portal</button>}
           {can(user, 'sales', 'projects') && <button className="btn ghost" onClick={() => setModal({ t: 'edit' })}>Edit details</button>}
         </>}
@@ -148,6 +153,7 @@ function ClientTab({ id, user }) {
       <Card><Pipeline p={p} /></Card>
       <ContactSync projects={[p]} />
       <ProjectRequests p={p} user={user}
+        onConfirmOrder={(r) => setModal({ t: 'confirm', req: r })}
         onRecordPayment={(r) => setModal({ t: 'pay', milestone: r.milestone ?? undefined, confirmAdvance: r.milestone === 0 && !adv ? true : undefined, prefill: { amount: r.amount, date: r.date, mode: r.mode, ref: r.ref }, req: r })}
         onApproveDrawing={(r) => act(async () => {
           await updateDoc('projects', p.id, { drawing: { ...p.drawing, status: 'Approved', approvedAt: Date.now() } }, p.code);
@@ -239,22 +245,7 @@ function ClientTab({ id, user }) {
           </Card>
 
           {/* MATERIAL */}
-          <Card title={<>Material <Badge>{p.material?.status || 'Pending'}</Badge></>} actions={can(user, 'stores') && <>
-            {!dispatched && p.material?.status !== 'Procuring' && <button className="btn ghost sm" onClick={() => setMaterial('Procuring')}>Procuring</button>}
-            {!dispatched && p.material?.status !== 'Ready to dispatch' && <button className="btn ghost sm" onClick={() => setMaterial('Ready to dispatch')}>Ready to dispatch</button>}
-            {!dispatched && <button className="btn sm" disabled={!!lock(adv && siteReady, 'x')} onClick={() => setModal({ t: 'dispatch' })}>Dispatch to site</button>}
-            {p.material?.status === 'Dispatched' && <button className="btn ghost sm" onClick={markDelivered}>Mark delivered</button>}
-          </>}>
-            {!dispatched && (!adv || !siteReady) && (
-              <div className="gate small">Dispatch unlocks when: {!adv && <Badge tone="red">advance received</Badge>} {!siteReady && <Badge tone="red">site ready (Installation team)</Badge>}</div>
-            )}
-            {dispatches.length + pos.length === 0 ? <p className="muted small">No purchase orders or dispatches yet</p> : (
-              <ul className="list">
-                {pos.map((x) => <li key={x.id}><div><b>{x.number}</b> <span className="muted small">PO · {x.vendorName}</span><div className="muted small">{x.items.map((i) => `${i.name} × ${i.qty}`).join(', ')}</div></div><Badge>{x.status}</Badge></li>)}
-                {dispatches.map((x) => <li key={x.id}><div><b>{x.number}</b> <span className="muted small">Challan · {fmtDate(x.date)} · {x.vehicle}</span><div className="muted small">{x.items.map((i) => `${i.name} × ${i.qty}`).join(', ')}</div></div><Badge>{x.status}</Badge></li>)}
-              </ul>
-            )}
-          </Card>
+          <MaterialCard p={p} user={user} adv={adv} siteReady={siteReady} dispatches={dispatches} pos={pos} setModal={setModal} lock={lock} />
 
           {/* INSTALLATION */}
           <Card title={<>Installation <Badge>{p.install?.status || 'Not started'}</Badge></>} actions={can(user, 'projects') && <>
@@ -307,6 +298,8 @@ function ClientTab({ id, user }) {
         </Card>
       </div>
 
+      <SurveyCard p={p} user={user} />
+      {!enquiry && <DiaryCard p={p} />}
       {!enquiry && <LicenceCard p={p} user={user} />}
       <Card title="Timeline — all teams">
         <div className="composer">
@@ -327,7 +320,7 @@ function ClientTab({ id, user }) {
       {modal?.t === 'quote' && <ProposalForm p={p} onClose={close} />}
       {modal?.t === 'revise' && <ProposalForm p={p} revise onClose={close} />}
       {modal?.t === 'printOld' && <ProposalDoc p={{ ...p, ...modal.snap }} onClose={close} />}
-      {modal?.t === 'confirm' && <ConfirmOrder p={p} onClose={close} onConfirmed={() => setTimeout(() => setModal({ t: 'invite' }), 50)} />}
+      {modal?.t === 'confirm' && <ConfirmOrder p={p} fromRequest={modal.req} onClose={close} onConfirmed={() => setTimeout(() => setModal({ t: 'invite' }), 50)} />}
       {modal?.t === 'invite' && <PortalInvite clientId={p.clientId} project={p} onClose={close} />}
       {modal?.t === 'enq' && <EnquiryStatus p={p} onClose={close} />}
       {modal?.t === 'print' && <ProposalDoc p={p} onClose={close} />}
@@ -346,7 +339,9 @@ function ClientTab({ id, user }) {
       {modal?.t === 'install' && <InstallForm p={p} onClose={close} />}
       {modal?.t === 'handover' && <HandoverModal p={p} onClose={close} />}
       {modal?.t === 'pack' && <HandoverPack p={p} onClose={close} />}
+      {modal?.t === 'task' && <TaskForm user={user} project={p} onClose={close} />}
       {modal?.t === 'dispatch' && <DispatchForm preset={{ projectId: p.id }} onClose={close} />}
+      {modal?.t === 'challan' && <PrintDoc kind="Delivery Challan" doc={{ ...modal.doc, address: modal.doc.address || p.siteAddress, phone: modal.doc.phone || p.contactPhone }} company={company} onClose={close} />}
       {modal?.t === 'visit' && <VisitForm initial={{ type: 'Installation Work', clientId: p.clientId, clientName: p.clientName, projectId: p.id, siteAddress: p.siteAddress, contactPhone: p.contactPhone, teamId: p.teamId || '' }} onClose={close} />}
       {modal?.t === 'edit' && <EditOrder p={p} user={user} onClose={close} />}
       {modal?.t === 'delete' && (

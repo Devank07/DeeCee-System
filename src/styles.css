@@ -876,3 +876,53 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .find-k { font-size: 10px; font-weight: 700; text-transform: uppercase; color: var(--muted); min-width: 44px; padding-top: 2px; }
 @media (max-width: 900px) { .find-res { right: 12px; } }
 .sync-bar { position: fixed; left: 50%; transform: translateX(-50%); top: 10px; z-index: 96; background: #1d1d1f; color: #fff; border-radius: 12px; padding: 8px 14px; font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.mat-flow { list-style: none; display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 0; margin: 0 0 10px; font-size: 11px; color: var(--muted); }
+.mat-flow li { display: flex; flex-direction: column; gap: 4px; }
+.mat-flow li span { height: 5px; border-radius: 3px; background: var(--line); }
+.mat-flow li.on { color: var(--ink); font-weight: 600; }
+.mat-flow li.on span { background: var(--green); }
+.mat-reqbox { background: var(--amber-soft); border-radius: 10px; padding: 8px 10px; margin-bottom: 8px; }
+.mat-req { background: var(--blue-soft); border-radius: 10px; padding: 8px 12px; margin: 10px 0; }
+.hero .hero-btn.accept { background: #1f8a4c; color: #fff; }
+.hero-note { align-self: center; font-weight: 600; font-size: 13px; }
+.accept-box { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.accept-box > div { background: var(--grey-soft); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.file-pick { cursor: pointer; display: inline-flex; }
+.survey-view .sv-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px; margin-bottom: 8px; }
+.survey-view .sv-grid div { background: var(--grey-soft); border-radius: 8px; padding: 6px 8px; display: flex; flex-direction: column; font-size: 12px; }
+.survey-view .sv-grid span { color: var(--muted); font-size: 11px; }
+
+/* ================= Team calendar ================= */
+.cal-wrap { overflow-x: auto; }
+.cal { width: 100%; border-collapse: collapse; min-width: 980px; table-layout: fixed; }
+.cal th, .cal td { border-bottom: 1px solid var(--line); border-right: 1px solid var(--line); padding: 6px; vertical-align: top; font-size: 12px; }
+.cal th { background: var(--grey-soft); font-weight: 600; text-align: left; }
+.cal th.today, .cal td.today { background: #f2f7ff; }
+.cal .cal-team { width: 190px; }
+.cal-cell { height: 70px; }
+.cal-cell.add { cursor: copy; }
+.cal-cell.add:hover { background: #fafbfd; }
+.cal-job, .cal-diary, .cal-site { display: block; width: 100%; text-align: left; border: 0; border-radius: 6px; padding: 4px 6px; margin-bottom: 4px; font: inherit; font-size: 11.5px; font-weight: 600; cursor: pointer; }
+.cal-job span, .cal-diary span { display: block; font-weight: 400; opacity: 0.8; font-size: 10.5px; }
+.cal-job.blue { background: var(--blue-soft); color: #0a4fb0; } .cal-job.green { background: var(--green-soft); color: var(--green); }
+.cal-job.red { background: var(--red-soft); color: var(--red); } .cal-job.purple { background: #efe9fb; color: #5b3cc4; }
+.cal-job.done { opacity: 0.55; }
+.cal-diary { background: #fff8e8; color: #7a5200; } .cal-diary.late { background: var(--red-soft); color: var(--red); }
+.cal-sites { margin-top: 4px; }
+.cal-site { background: #eef3fb; color: #0a4fb0; font-weight: 500; }
+
+/* ================= Tasks, leave, slips ================= */
+.task-list { list-style: none; margin: 0; padding: 0; }
+.task-list li { display: flex; gap: 12px; align-items: flex-start; padding: 10px 16px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.task-list li:last-child { border-bottom: 0; }
+.task-list li.done b { text-decoration: line-through; color: var(--muted); }
+.task-list li.late { background: #fff8f7; }
+.task-list .tick { width: 22px; height: 22px; border-radius: 50%; border: 2px solid var(--line-2); background: #fff; flex: none; cursor: pointer; color: #fff; font-size: 12px; font-weight: 700; padding: 0; margin-top: 1px; }
+.task-list li.done .tick { background: var(--green); border-color: var(--green); }
+.task-list .tick:hover { border-color: var(--green); }
+.card .task-list li { padding: 8px 0; }
+.leave-row { gap: 8px; align-items: center; flex-wrap: wrap; }
+.leave-note { width: 180px; }
+.slip-table td, .slip-table th { padding: 8px 10px; }
+.ub-btns { width: 100%; }
+.ub-btns .btn { flex: 1; }

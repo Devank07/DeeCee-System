@@ -7,6 +7,7 @@ import { inr, fmtDate, fmtDateTime } from '../utils';
 import { hasAny } from '../roles';
 
 export const REQ_TYPES = {
+  quote: { label: 'Quotation accepted', icon: '✍️', roles: ['sales'] },
   payment: { label: 'Payment made', icon: '₹', roles: ['accounts', 'stores'] },
   drawing: { label: 'Drawing review', icon: '📐', roles: ['drawing', 'sales', 'projects'] },
   site: { label: 'Site ready', icon: '🏗', roles: ['projects'] },
@@ -15,6 +16,7 @@ export const REQ_TYPES = {
 };
 
 export function reqSummary(r) {
+  if (r.type === 'quote') return `Accepted ${r.refNo || 'the quotation'}${r.amount ? ' — ' + inr(r.amount) : ''}${r.poNo ? ' · PO ' + r.poNo : ''}${r.acceptedBy ? ' · by ' + r.acceptedBy : ''}`;
   if (r.type === 'payment') return `Paid ${inr(r.amount)} on ${fmtDate(r.date)} by ${r.mode}${r.ref ? ' · Ref ' + r.ref : ''}${r.invoiceNumber ? ' · against ' + r.invoiceNumber : ''}`;
   if (r.type === 'drawing') return `${r.decision} — ${r.fileTitle || 'drawing'}${r.rev != null ? ' (Rev ' + r.rev + ')' : ''}`;
   if (r.type === 'site') return `Site is ready (${Object.values(r.checks || {}).filter(Boolean).length} checklist items ticked)`;
@@ -26,7 +28,7 @@ export function reqSummary(r) {
 export function RequestRow({ r, user, extra, showClient }) {
   const [reply, setReply] = useState('');
   const [open, setOpen] = useState(r.status === 'New' && !showClient);
-  const onTab = showClient && r.projectId && ['payment', 'drawing', 'site'].includes(r.type);
+  const onTab = showClient && r.projectId && ['payment', 'drawing', 'site', 'quote'].includes(r.type);
   const [img, setImg] = useState(null);
   const t = REQ_TYPES[r.type] || REQ_TYPES.message;
   const canAct = hasAny(user, ...t.roles);
@@ -50,10 +52,11 @@ export function RequestRow({ r, user, extra, showClient }) {
       {open && (
         <div className="req-body">
           {r.text && <p className="pre small">{r.text}</p>}
+          {r.attachment?.data && <a className="btn ghost sm" href={r.attachment.data} download={r.attachment.name || 'attachment'}>📎 {r.attachment.name || 'Attachment'}</a>}
           {r.images?.length > 0 && <div className="req-imgs">{r.images.map((src, i) => <img key={i} src={src} alt="" onClick={() => setImg(src)} />)}</div>}
           {r.reply && <p className="small"><b>Our reply:</b> {r.reply}</p>}
           {r.status === 'New' && canAct && onTab && (
-            <div className="row gap wrap"><button className="btn sm" onClick={() => go('orders/' + r.projectId)}>Handle on client tab →</button><span className="muted small">{r.type === 'payment' ? 'Record the payment there' : r.type === 'drawing' ? 'Mark the drawing approved there' : 'Verify and mark the site ready there'}</span></div>
+            <div className="row gap wrap"><button className="btn sm" onClick={() => go('orders/' + r.projectId)}>Handle on client tab →</button><span className="muted small">{r.type === 'quote' ? 'Confirm the order there' : r.type === 'payment' ? 'Record the payment there' : r.type === 'drawing' ? 'Mark the drawing approved there' : 'Verify and mark the site ready there'}</span></div>
           )}
           {r.status === 'New' && canAct && !onTab && (
             <div className="req-actions">
@@ -75,7 +78,7 @@ export function RequestRow({ r, user, extra, showClient }) {
 const msgDone = (t) => (t && t.trim() ? 'Reply sent' : 'Marked done');
 
 /* Card on the client tab, with buttons that do the real work (record payment, approve drawing, mark site ready). */
-export function ProjectRequests({ p, user, onRecordPayment, onApproveDrawing, onSiteReady }) {
+export function ProjectRequests({ p, user, onRecordPayment, onApproveDrawing, onSiteReady, onConfirmOrder }) {
   const reqs = useCol('clientRequests', [['projectId', '==', p.id]]);
   if (!reqs.length) return null;
   const list = [...reqs].sort((a, b) => (a.status === b.status ? b.at - a.at : a.status === 'New' ? -1 : 1));
@@ -84,7 +87,8 @@ export function ProjectRequests({ p, user, onRecordPayment, onApproveDrawing, on
     <Card title={<>From the client {fresh > 0 && <Badge tone="amber">{fresh} new</Badge>}</>} className={fresh ? 'attn-card' : ''}>
       <ul className="req-list">{list.slice(0, 12).map((r) => (
         <RequestRow key={r.id} r={r} user={user} extra={
-          r.type === 'payment' && hasAny(user, 'accounts', 'stores') ? <button className="btn sm" onClick={() => onRecordPayment(r)}>Record this payment →</button>
+          r.type === 'quote' && p.status === 'Enquiry' && hasAny(user, 'sales') ? <button className="btn sm" onClick={() => onConfirmOrder(r)}>Confirm order →</button>
+            : r.type === 'payment' && hasAny(user, 'accounts', 'stores') ? <button className="btn sm" onClick={() => onRecordPayment(r)}>Record this payment →</button>
             : r.type === 'drawing' && r.decision === 'Approved' && p.drawing?.status !== 'Approved' && hasAny(user, 'drawing', 'sales', 'projects') ? <button className="btn sm" onClick={() => onApproveDrawing(r)}>Mark drawing approved →</button>
               : r.type === 'site' && p.site?.status !== 'Ready' && hasAny(user, 'projects') ? <button className="btn sm" onClick={() => onSiteReady(r)}>Verified — mark site ready →</button>
                 : null

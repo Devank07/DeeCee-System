@@ -1,3 +1,5 @@
+import Tasks, { useTaskBadge, LeaveButton } from './pages/Team';
+import Calendar from './pages/Calendar';
 import { FindClient, ClientNoSync } from './clientRef';
 import { VersionTag, UpdateBanner } from './version';
 import React, { useEffect, useRef, useState } from 'react';
@@ -23,7 +25,7 @@ import { REQ_TYPES } from './pages/ClientRequests';
 import Audit from './pages/Audit';
 import Settings from './pages/Settings';
 
-const PAGES = { dashboard: Dashboard, reports: Reports, clients: Clients, enquiries: Enquiries, orders: Orders, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings };
+const PAGES = { dashboard: Dashboard, reports: Reports, calendar: Calendar, tasks: Tasks, clients: Clients, enquiries: Enquiries, orders: Orders, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings };
 
 export default function App() {
   const [ready, setReady] = useState(false);
@@ -54,7 +56,11 @@ function useBadges(user) {
   const enquiries = useCol('projects', [['status', '==', 'Enquiry']], hasAny(user, 'sales'));
   const today = new Date().toISOString().slice(0, 10);
   const reqs = useCol('clientRequests', [['status', '==', 'New']], office);
+  const tasks = useTaskBadge(user, office);
+  const leaves = useCol('leaves', [['status', '==', 'Pending']], hasAny(user, 'accounts'));
   return {
+    tasks,
+    staff: leaves.length,
     dashboard: reqs.filter((r) => hasAny(user, ...(REQ_TYPES[r.type] || REQ_TYPES.message).roles)).length,
     orders: orders.filter((p) => openTasks(p, rolesOf(user)).length).length,
     enquiries: enquiries.filter((p) => (p.enquiry?.followUpDate && p.enquiry.followUpDate <= today) || !p.quote?.items?.some((i) => Number(i.rate) > 0)).length,
@@ -65,7 +71,7 @@ function Shell({ user }) {
   const [page, ...rest] = useRoute();
   const company = useSettings();
   const [menu, setMenu] = useState(false);
-  const allowed = NAV.filter((n) => n.roles.some((r) => rolesOf(user).includes(r)));
+  const allowed = NAV.filter((n) => n.roles.some((r) => rolesOf(user).includes(r)) && (n.key !== 'inventory' || company.useStock));
   const home = techOnly(user) ? 'tech' : 'dashboard';
   const current = allowed.find((n) => n.key === page) ? page : home;
   useEffect(() => { if (page !== current) go(current); }, [page, current]);
@@ -155,7 +161,7 @@ export function UserBox({ user, compact }) {
     <div className={'userbox' + (compact ? ' compact' : '')}>
       <div className="avatar">{(user.name || user.email || '?').slice(0, 1).toUpperCase()}</div>
       <div className="ub-text"><b>{user.name || user.email}</b><span>{roleLabel(user)} · <VersionTag /></span></div>
-      <button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button>
+      <div className="row gap ub-btns"><LeaveButton user={user} /><button className="btn ghost sm" onClick={() => backend().logout()}>Sign out</button></div>
       {!compact && <InstallButton className="btn ghost sm ub-install" />}
     </div>
   );

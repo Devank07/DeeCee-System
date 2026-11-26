@@ -138,6 +138,12 @@ export function seedData() {
       quote: quote('QT/26-27/0008', 3, spec('Passenger', '8 Persons / 544 kg', 'G+8', 'MRL (Gearless)', 'Auto Centre Opening'), 920000, 180000, 60000, { rev: 1 }),
       status: 'Enquiry', enquiry: { status: 'Negotiation', source: 'Architect / Builder', followUpDate: t, notes: 'Wants 2% discount. Decision by owner on Monday.' },
     }),
+    p11: base('c_green', {
+      quoteNo: 'QT/26-27/0011', siteAddress: 'Club House, Sector 62, Noida', title: '1 × Passenger lift (G+2) – Club House', lifts: 1,
+      liftSpec: spec('Passenger', '6 Persons / 408 kg', 'G+2', 'MRL (Gearless)', 'Auto Side Opening'),
+      quote: quote('QT/26-27/0011', 1, spec('Passenger', '6 Persons / 408 kg', 'G+2', 'MRL (Gearless)', 'Auto Side Opening'), 690000, 90000, 35000),
+      status: 'Enquiry', enquiry: { status: 'Quoted', source: 'Existing client', followUpDate: addDays(t, 2) },
+    }),
     p6: base('c_rao', {
       quoteNo: 'QT/26-27/0009', siteAddress: 'House 22, Sector 50, Noida', title: '1 × Home lift (G+2)', lifts: 1,
       liftSpec: spec('Home Lift', '4 Persons / 272 kg', 'G+2', 'MRL (Gearless)', 'Auto Side Opening'),
@@ -304,6 +310,11 @@ export function seedData() {
       lead: l ? { name: l.name, phone: l.phone || '', email: l.email || '', designation: l.designation || '', team: t.name } : t ? { name: '', phone: '', email: '', designation: '', team: t.name } : null,
     };
   });
+  const payroll = { s_sunil: { salary: 28000, staffName: 'Sunil Yadav' }, s_deepak: { salary: 16000, staffName: 'Deepak Singh' }, s_ravi: { salary: 24000, staffName: 'Ravi Kumar' }, s_rahul: { salary: 35000, staffName: 'Rahul Sharma' }, s_vikas: { salary: 26000, staffName: 'Vikas Tyagi' } };
+  const tasks = {
+    tk1: { title: 'Call Mehta Residence about pit waterproofing', assigneeStaffId: 's_amit', assigneeName: 'Amit Verma', byUid: 'u_admin', byName: 'Owner (Admin)', due: t, priority: 'High', status: 'Open', projectId: 'p3', projectLabel: 'Mehta Residence · PRJ/26-27/0003' },
+    tk2: { title: 'Send revised GA drawing to City Care', assigneeStaffId: 's_kiran', assigneeName: 'Kiran Mishra', byUid: 'u_proj', byName: 'Amit Verma', due: addDays(t, 2), priority: 'Normal', status: 'Open' },
+  };
   const clientRequests = {
     cr1: { type: 'message', status: 'New', at: now - 3 * H, clientId: 'c_green', clientName: clients.c_green.name, projectId: 'p1', projectCode: projects.p1.code, projectTitle: projects.p1.title, subject: 'Site or schedule', text: 'Can the team start the second lift cabin before Diwali? Our residents are asking.', images: [] },
   };
@@ -312,7 +323,7 @@ export function seedData() {
     teams, staff: stamp(staff), clients: stamp(clients), projects: stamp(projects), invoices: stamp(invoices), payments: stamp(payments), amcs: stamp(amcs),
     complaints: stamp(complaints), visits: stamp(visits), items: stamp(items), vendors: stamp(vendors), files, 'files/f1/chunks': { 0: { d: sampleDrawing('2 x Passenger lifts - Tower B, Green Valley Apartments', '1800 x 1900', '1500', '4200') } },
     'files/f2/chunks': { 0: { d: sampleDrawing('Stretcher lift - New OT Block, City Care Hospital', '2400 x 2700', '1600', '4600') } },
-    purchaseOrders: stamp(purchaseOrders), dispatches: stamp(dispatches), stockMoves, activity, attendance, users, settings, photos: {}, audit: {}, clientRequests,
+    purchaseOrders: stamp(purchaseOrders), dispatches: stamp(dispatches), stockMoves, activity, attendance, users, settings, photos: {}, audit: {}, clientRequests, payroll, tasks,
     counters: { 'PRJ_26-27': { n: 3 }, 'INV_26-27': { n: 5 }, 'AMC_26-27': { n: 1 }, 'CMP_26-27': { n: 3 }, 'QT_26-27': { n: 10 }, 'PO_26-27': { n: 3 }, 'DSP_26-27': { n: 4 }, QREF: { n: 2830 } },
   };
 }

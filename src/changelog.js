@@ -1,6 +1,17 @@
 // Version history shown in the app (click the version number). Add a new entry at the TOP for every release
 // and set the same number in package.json "version".
 export const CHANGELOG = [
+  { v: '2.4.0', date: '2026-11-26', items: [
+    'Material made simple: Installation marks the site ready and requests material in one step (needed-by date, note); Material team updates Procuring → Ready → Dispatched with a typed list and a printed challan; site team confirms “Material received”',
+    'Stock tracking is now optional (Settings → Quotation settings → Stock tracking); Material & Stock is hidden while it is off',
+    'Client can accept the quotation in the portal (with PO no. and PO copy); Sales gets it under “From the client” and confirms the order in one tap — PO saved to documents',
+    'Site survey on the phone (shaft, pit, overhead, floors, power, photos, location) by Sales or a site team; “Use in quotation” copies the sizes',
+    'Team calendar: week view of every team — sites, surveys, service and AMC visits; click a day to plan a job',
+    'Daily site diary from technicians’ phones (men, hours, work done, delay reason); delay summary on the calendar and the client tab',
+    'Tasks between staff with due dates and priority, “My tasks” on the Dashboard, + Task on every client tab',
+    'Leave requests from any login; approval by Accounts marks attendance',
+    'Salary slips (deductions from attendance, allowance, advance) as PDF / WhatsApp; Monthly performance per person',
+  ] },
   { v: '2.3.1', date: '2026-11-25', items: ['Client no. column in Enquiries & Quotations and Orders lists (sortable, exported in CSV)', 'Numbering of existing clients is much faster and shows its progress'] },
   { v: '2.3.0', date: '2026-11-25', items: ['Client number for every client (DCC-0001…) — existing clients numbered automatically, oldest first', 'Client number on client tab, lists, quotations, invoices, receipts, handover pack, portal and portal invite', 'Phone number with tap-to-call and WhatsApp on client lists, client page and client tab', '“Find client” box in the sidebar (Ctrl+K): search by name, client no., phone, quotation ref or order no.', 'Every list’s search also matches client no. and phone'] },
   { v: '2.2.0', date: '2026-11-25', items: ['Revoke a payment (cheque bounced, transfer failed, entered twice…) — kept on record marked Reversed, removed from all totals; Accounts can revoke', 'Settings → Backup & reset: clear all test data when going live (staff, teams, staff logins and settings are kept), restart numbering, set the next quotation serial'] },

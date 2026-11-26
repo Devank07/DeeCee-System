@@ -88,7 +88,7 @@ service cloud.firestore {
       allow read: if isOffice() || teamDoc() || ownsDoc();
       allow create: if hasRole(['sales']);
       allow update: if isOffice()
-        || (teamDoc() && onlyChanges(['site', 'install', 'updatedAt', 'updatedBy']));
+        || (teamDoc() && onlyChanges(['site', 'install', 'material', 'diary', 'updatedAt', 'updatedBy']));
       allow delete: if isAdmin();
     }
 
@@ -107,6 +107,26 @@ service cloud.firestore {
         allow delete: if isOffice();
         allow update: if false;
       }
+    }
+
+    // Tasks between staff
+    match /tasks/{id} {
+      allow read, create, update: if isOffice();
+      allow delete: if isAdmin();
+    }
+    // Leave: anyone applies for themselves; Accounts / Admin decide
+    match /leaves/{id} {
+      allow read: if hasRole(['accounts']) || (isStaff() && resource.data.staffId == profile().staffId);
+      allow create: if isStaff() && request.resource.data.staffId == profile().staffId && request.resource.data.status == 'Pending';
+      allow update, delete: if hasRole(['accounts']);
+    }
+    match /payslips/{id} { allow read, write: if hasRole(['accounts']); }
+
+    // Daily site diary from the site team's phones
+    match /diary/{id} {
+      allow read: if isOffice() || teamDoc();
+      allow create, update: if isOffice() || (isTech() && request.resource.data.teamId == myTeam());
+      allow delete: if isAdmin();
     }
 
     match /photos/{id} {
@@ -132,7 +152,7 @@ service cloud.firestore {
       allow read: if isOffice() || teamDoc() || ownsDoc();
       allow create: if isOffice();
       allow update: if isOffice()
-        || (teamDoc() && onlyChanges(['status', 'startedAt', 'doneAt', 'doneBy', 'checklist', 'notes', 'partsUsed', 'customerName', 'signature', 'startLoc', 'doneLoc', 'updatedAt', 'updatedBy']))
+        || (teamDoc() && onlyChanges(['status', 'startedAt', 'doneAt', 'doneBy', 'checklist', 'notes', 'partsUsed', 'customerName', 'signature', 'startLoc', 'doneLoc', 'survey', 'updatedAt', 'updatedBy']))
         || (ownsDoc() && onlyChanges(['rating', 'feedback', 'ratedAt', 'updatedAt', 'updatedBy']));
       allow delete: if hasRole(['service', 'projects']);
     }
@@ -156,7 +176,7 @@ service cloud.firestore {
       allow read: if isOffice() || ownsDoc();
       allow create: if isClient() && request.resource.data.clientId == profile().clientId
         && request.resource.data.status == 'New'
-        && request.resource.data.type in ['payment', 'drawing', 'site', 'message', 'amc']
+        && request.resource.data.type in ['payment', 'drawing', 'site', 'message', 'amc', 'quote']
         && request.resource.data.get('images', []).size() <= 3;
       allow update: if isOffice();
       allow delete: if isAdmin();

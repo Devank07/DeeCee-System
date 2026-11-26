@@ -1,3 +1,4 @@
+import { LeaveRequests, SalarySlips, Performance } from './Team';
 import React, { useState } from 'react';
 import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, Tabs, Stat, Empty, toast } from '../ui';
 import { addDoc, updateDoc, setDoc, backend, me, DEMO } from '../data';
@@ -10,7 +11,8 @@ const isTechStaff = (s) => s.isTechnician || ['Installation', 'Service'].include
 
 export default function Staff({ user, params }) {
   const hr = hasAny(user, 'accounts');
-  const tabs = hr ? [{ key: 'directory', label: 'Staff directory' }, { key: 'teams', label: 'Site teams' }, { key: 'attendance', label: 'Mark attendance' }, { key: 'report', label: 'Monthly report' }] : [{ key: 'teams', label: 'Site teams' }, { key: 'directory', label: 'Staff directory' }];
+  const pendingLeave = useCol('leaves', [['status', '==', 'Pending']], hr).length;
+  const tabs = hr ? [{ key: 'directory', label: 'Staff directory' }, { key: 'teams', label: 'Site teams' }, { key: 'attendance', label: 'Mark attendance' }, { key: 'leave', label: `Leave requests${pendingLeave ? ' (' + pendingLeave + ')' : ''}` }, { key: 'report', label: 'Monthly report' }, { key: 'salary', label: 'Salary slips' }, { key: 'performance', label: 'Performance' }] : [{ key: 'teams', label: 'Site teams' }, { key: 'directory', label: 'Staff directory' }];
   const tab = tabs.some((t) => t.key === params[0]) ? params[0] : tabs[0].key;
   const staff = useCol('staff');
   const att = useCol('attendance', [['date', '==', today()]]);
@@ -29,6 +31,9 @@ export default function Staff({ user, params }) {
       {tab === 'teams' && <Teams staff={active} />}
       {tab === 'attendance' && <Attendance staff={active} />}
       {tab === 'report' && <Report staff={active} />}
+      {tab === 'leave' && <LeaveRequests />}
+      {tab === 'salary' && <SalarySlips staff={active} />}
+      {tab === 'performance' && <Performance staff={active} />}
     </div>
   );
 }

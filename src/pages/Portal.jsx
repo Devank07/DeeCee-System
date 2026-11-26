@@ -24,6 +24,9 @@ const STEP_INFO = {
 };
 const COMPLAINT_FLOW = ['Open', 'Assigned', 'In Progress', 'Resolved'];
 
+const ACCEPTED = { ids: new Set() };
+const quoteAccepted = (p) => ACCEPTED.ids.has(p.id);
+
 /* ---------- small icons ---------- */
 const I = {
   home: <path d="M3 11.5 12 4l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z" />,
@@ -74,6 +77,7 @@ export default function Portal({ user }) {
   useEffect(() => { if (!pid && projects[0]) setPid(projects[0].id); }, [projects, pid]);
   useEffect(() => { window.scrollTo(0, 0); }, []);
 
+  ACCEPTED.ids = new Set(requests.filter((r) => r.type === 'quote').map((r) => r.projectId));
   const ctx = { user, cid, company, projects, orders, invoices, payments, amcs, complaints, visits, activity, files, requests, p, setPid, setTab, setM };
   const contacts = p?.contacts || {};
   const officePhone = company.phone;
@@ -115,6 +119,7 @@ export default function Portal({ user }) {
       {m?.t === 'complaint' && <RaiseComplaint user={user} amcs={amcs} projects={orders} onClose={() => setM(null)} />}
       {m?.t === 'rate' && <Rate col={m.col} doc={m.doc} onClose={() => setM(null)} />}
       {m?.t === 'quote' && <ProposalDoc p={m.p} clientView onClose={() => setM(null)} />}
+      {m?.t === 'accept' && <AcceptQuote p={m.p} user={user} onClose={() => setM(null)} />}
       {m?.t === 'invoice' && <PrintDoc kind="Tax Invoice" doc={m.doc} company={company} onClose={() => setM(null)} />}
       {m?.t === 'receipt' && <Receipt pay={m.doc} company={company} user={user} onClose={() => setM(null)} />}
     </div>
@@ -175,6 +180,7 @@ function Home({ user, company, projects, invoices, payments, complaints, activit
             <div><span>{t("Proposal")}</span><b>{p.quote?.refNo || p.quoteNo}</b></div>
             <div><span>{t("Amount")}</span><b>{inr(quoteTotal(p))} <small>{t("incl. GST")}</small></b></div>
             <button className="btn hero-btn" onClick={() => setM({ t: 'quote', p })}>{t("View proposal")}</button>
+            {quoteAccepted(p) ? <span className="hero-note">✓ {t('Acceptance sent — we will confirm your order')}</span> : <button className="btn hero-btn accept" onClick={() => setM({ t: 'accept', p })}>✍️ {t('Accept quotation')}</button>}
           </div>
         ) : (
           <div className="hero-now">
@@ -336,7 +342,7 @@ function Documents({ projects, invoices, payments, files, requests, setM }) {
             <li className="doc">
               <span className="doc-ico q">QT</span>
               <div className="grow"><b>{x.quote?.refNo || x.quoteNo}</b><div className="muted small">{x.title} · {fmtDate(x.quote?.date)} · {inr(quoteTotal(x))} incl. GST</div>{x.status !== 'Enquiry' && <Badge tone="green">{t("Order confirmed")}</Badge>}</div>
-              <div className="doc-btns"><button className="btn sm" onClick={() => setM({ t: 'quote', p: x })}>{t("View / PDF")}</button></div>
+              <div className="doc-btns"><button className="btn sm" onClick={() => setM({ t: 'quote', p: x })}>{t("View / PDF")}</button>{x.status === 'Enquiry' && (quoteAccepted(x) ? <Badge tone="green">{t('Acceptance sent')}</Badge> : <button className="btn sm green-btn" onClick={() => setM({ t: 'accept', p: x })}>{t('Accept')}</button>)}</div>
             </li>
             {(x.revisions || []).filter((r) => r.refNo !== (x.quote?.refNo || x.quoteNo)).reverse().map((r, i) => (
               <li className="doc old" key={i}><span className="doc-ico q">QT</span><div className="grow"><b>{r.refNo}</b><div className="muted small">{t('Earlier version')} · {fmtDate(r.quote?.date)}</div></div>
@@ -724,5 +730,46 @@ export function Receipt({ pay, company, user, onClose }) {
         <p className="pd-small muted">This is a computer-generated receipt. Cheque payments are subject to realisation.</p>
       </div>
     </PrintFrame>
+  );
+}
+
+/* Client accepts the quotation online (optional PO no. + PO copy) */
+function AcceptQuote({ p, user, onClose }) {
+  const [name, setName] = useState(p.contactPerson || user.name || '');
+  const [poNo, setPoNo] = useState('');
+  const [file, setFile] = useState(null);
+  const [agree, setAgree] = useState(false);
+  const amount = quoteTotal(p);
+  const pick = async (e) => {
+    const f = e.target.files[0]; e.target.value = '';
+    if (!f) return;
+    try {
+      if (f.type.startsWith('image/')) setFile({ name: f.name.replace(/\.[^.]+$/, '') + '.jpg', type: 'image/jpeg', data: await compressImage(f, 1600, 0.7) });
+      else if (f.size > 700 * 1024) toast(t('File too large — please attach a photo or a PDF under 700 KB'), 'err');
+      else setFile({ name: f.name, type: f.type, data: await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(f); }) });
+    } catch { toast('Could not read the file', 'err'); }
+  };
+  const save = async () => {
+    if (!agree) return act(async () => { throw new Error(t('Please tick the confirmation box')); });
+    if (!name.trim()) return act(async () => { throw new Error(t('Please enter your name')); });
+    await act(() => sendReq(user, { type: 'quote', ...projInfo(p), refNo: p.quote?.refNo || p.quoteNo, amount, acceptedBy: name.trim(), poNo: poNo.trim(), acceptedAt: Date.now(), ...(file ? { attachment: file } : {}), text: `Quotation ${p.quote?.refNo || p.quoteNo} accepted by ${name.trim()}${poNo ? ' (PO ' + poNo + ')' : ''}.` }), t('Thank you! Our team will confirm your order shortly.'));
+    onClose();
+  };
+  return (
+    <Modal title={t('Accept quotation')} onClose={onClose} footer={<><button className="btn ghost" onClick={onClose}>{t('Cancel')}</button><button className="btn green-btn" onClick={save}>✍️ {t('Accept quotation')}</button></>}>
+      <div className="accept-box">
+        <div><span className="muted small">{t('Quotation')}</span><b>{p.quote?.refNo || p.quoteNo}</b></div>
+        <div><span className="muted small">{p.title}</span><b>{inr(amount)} <small className="muted">{t('incl. GST')}</small></b></div>
+      </div>
+      <div className="form-grid">
+        <Field label={t('Your name')}><input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label={t('Your PO / work order no. (optional)')}><input value={poNo} onChange={(e) => setPoNo(e.target.value)} /></Field>
+        <Field label={t('Attach PO or signed quotation (optional)')} span={2}>
+          <label className="btn ghost sm file-pick">📎 {file ? file.name : t('Choose photo or PDF')}<input type="file" accept="image/*,application/pdf" hidden onChange={pick} /></label>
+        </Field>
+      </div>
+      <label className="check strong"><input type="checkbox" checked={agree} onChange={(e) => setAgree(e.target.checked)} /> {t('I accept this quotation, its price and terms, and want to place the order.')}</label>
+      <p className="muted small">{t('Our sales team will confirm your order and share the advance payment details.')}</p>
+    </Modal>
   );
 }

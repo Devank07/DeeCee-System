@@ -1,3 +1,6 @@
+import { DiaryForm } from './Calendar';
+import { SurveyForm, SurveyView } from './Survey';
+import { markDelivered, requestMaterial } from './material';
 import { t, getLang, setLang } from '../i18n';
 import React, { useState } from 'react';
 import { Modal, useCol, useDoc, act, go, Badge, Empty, PhotoUploader, PhotoGrid, SignaturePad, Select, FileList, ActivityFeed, Scope, toast, Note, ProgressBar } from '../ui';
@@ -177,11 +180,27 @@ function SiteScreen({ id, teamId }) {
       </section>
 
       <section className="tech-sec">
+        <div className="row between"><h3>{t("Material")}</h3><Badge tone={p.material?.status === 'Delivered' ? 'green' : p.material?.status === 'Dispatched' ? 'blue' : 'amber'}>{t(p.material?.status || 'Pending')}</Badge></div>
+        {p.material?.requested && <p className="small muted">{t('Requested')} {fmtDate(p.material.requestedAt)}{p.material.neededBy ? ' · ' + t('needed by') + ' ' + fmtDate(p.material.neededBy) : ''}</p>}
+        {p.material?.dispatchedOn && <p className="small">{t('Dispatched')} {fmtDate(p.material.dispatchedOn)}{p.material.challan ? ' · ' + p.material.challan : ''}</p>}
+        {p.material?.status === 'Dispatched' && <button className="btn wide" onClick={() => act(() => markDelivered(p), 'Material received ✓')}>{t('✓ Material received at site')}</button>}
+        {p.site?.status === 'Ready' && !p.material?.requested && !['Dispatched', 'Delivered'].includes(p.material?.status) && <button className="btn ghost wide" onClick={() => act(() => requestMaterial(p, {}), 'Material requested')}>{t('Request material')}</button>}
+      </section>
+
+      <section className="tech-sec">
         <div className="row between"><h3>{t("Installation")}</h3><span className="small">{p.install?.progress || 0}%</span></div>
         <ProgressBar value={p.install?.progress || 0} tone="green" />
         {dispatched ? <button className="btn wide" onClick={() => setModal('install')}>{t("Update installation status")}</button>
           : <p className="muted small">Starts after the material reaches site. Material: {p.material?.status || 'Pending'}.</p>}
       </section>
+
+      {dispatched && !p.handoverAt && (
+        <section className="tech-sec">
+          <div className="row between"><h3>{t("Today's site diary")}</h3></div>
+          <p className="muted small">{t('Men, hours, work done and any delay — 30 seconds at the end of the day.')}</p>
+          <button className="btn wide" onClick={() => setModal('diary')}>📓 {t('Fill today’s diary')}</button>
+        </section>
+      )}
 
       <section className="tech-sec">
         <div className="row between"><h3>{t("Site photos")}</h3><PhotoUploader refId={p.id} clientId={p.clientId} projectId={p.id} teamId={p.teamId || teamId} label="📷 Add photo" /></div>
@@ -197,6 +216,7 @@ function SiteScreen({ id, teamId }) {
       </section>
       {modal === 'site' && <SiteForm p={p} onClose={() => setModal(null)} />}
       {modal === 'install' && <InstallForm p={p} onClose={() => setModal(null)} />}
+      {modal === 'diary' && <DiaryForm p={p} teamId={teamId} onClose={() => setModal(null)} />}
     </>
   );
 }
@@ -210,6 +230,7 @@ function JobScreen({ id, me, isTech }) {
   const [custName, setCustName] = useState(null);
   const [signing, setSigning] = useState(false);
   const [signature, setSignature] = useState(undefined);
+  const [survey, setSurvey] = useState(false);
   const back = () => (isTech ? go('tech') : history.back());
   if (v === undefined) return <Empty>{t("Loading…")}</Empty>;
   if (!v) return <><button className="back" onClick={back}>{t("‹ Jobs")}</button><Empty>{t("This job is not assigned to your team.")}</Empty></>;
@@ -246,8 +267,17 @@ function JobScreen({ id, me, isTech }) {
         </div>
         {v.siteAddress && <p className="small">📍 {v.siteAddress}</p>}
         {v.instructions && <div className="note-box"><b>{t("Office instructions:")}</b> {v.instructions}</div>}
-        {v.projectId && <button className="link" onClick={() => go('tech/site/' + v.projectId)}>{t("Open site — drawings & status ›")}</button>}
+        {v.projectId && v.type !== 'Site Survey' && <button className="link" onClick={() => go('tech/site/' + v.projectId)}>{t("Open site — drawings & status ›")}</button>}
       </div>
+
+      {v.type === 'Site Survey' && (
+        <section className="tech-sec">
+          <div className="row between"><h3>{t('Site survey')}</h3>{v.survey && <Badge tone="green">{t('Done')}</Badge>}</div>
+          {v.survey ? <SurveyView s={v.survey} /> : <p className="muted small">{t('Measure the shaft, pit and overhead and take photos.')}</p>}
+          <button className="btn wide" onClick={() => setSurvey(true)}>{v.survey ? t('Edit survey') : t('📏 Fill site survey')}</button>
+          {survey && <SurveyForm initial={v.survey || {}} onClose={() => setSurvey(false)} onSave={(s) => updateDoc('visits', v.id, { survey: s, ...(v.status === 'Scheduled' ? { status: 'In Progress', startedAt: Date.now() } : {}) }, v.title)} />}
+        </section>
+      )}
 
       {isAmc && (
         <section className="tech-sec">

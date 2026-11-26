@@ -2,6 +2,8 @@ import { t } from '../i18n';
 import React, { useState } from 'react';
 import { Modal, Field, act, Note } from '../ui';
 import { updateDoc, postActivity, me } from '../data';
+import { MaterialRequestFields, requestMaterial } from './material';
+import { today, addDays } from '../utils';
 import { SITE_CHECKLIST, INSTALL_STEPS } from '../constants';
 import { installProgress } from '../workflow';
 
@@ -11,15 +13,18 @@ export function SiteForm({ p, onClose }) {
   const missing = SITE_CHECKLIST.filter((c) => !checks[c]);
   const [ready, setReady] = useState(p.site?.status === 'Ready' || missing.length === 0);
   const [notes, setNotes] = useState('');
+  const canRequest = !p.material?.requested && !['Dispatched', 'Delivered'].includes(p.material?.status);
+  const [mat, setMat] = useState({ on: true, neededBy: addDays(today(), 7), note: '' });
   const save = async () => {
     const status = ready ? 'Ready' : 'Not ready';
     await act(async () => {
       await updateDoc('projects', p.id, { site: { status, checks, notes: notes || p.site?.notes || '', at: Date.now(), by: me()?.name || '' } }, p.code);
+      if (ready && canRequest && mat.on) await requestMaterial({ ...p, site: { status } }, mat);
       const text = ready
         ? `Site checked: ready for installation.${notes ? ' ' + notes : ''}`
         : `Site not ready yet — pending: ${missing.join(', ') || 'see notes'}.${notes ? ' ' + notes : ''}`;
       await postActivity({ projectId: p.id, clientId: p.clientId, text, visibleToClient: true, teamId: p.teamId || null, kind: 'site' });
-    }, ready ? 'Site marked ready — Material team can dispatch' : 'Site status sent');
+    }, ready ? (canRequest && mat.on ? 'Site ready — material requested from the Material team' : 'Site marked ready') : 'Site status sent');
     onClose();
   };
   return (
@@ -34,6 +39,7 @@ export function SiteForm({ p, onClose }) {
         <button className={ready ? 'on ok' : ''} onClick={() => setReady(true)}>{t("✓ Site is ready")}</button>
         <button className={!ready ? 'on bad' : ''} onClick={() => setReady(false)}>{t("✕ Not ready")}</button>
       </div>
+      {ready && canRequest && <MaterialRequestFields value={mat} onChange={setMat} />}
       {ready && missing.length > 0 && <Note>{t("Some checks are not ticked. Make sure the site really is ready before the material is sent.")}</Note>}
       <Field label="Notes for office & client"><textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder={ready ? 'Anything to note' : 'What is pending at site and who needs to do it'} /></Field>
       <p className="muted small">{t("The client sees this update on their portal. Add photos from the Site photos section.")}</p>

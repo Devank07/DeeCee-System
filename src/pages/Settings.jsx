@@ -70,6 +70,7 @@ function CompanyForm({ s }) {
           <Field label="Comprehensive AMC (% / year)"><input type="number" {...bind('amcComp', 'number')} /></Field>
           <Field label="Default HSN for lift supply" hint="Confirm codes with your CA"><input {...bind('hsnSupply')} /></Field>
           <Field label="Default SAC for installation / AMC"><input {...bind('sacService')} /></Field>
+          <Field label="Stock tracking" span={2} hint="Off: the Material team just updates Procuring → Ready → Dispatched with a typed list. On: shows Material & Stock (items, stock levels, purchase orders) and dispatch reduces stock."><label className="check"><input type="checkbox" checked={!!f.useStock} onChange={(e) => set('useStock', e.target.checked)} /> Keep stock of items in the software</label></Field>
         </div>
         <div className="field"><span className="field-label">Authorised signatory signature (printed on page 4 and on invoices)</span>
           <div className="row gap wrap">

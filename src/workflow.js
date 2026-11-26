@@ -48,7 +48,7 @@ export function steps(p) {
     site: { done: siteReady, waiting: confirmed ? null : 'Waiting for order', at: p.site?.at, detail: p.site?.status === 'Not ready' ? 'Not ready yet' : '' },
     dispatch: {
       done: dispatched, waiting: !adv ? 'Waiting for advance' : !siteReady ? 'Waiting for site ready' : null, at: p.material?.at,
-      detail: p.material?.status === 'Delivered' ? 'Delivered' : !dispatched && p.material?.status && p.material.status !== 'Pending' ? p.material.status : '',
+      detail: p.material?.status === 'Delivered' ? 'Delivered' : !dispatched && p.material?.status && p.material.status !== 'Pending' ? p.material.status + (p.material.neededBy ? ' · by ' + p.material.neededBy.split('-').reverse().slice(0, 2).join('/') : '') : '',
     },
     install: { done: installed, waiting: dispatched ? null : 'Waiting for material', at: p.install?.at, detail: !installed && p.install?.progress ? `${p.install.progress}% done` : '' },
     handover: { done: handed, waiting: installed ? null : 'Waiting for installation', at: p.handoverAt },

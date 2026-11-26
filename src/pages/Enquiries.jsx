@@ -2,7 +2,7 @@ import { ClientNo, Phone, useClientNos } from '../clientRef';
 import { ContactSync } from '../contacts';
 import React, { useState } from 'react';
 import { useCol, PageHeader, Card, DataTable, Modal, Field, Select, useForm, act, go, Badge, LineItems, useSettings, Note } from '../ui';
-import { addDoc, updateDoc, nextNumber, postActivity, me } from '../data';
+import { addDoc, updateDoc, nextNumber, postActivity, me , uploadFile} from '../data';
 import { ENQ_STATUSES, LEAD_SOURCES, LIFT_TYPES, DOOR_TYPES, DRIVES, DEFAULT_MILESTONES, STATE_NAMES, stateFromGstin } from '../constants';
 import { inr, fmtDate, today, addDays, num, sum, calcTotals } from '../utils';
 import { quoteTotal } from '../workflow';
@@ -67,12 +67,12 @@ export default function Enquiries({ user, params }) {
 }
 
 /* ---------- Confirm order (sales) ---------- */
-export function ConfirmOrder({ p, onClose, onConfirmed }) {
+export function ConfirmOrder({ p, onClose, onConfirmed, fromRequest }) {
   const [invite, setInvite] = useState(true);
   const teams = useCol('teams');
   const total = quoteTotal(p);
   const terms = p.proposal?.payTerms?.length ? p.proposal.payTerms : DEFAULT_PAY_TERMS;
-  const { f, setF, bind } = useForm({ value: total, orderRef: '', expectedHandover: addDays(today(), 84), teamId: '', milestones: terms.map((t) => ({ name: t.label, percent: num(t.percent) })) });
+  const { f, setF, bind } = useForm({ value: fromRequest?.amount || total, orderRef: fromRequest?.poNo || '', expectedHandover: addDays(today(), 84), teamId: '', milestones: terms.map((t) => ({ name: t.label, percent: num(t.percent) })) });
   const pct = sum(f.milestones, 'percent');
   const ms = (i, k, v) => setF((x) => ({ ...x, milestones: x.milestones.map((m, j) => (j === i ? { ...m, [k]: v } : m)) }));
   const save = async () => {
@@ -90,6 +90,13 @@ export function ConfirmOrder({ p, onClose, onConfirmed }) {
         teamId: f.teamId || null, teamName: team?.name || '',
       }, code);
       await postActivity({ projectId: p.id, clientId: p.clientId, text: `Order confirmed (${code}) for ${inr(value)}. Next: advance payment.`, visibleToClient: true, kind: 'stage' });
+      if (fromRequest) {
+        await updateDoc('clientRequests', fromRequest.id, { status: 'Done', doneAt: Date.now(), doneBy: me()?.name || '', reply: `Thank you! Your order is confirmed (${code}). Next: advance payment.` });
+        if (fromRequest.attachment?.data) {
+          const blob = await (await fetch(fromRequest.attachment.data)).blob();
+          await uploadFile(new File([blob], fromRequest.attachment.name || 'Client PO', { type: blob.type }), { projectId: p.id, clientId: p.clientId, kind: 'Document', title: 'Client PO' + (fromRequest.poNo ? ' ' + fromRequest.poNo : ''), rev: null, visibleToClient: true, shareWithTeam: false, teamId: null }).catch(() => {});
+        }
+      }
     }, 'Order confirmed — Material, Drawing and Installation teams can now see it');
     onClose();
     if (invite && onConfirmed) onConfirmed({ invite });
