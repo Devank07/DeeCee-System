@@ -1,6 +1,11 @@
 // Version history shown in the app (click the version number). Add a new entry at the TOP for every release
 // and set the same number in package.json "version".
 export const CHANGELOG = [
+  { v: '2.6.1', date: '2026-11-28', items: [
+    'Gallery: colour / finish for every photo — Steel, Rose gold, Gold — shown as a coloured tag on the photo; clients and staff can filter by colour',
+    'Gallery: description for every photo, shown under the photo in the public gallery and in the enlarged view; title shown under the photo too',
+    'Set colour and description while uploading (applies to the whole batch) or on each photo card',
+  ] },
   { v: '2.6.0', date: '2026-11-28', items: [
     'Client gallery: one public link (/gallery) with real photos sorted into categories — cabins, doors, home lifts, capsule, hospital, goods & car lifts, buttons, finishes, completed projects',
     'Sales / Admin add photos from the new “Client gallery” page: pick a category, select many photos at once — each is resized automatically and gets a code (CAB-001, DR-004…)',

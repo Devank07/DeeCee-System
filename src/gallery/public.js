@@ -3,7 +3,7 @@
 import './public.css';
 import logoUrl from '../assets/logo.png';
 import { firebaseConfig } from '../firebaseConfig';
-import { GALLERY_COLS as C, withDefaults, waLink, isImgData, sortPhotos } from './shared';
+import { GALLERY_COLS as C, withDefaults, waLink, isImgData, sortPhotos , FINISHES, finishOf } from './shared';
 
 const DEMO = !firebaseConfig.apiKey || import.meta.env.VITE_DEMO === '1';
 const $ = (id) => document.getElementById(id);
@@ -16,7 +16,7 @@ $('logo').src = logoUrl;
 $('home').href = here;
 $('fullLink').href = here;
 
-let cfg = withDefaults(null), photos = [], set = null, view = [], cat = 'all';
+let cfg = withDefaults(null), photos = [], set = null, view = [], cat = 'all', fin = 'all';
 let getFull = async () => null;
 const fullCache = new Map();
 const catOf = (k) => cfg.categories.find((c) => c.k === k);
@@ -85,7 +85,7 @@ function toggleFav(id) {
   if ($('lb').classList.contains('on')) $('lbF').setAttribute('aria-pressed', fav.includes(view[li].id));
   updSL();
 }
-const label = (p) => `${p.code}${p.title ? ' – ' + p.title : ''} (${catOf(p.cat)?.n || ''})`;
+const label = (p) => `${p.code}${p.title ? ' – ' + p.title : ''}${finishOf(p.finish) ? ', ' + finishOf(p.finish).n : ''} (${catOf(p.cat)?.n || ''})`;
 function updSL() {
   const items = fav.map((id) => photos.find((p) => p.id === id)).filter(Boolean);
   $('sl').classList.toggle('on', items.length > 0);
@@ -130,16 +130,30 @@ function renderTabs() {
     t.append(b);
   }
 }
+function renderFinishes() {
+  const box = $('fins'); if (!box) return; box.textContent = '';
+  const base = set ? (set.ids || []).map((id) => photos.find((p) => p.id === id)).filter(Boolean) : (cat === 'all' ? photos : photos.filter((p) => p.cat === cat));
+  const present = FINISHES.filter((f) => base.some((p) => p.finish === f.k));
+  if (!present.length) { if (fin !== 'all') fin = 'all'; return; }
+  box.append(el('span', 'fl', 'Colour'));
+  for (const f of [{ k: 'all', n: 'All colours' }, ...present]) {
+    const b = el('button', null); b.type = 'button'; b.setAttribute('aria-pressed', fin === f.k);
+    if (f.c) { const dot = el('i', 'dot'); dot.style.background = f.c; b.append(dot); }
+    b.append(document.createTextNode(f.n));
+    b.onclick = () => { fin = f.k; renderFinishes(); renderGrid(); };
+    box.append(b);
+  }
+}
 function renderGrid() {
   const g = $('grid'); g.textContent = '';
   if (set) {
     const order = set.ids || [];
-    view = order.map((id) => photos.find((p) => p.id === id)).filter(Boolean);
+    view = order.map((id) => photos.find((p) => p.id === id)).filter(Boolean).filter((p) => fin === 'all' || p.finish === fin);
     $('gt').textContent = `${view.length} photo${view.length === 1 ? '' : 's'}`;
     $('gd').textContent = '';
   } else {
     const c = catOf(cat);
-    view = sortPhotos(cat === 'all' ? photos : photos.filter((p) => p.cat === cat));
+    view = sortPhotos(cat === 'all' ? photos : photos.filter((p) => p.cat === cat)).filter((p) => fin === 'all' || p.finish === fin);
     $('gt').textContent = c ? c.n : 'All photos';
     $('gd').textContent = c ? c.d || '' : `${photos.length} photos across ${visibleCats().length} categories`;
   }
@@ -152,14 +166,24 @@ function renderGrid() {
     const f = el('button', 'fav'); f.type = 'button'; f.dataset.id = p.id; f.innerHTML = heart;
     f.setAttribute('aria-pressed', fav.includes(p.id)); f.setAttribute('aria-label', 'Shortlist ' + p.code);
     f.onclick = () => toggleFav(p.id);
-    d.append(o, el('span', 'cd', p.code), f);
+    const box = el('div', 'pi'); box.append(o, el('span', 'cd', p.code), f);
+    const fo = finishOf(p.finish);
+    if (fo) { const t = el('span', 'fn', fo.n); t.style.background = fo.c; t.style.color = fo.t; box.append(t); }
+    d.append(box);
+    if (p.title || p.desc || fo) {
+      const cap = el('div', 'cap');
+      if (p.title) cap.append(el('b', null, p.title));
+      if (p.desc) cap.append(el('p', null, p.desc));
+      if (!p.title && !p.desc && fo) cap.append(el('p', null, fo.n + ' finish'));
+      d.append(cap);
+    }
     g.append(d);
   });
 }
 function route(scroll) {
   const h = decodeURIComponent(location.hash.slice(1));
   cat = !set && catOf(h) && photos.some((p) => p.cat === h) ? h : 'all';
-  renderTabs(); renderGrid();
+  fin = 'all'; renderTabs(); renderFinishes(); renderGrid();
   if (scroll && (catOf(h) || h === 'browse')) $('browse').scrollIntoView({ behavior: reduced ? 'auto' : 'smooth' });
 }
 addEventListener('hashchange', () => route(true));
@@ -171,7 +195,8 @@ async function openLb(i) {
   const p = view[li], my = ++token, img = $('lbI');
   img.src = isImgData(p.thumb) ? p.thumb : ''; img.classList.add('low'); img.alt = p.title || p.code;
   $('lbT').textContent = p.code + (p.title ? ' · ' + p.title : '');
-  $('lbS').textContent = catOf(p.cat)?.n || '';
+  $('lbS').textContent = [catOf(p.cat)?.n, finishOf(p.finish)?.n].filter(Boolean).join(' · ');
+  $('lbD').textContent = p.desc || ''; $('lbD').hidden = !p.desc;
   $('lbC').textContent = `${li + 1} of ${view.length}`;
   $('lbF').setAttribute('aria-pressed', fav.includes(p.id));
   $('lbW').href = wa(`Hello Dee Cee Elevators, I'm interested in photo ${label(p)} from your gallery. Please share details.`);

@@ -4,7 +4,9 @@ import { useCol, useDoc, PageHeader, Card, Tabs, Modal, Empty, Note, Field, toas
 import { setQuiet, setDoc, addDoc, deleteDoc, logAudit, nextSerial, backend, getOne, DEMO } from '../data';
 import { uid, fmtDate } from '../utils';
 import { isAdminU, hasAny } from '../roles';
-import { GALLERY_COLS as C, withDefaults, preparePhoto, fmtCode, isImgData, sortPhotos, waLink } from '../gallery/shared';
+import { GALLERY_COLS as C, withDefaults, preparePhoto, fmtCode, isImgData, sortPhotos, waLink, FINISHES, finishOf } from '../gallery/shared';
+
+export const FinishTag = ({ k, className = '' }) => { const f = finishOf(k); return f ? <span className={'gal-fin ' + className} style={{ background: f.c, color: f.t }}>{f.n}</span> : null; };
 
 export const galleryUrl = (setId) => {
   const base = location.origin + location.pathname.replace(/[^/]*$/, '') + (import.meta.env.DEV ? 'gallery.html' : 'gallery');
@@ -53,10 +55,11 @@ function Photos({ cfg, photos, user, picking, setPicking }) {
   const cats = cfg.categories;
   const catName = (k) => cats.find((c) => c.k === k)?.n || 'No category';
   const [filter, setFilter] = useState('all');
+  const [fin, setFin] = useState('all');
   const [q, setQ] = useState('');
   const [view, setView] = useState(null);
   const counts = useMemo(() => Object.fromEntries(cats.map((c) => [c.k, photos.filter((p) => p.cat === c.k).length])), [photos, cats]);
-  const shown = sortPhotos(photos).filter((p) => (filter === 'all' || p.cat === filter) && (!q || `${p.code} ${p.title || ''}`.toLowerCase().includes(q.toLowerCase())));
+  const shown = sortPhotos(photos).filter((p) => (filter === 'all' || p.cat === filter) && (fin === 'all' || (fin === 'none' ? !p.finish : p.finish === fin)) && (!q || `${p.code} ${p.title || ''} ${p.desc || ''} ${finishOf(p.finish)?.n || ''}`.toLowerCase().includes(q.toLowerCase())));
   const canEdit = hasAny(user, 'sales');
 
   const save = (p, patch, what) => act(async () => { await setQuiet(C.photos, p.id, patch, true); logAudit('Updated', C.photos, `${p.code}: ${what}`); }, what);
@@ -82,6 +85,12 @@ function Photos({ cfg, photos, user, picking, setPicking }) {
         <button className={'chip' + (filter === 'all' ? ' on' : '')} onClick={() => setFilter('all')}>All<span>{photos.length}</span></button>
         {cats.map((c) => <button key={c.k} className={'chip' + (filter === c.k ? ' on' : '')} onClick={() => setFilter(c.k)}>{c.n}<span>{counts[c.k] || 0}</span></button>)}
       </div>
+      <div className="chips" style={{ marginBottom: 12 }}>
+        <span className="muted small">Colour:</span>
+        <button className={'chip' + (fin === 'all' ? ' on' : '')} onClick={() => setFin('all')}>All</button>
+        {FINISHES.map((f) => <button key={f.k} className={'chip' + (fin === f.k ? ' on' : '')} onClick={() => setFin(f.k)}><i className="fin-dot" style={{ background: f.c }} />{f.n}<span>{photos.filter((p) => p.finish === f.k).length}</span></button>)}
+        <button className={'chip' + (fin === 'none' ? ' on' : '')} onClick={() => setFin('none')}>Not set<span>{photos.filter((p) => !p.finish).length}</span></button>
+      </div>
       {!picking && photos.length > 0 && <p className="muted small" style={{ marginTop: 0 }}>Pinned photos show first and become the category's cover photo. Hidden photos stay here but clients can't see them.</p>}
       {!shown.length ? <Empty>{photos.length ? 'No photos match.' : 'No photos yet. Add your first ones above.'}</Empty> : (
         <div className="gal-grid">
@@ -89,6 +98,7 @@ function Photos({ cfg, photos, user, picking, setPicking }) {
             <button key={p.id} className={'gal-pick' + (picking.ids.has(p.id) ? ' on' : '')} onClick={() => toggle(p.id)} aria-pressed={picking.ids.has(p.id)}>
               {isImgData(p.thumb) && <img src={p.thumb} alt={p.code} loading="lazy" />}
               <span className="gal-code">{p.code}</span>
+              <FinishTag k={p.finish} className="on-img" />
               <span className="gal-tick">✓</span>
               {p.hidden && <span className="gal-flag">Hidden</span>}
             </button>
@@ -105,14 +115,17 @@ function Photos({ cfg, photos, user, picking, setPicking }) {
 
 function PhotoCard({ p, cats, canEdit, onOpen, save, remove }) {
   const [title, setTitle] = useState(p.title || '');
+  const [desc, setDesc] = useState(p.desc || '');
   const [arm, setArm] = useState(false);
   return (
     <div className={'gal-card' + (p.hidden ? ' hid' : '')}>
       <button className="gal-img" onClick={onOpen} aria-label={'View ' + p.code}>
         {isImgData(p.thumb) && <img src={p.thumb} alt={p.code} loading="lazy" />}
         <span className="gal-code">{p.code}</span>
+        <FinishTag k={p.finish} className="on-img" />
         <span className="gal-flags">{p.pin && <span>Pinned</span>}{p.hidden && <span>Hidden</span>}</span>
       </button>
+      {!canEdit && (p.title || p.desc) && <div className="gal-body">{p.title && <b className="small">{p.title}</b>}{p.desc && <p className="gal-desc">{p.desc}</p>}</div>}
       {canEdit && (
         <div className="gal-body">
           <input value={title} placeholder="Title (optional)" aria-label={'Title for ' + p.code}
@@ -122,6 +135,12 @@ function PhotoCard({ p, cats, canEdit, onOpen, save, remove }) {
             {cats.map((c) => <option key={c.k} value={c.k}>{c.n}</option>)}
             {!cats.some((c) => c.k === p.cat) && <option value={p.cat}>(removed category)</option>}
           </select>
+          <div className="fin-pick" role="group" aria-label={'Colour of ' + p.code}>
+            {FINISHES.map((f) => <button key={f.k} type="button" className={p.finish === f.k ? 'on' : ''} style={p.finish === f.k ? { background: f.c, color: f.t, borderColor: f.c } : undefined} onClick={() => save(p, { finish: p.finish === f.k ? '' : f.k }, p.finish === f.k ? 'Colour cleared' : 'Colour: ' + f.n)}><i className="fin-dot" style={{ background: f.c }} />{f.n}</button>)}
+          </div>
+          <textarea rows={2} value={desc} placeholder="Description shown to clients (optional)" aria-label={'Description for ' + p.code}
+            onChange={(e) => setDesc(e.target.value)}
+            onBlur={() => desc.trim() !== (p.desc || '') && save(p, { desc: desc.trim() }, 'Description saved')} />
           <div className="gal-acts">
             <button className={'btn sm ' + (p.pin ? '' : 'ghost')} onClick={() => save(p, { pin: !p.pin }, p.pin ? 'Unpinned' : 'Pinned')}>{p.pin ? 'Unpin' : 'Pin'}</button>
             <button className={'btn sm ' + (p.hidden ? '' : 'ghost')} onClick={() => save(p, { hidden: !p.hidden }, p.hidden ? 'Now visible to clients' : 'Hidden from clients')}>{p.hidden ? 'Show' : 'Hide'}</button>
@@ -139,7 +158,7 @@ function Viewer({ p, catName, onClose }) {
   return (
     <div className="lightbox" onClick={onClose}>
       <img src={src} alt={p.code} />
-      <span>{p.code}{p.title ? ' · ' + p.title : ''} · {catName(p.cat)}{p.hidden ? ' · hidden' : ''}</span>
+      <span>{p.code}{p.title ? ' · ' + p.title : ''} · {catName(p.cat)}{finishOf(p.finish) ? ' · ' + finishOf(p.finish).n : ''}{p.hidden ? ' · hidden' : ''}{p.desc ? <><br />{p.desc}</> : null}</span>
     </div>
   );
 }
@@ -148,6 +167,8 @@ function Viewer({ p, catName, onClose }) {
 function Uploader({ cfg }) {
   const [cat, setCat] = useState(cfg.categories[0]?.k || '');
   const [title, setTitle] = useState('');
+  const [finish, setFinish] = useState('');
+  const [desc, setDesc] = useState('');
   const [queue, setQueue] = useState([]); // {key, name, status, ok}
   const busy = queue.some((j) => j.ok == null);
   const setJob = (key, patch) => setQueue((q) => q.map((j) => (j.key === key ? { ...j, ...patch } : j)));
@@ -170,7 +191,7 @@ function Uploader({ cfg }) {
         const id = uid();
         await setQuiet(C.full, id, { data: full.data }, false);
         try {
-          await setQuiet(C.photos, id, { code, cat: c.k, title: title.trim(), thumb: thumb.data, w: full.w, h: full.h, pin: false, hidden: false, at: Date.now() }, false);
+          await setQuiet(C.photos, id, { code, cat: c.k, title: title.trim(), desc: desc.trim(), finish, thumb: thumb.data, w: full.w, h: full.h, pin: false, hidden: false, at: Date.now() }, false);
         } catch (err) { await backend().remove(C.full, id).catch(() => {}); throw err; }
         logAudit('Uploaded', C.photos, `${code} (${c.n})`);
         setJob(j.key, { status: '✓ ' + code, ok: true });
@@ -192,6 +213,14 @@ function Uploader({ cfg }) {
         </Field>
         <Field label="Title for these photos (optional)" hint="Shown to clients, e.g. “Gold mirror cabin, Jaipur”. Don't put client names here.">
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Gold mirror cabin" />
+        </Field>
+        <Field label="Colour / finish (optional)" hint="Shown as a coloured tag; clients can filter by it.">
+          <div className="fin-pick">
+            {FINISHES.map((f) => <button key={f.k} type="button" className={finish === f.k ? 'on' : ''} style={finish === f.k ? { background: f.c, color: f.t, borderColor: f.c } : undefined} onClick={() => setFinish(finish === f.k ? '' : f.k)}><i className="fin-dot" style={{ background: f.c }} />{f.n}</button>)}
+          </div>
+        </Field>
+        <Field label="Description (optional)" hint="Shown under the photo, e.g. “Hairline steel walls, mirror back panel, LED ceiling”.">
+          <textarea rows={2} value={desc} onChange={(e) => setDesc(e.target.value)} />
         </Field>
       </div>
       <label className={'gal-drop' + (busy ? ' busy' : '')}>

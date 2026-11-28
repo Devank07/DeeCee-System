@@ -20,6 +20,14 @@ export const DEFAULT_CATEGORIES = [
   { k: 'projects', n: 'Completed projects', p: 'PRJ', d: 'Full installations at client sites' },
 ];
 
+// Colour / finish of the steel — shown as a coloured tag on each photo and as a filter
+export const FINISHES = [
+  { k: 'steel', n: 'Steel', c: '#c3c9d0', t: '#1d1f22' },
+  { k: 'rosegold', n: 'Rose gold', c: '#d8a08c', t: '#2b1610' },
+  { k: 'gold', n: 'Gold', c: '#d9b44a', t: '#2a2104' },
+];
+export const finishOf = (k) => FINISHES.find((f) => f.k === k) || null;
+
 export const DEFAULT_CONFIG = {
   whatsapp: '919837221980',
   intro: 'Every photo here is from our own installations. Pick a category to explore, tap the heart on designs you like, and send us your shortlist on WhatsApp. Each photo has a code so we know exactly what you mean.',
