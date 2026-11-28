@@ -21,6 +21,7 @@ export const NAV = [
   { key: 'enquiries', label: 'Enquiries & Quotes', icon: '✦', roles: ['admin', 'sales'] },
   { key: 'orders', label: 'Orders', icon: '▤', roles: OFFICE_ROLES },
   { key: 'clients', label: 'Clients', icon: '◉', roles: ['admin', 'sales', 'service', 'accounts'] },
+  { key: 'gallery', label: 'Client gallery', icon: '▣', roles: ['admin', 'sales'] },
   { key: 'billing', label: 'Billing & Payments', icon: '₹', roles: ['admin', 'accounts'] },
   { key: 'calendar', label: 'Team calendar', icon: '▦', roles: ['admin', 'projects', 'service'] },
   { key: 'service', label: 'Service & AMC', icon: '⚙', roles: ['admin', 'service', 'projects'] },

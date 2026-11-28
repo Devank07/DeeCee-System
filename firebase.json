@@ -5,6 +5,7 @@
   },
   "hosting": {
     "public": "dist",
+    "cleanUrls": true,
     "ignore": [
       "firebase.json",
       "**/.*",
@@ -30,7 +31,7 @@
         ]
       },
       {
-        "source": "**/@(index.html|sw.js|version.json|manifest.webmanifest)",
+        "source": "**/@(index.html|gallery.html|sw.js|version.json|manifest.webmanifest)",
         "headers": [
           {
             "key": "Cache-Control",

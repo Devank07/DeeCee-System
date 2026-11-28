@@ -24,8 +24,9 @@ import { InstallButton, OfflineBanner } from './pwa';
 import { REQ_TYPES } from './pages/ClientRequests';
 import Audit from './pages/Audit';
 import Settings from './pages/Settings';
+import Gallery from './pages/Gallery';
 
-const PAGES = { dashboard: Dashboard, reports: Reports, calendar: Calendar, tasks: Tasks, clients: Clients, enquiries: Enquiries, orders: Orders, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings };
+const PAGES = { dashboard: Dashboard, reports: Reports, calendar: Calendar, tasks: Tasks, clients: Clients, enquiries: Enquiries, orders: Orders, billing: Billing, service: Service, inventory: Inventory, staff: Staff, tech: FieldApp, audit: Audit, settings: Settings, gallery: Gallery };
 
 export default function App() {
   const [ready, setReady] = useState(false);

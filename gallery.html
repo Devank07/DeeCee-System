@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d0f12" />
+  <title>Dee Cee Elevators — Photo Gallery</title>
+  <meta name="description" content="Real photos of Dee Cee Elevators installations: cabins, doors, home lifts, capsule lifts, finishes and more." />
+  <meta property="og:title" content="Dee Cee Elevators — Photo Gallery" />
+  <meta property="og:description" content="Real photos of our elevators, cabins, doors and finishes." />
+  <link rel="icon" href="./icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Saira+Semi+Condensed:wght@600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./gallery" id="home"><img id="logo" alt="" /><span>Dee Cee Elevators</span></a>
+    <a class="btn wa" id="waTop" href="#" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5-1.3A10 10 0 1 0 12 2zm5.3 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.3-.7-2.8-1.1-4.5-3.9-4.7-4.1-.1-.2-1.1-1.5-1.1-2.9s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.3 0 .5l-.3.5-.4.4c-.1.1-.3.3-.1.6.2.3.7 1.2 1.6 2 1.1 1 2 1.3 2.3 1.4.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l1.9.9c.3.1.5.2.5.3.1.1.1.7-.1 1.2z"/></svg><span>WhatsApp us</span></a>
+  </header>
+
+  <main>
+    <section class="wrap hero">
+      <h1 id="h1">Our elevators, in real photos</h1>
+      <p id="intro"></p>
+      <a class="btn ghost" id="fullLink" href="./gallery" hidden>See our full gallery</a>
+      <div class="cats" id="cats"></div>
+    </section>
+
+    <div class="bar" id="browse"><nav class="tabs" id="tabs" aria-label="Photo categories"></nav></div>
+
+    <section class="wrap">
+      <div class="ghead"><h2 id="gt">All photos</h2><p id="gd"></p></div>
+      <div class="grid" id="grid"><div class="msg">Loading photos…</div></div>
+    </section>
+  </main>
+
+  <footer><span>© Dee Cee Elevators Pvt. Ltd.</span> · <a href="https://deeceeelevators.in">deeceeelevators.in</a></footer>
+
+  <div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <div class="lbtop">
+      <div class="t"><b id="lbT"></b><span id="lbS"></span></div>
+      <button class="ib fav" id="lbF" aria-pressed="false" aria-label="Add to shortlist"><svg viewBox="0 0 24 24"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/></svg></button>
+      <button class="ib" id="lbX" aria-label="Close">×</button>
+    </div>
+    <div class="stage" id="stage">
+      <button class="ib nv pv" id="lbP" aria-label="Previous photo">‹</button>
+      <img id="lbI" alt="" />
+      <button class="ib nv nx" id="lbN" aria-label="Next photo">›</button>
+    </div>
+    <div class="lbbot"><span class="count" id="lbC"></span><a class="btn wa" id="lbW" href="#" target="_blank" rel="noopener">Ask about this photo</a></div>
+  </div>
+
+  <div class="sl" id="sl" aria-live="polite">
+    <b id="slN"></b>
+    <a class="btn wa" id="slW" href="#" target="_blank" rel="noopener">Send on WhatsApp</a>
+    <button class="btn ghost" id="slC" type="button">Clear</button>
+  </div>
+
+  <script type="module" src="/src/gallery/public.js"></script>
+</body>
+</html>

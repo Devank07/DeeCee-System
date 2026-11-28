@@ -24,5 +24,9 @@ export default defineConfig({
   plugins: [react(), versionFile()],
   base: './',
   define: { __APP_VERSION__: JSON.stringify(info) },
-  build: { chunkSizeWarningLimit: 1500 },
+  build: {
+    chunkSizeWarningLimit: 1500,
+    // Two pages: the Company OS (index.html) and the public client gallery (gallery.html → /gallery)
+    rollupOptions: { input: { main: 'index.html', gallery: 'gallery.html' } },
+  },
 });

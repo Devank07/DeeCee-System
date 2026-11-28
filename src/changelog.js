@@ -1,6 +1,15 @@
 // Version history shown in the app (click the version number). Add a new entry at the TOP for every release
 // and set the same number in package.json "version".
 export const CHANGELOG = [
+  { v: '2.6.0', date: '2026-11-28', items: [
+    'Client gallery: one public link (/gallery) with real photos sorted into categories — cabins, doors, home lifts, capsule, hospital, goods & car lifts, buttons, finishes, completed projects',
+    'Sales / Admin add photos from the new “Client gallery” page: pick a category, select many photos at once — each is resized automatically and gets a code (CAB-001, DR-004…)',
+    'Pin best photos (shown first, used as the category cover), hide without deleting, change title or category, delete',
+    'Client selections: pick a few photos for one client and send a link that shows only those (Send on WhatsApp / Copy link)',
+    'Clients tap ♥ on photos and send their shortlist with photo codes to your WhatsApp in one message',
+    'Admin: Categories & settings — rename, reorder or add categories, code prefixes, WhatsApp number, intro text',
+    'Only gallery records are public; everything else still needs a login (firestore.rules)',
+  ] },
   { v: '2.5.0', date: '2026-11-26', items: [
     'Company hierarchy: every staff record has a Level (Director, CEO / GM, Head of department, Manager, Supervisor, Executive, Site team leader, Technician, Helper) and “Reports to”',
     'Staff & Teams → Organisation: organisation chart, plus a list of people with no manager set',

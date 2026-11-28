@@ -3,7 +3,7 @@ import { useCol, PageHeader, Card, DataTable } from '../ui';
 import { fmtDateTime } from '../utils';
 import { ROLES } from '../constants';
 
-const LABEL = { clients: 'Client', projects: 'Client tab / order', files: 'Drawing / document', teams: 'Team', payroll: 'Salary', invoices: 'Invoice', payments: 'Payment', amcs: 'AMC', complaints: 'Complaint', visits: 'Field job', items: 'Stock item', stockMoves: 'Stock move', vendors: 'Vendor', purchaseOrders: 'Purchase order', dispatches: 'Dispatch', staff: 'Staff', attendance: 'Attendance', activity: 'Timeline post', photos: 'Photo', settings: 'Settings', users: 'User' };
+const LABEL = { clients: 'Client', projects: 'Client tab / order', files: 'Drawing / document', teams: 'Team', payroll: 'Salary', invoices: 'Invoice', payments: 'Payment', amcs: 'AMC', complaints: 'Complaint', visits: 'Field job', items: 'Stock item', stockMoves: 'Stock move', vendors: 'Vendor', purchaseOrders: 'Purchase order', dispatches: 'Dispatch', staff: 'Staff', attendance: 'Attendance', activity: 'Timeline post', photos: 'Photo', settings: 'Settings', users: 'User', gallery: 'Gallery photo', gallerySets: 'Gallery selection', galleryConfig: 'Gallery settings' };
 
 export default function Audit() {
   const rows = useCol('audit', [], true, { orderBy: ['at', 'desc'], limit: 500 });

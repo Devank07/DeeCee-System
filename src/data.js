@@ -128,7 +128,7 @@ async function firebaseBackend() {
     db = fs.getFirestore(app);
   }
   let profileUnsub = null;
-  const ALL = ['clients', 'projects', 'activity', 'invoices', 'payments', 'amcs', 'complaints', 'visits', 'items', 'stockMoves', 'vendors', 'purchaseOrders', 'dispatches', 'staff', 'teams', 'attendance', 'settings', 'users', 'audit', 'payroll', 'counters', 'files'];
+  const ALL = ['clients', 'projects', 'activity', 'invoices', 'payments', 'amcs', 'complaints', 'visits', 'items', 'stockMoves', 'vendors', 'purchaseOrders', 'dispatches', 'staff', 'teams', 'attendance', 'settings', 'users', 'audit', 'payroll', 'counters', 'files', 'gallery', 'gallerySets', 'galleryConfig'];
   const conv = (data) => {
     const out = {};
     for (const [k, v] of Object.entries(data)) out[k] = isInc(v) ? fs.increment(v.__inc) : v;
