@@ -941,3 +941,44 @@ input.need { border-color: #e8a317; background: #fffaf0; }
 .org-av { width: 34px; height: 34px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 700; font-size: 12px; flex: none; }
 .org-node.r1 .org-av, .org-node.r2 .org-av { background: var(--amber-soft); color: var(--amber); }
 .org-tog { border: 1px solid var(--line-2); background: var(--grey-soft); border-radius: 8px; padding: 2px 8px; font: inherit; font-size: 12px; cursor: pointer; white-space: nowrap; }
+
+/* ---------- Client gallery (staff page) ---------- */
+.gal-drop { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 22px 16px; border: 2px dashed var(--line-2); border-radius: 12px; background: var(--bg); cursor: pointer; text-align: center; }
+.gal-drop:hover { border-color: var(--accent); background: var(--accent-soft); }
+.gal-drop b { font-size: 15px; color: var(--accent); }
+.gal-drop.busy { opacity: 0.6; cursor: progress; }
+.gal-queue { list-style: none; padding: 0; margin: 12px 0 0; max-height: 220px; overflow: auto; font-size: 13px; }
+.gal-queue li { display: flex; justify-content: space-between; gap: 12px; padding: 5px 2px; border-bottom: 1px solid var(--line); }
+.gal-queue li span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.gal-queue li span:last-child { flex: none; }
+.gal-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 12px; }
+.gal-card { border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: #fff; display: flex; flex-direction: column; min-width: 0; }
+.gal-card.hid .gal-img img { opacity: 0.45; }
+.gal-img, .gal-pick { position: relative; display: block; width: 100%; aspect-ratio: 4 / 5; border: 0; padding: 0; background: var(--grey-soft); cursor: zoom-in; overflow: hidden; }
+.gal-img img, .gal-pick img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.gal-code { position: absolute; left: 8px; bottom: 8px; background: rgba(0, 0, 0, 0.7); color: #fff; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 6px; }
+.gal-flags { position: absolute; right: 8px; top: 8px; display: flex; gap: 4px; }
+.gal-flags span, .gal-flag { background: #fff; color: var(--ink); font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 6px; box-shadow: var(--shadow); }
+.gal-flag { position: absolute; right: 8px; bottom: 8px; }
+.gal-body { padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.gal-body input, .gal-body select { padding: 7px 9px; font-size: 13px; }
+.gal-acts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.gal-acts .btn { padding: 6px 4px; }
+.gal-pick { border-radius: 12px; cursor: pointer; outline: 3px solid transparent; outline-offset: -3px; transition: outline-color 0.15s; }
+.gal-pick.on { outline-color: var(--accent); }
+.gal-tick { position: absolute; top: 8px; right: 8px; width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; background: rgba(255, 255, 255, 0.85); color: transparent; font-weight: 700; border: 2px solid #fff; }
+.gal-pick.on .gal-tick { background: var(--accent); color: #fff; }
+.gal-pickbar { position: sticky; bottom: 12px; z-index: 20; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 14px; padding: 10px 12px 10px 16px; background: var(--ink); color: #fff; border-radius: 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25); }
+.gal-pickbar .btn.ghost { background: rgba(255, 255, 255, 0.14); color: #fff; }
+.gal-set { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.gal-set-thumbs { display: flex; gap: 4px; }
+.gal-set-thumbs img { width: 44px; height: 54px; object-fit: cover; border-radius: 6px; background: var(--grey-soft); }
+.gal-set-info { display: flex; flex-direction: column; flex: 1; min-width: 160px; }
+.gal-cats { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.gal-cat-row { display: grid; grid-template-columns: auto minmax(0, 1.2fr) 80px minmax(0, 2fr) auto auto; gap: 8px; align-items: center; }
+.gal-used { white-space: nowrap; }
+@media (max-width: 760px) {
+  .gal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .gal-cat-row { grid-template-columns: auto minmax(0, 1fr) 70px; padding-bottom: 10px; border-bottom: 1px solid var(--line); }
+  .gal-cat-row > input:nth-of-type(3) { grid-column: 1 / -1; }
+}

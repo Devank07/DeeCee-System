@@ -205,5 +205,34 @@ service cloud.firestore {
             && onlyChanges(['status', 'reversedReason', 'reversedAt', 'reversedBy', 'updatedAt', 'updatedBy']));
       allow delete: if isAdmin();
     }
+
+    // ---- Client photo gallery: the ONLY records anyone can read without logging in ----
+    // Public = visible photos, their full-size copies, the gallery settings, and a client selection opened by its exact link.
+    // Sales / Admin manage it. Nothing about clients, sites or staff is stored on these records.
+    function galleryEditor() { return hasRole(['sales']); }
+    match /gallery/{id} {
+      allow read: if resource.data.hidden == false || isOffice();
+      allow create, update: if galleryEditor()
+        && request.resource.data.hidden is bool
+        && request.resource.data.code is string
+        && request.resource.data.thumb is string && request.resource.data.thumb.size() < 200000;
+      allow delete: if galleryEditor();
+    }
+    match /galleryFull/{id} {
+      allow read: if isOffice() || get(/databases/$(database)/documents/gallery/$(id)).data.hidden == false;
+      allow create: if galleryEditor() && request.resource.data.data is string && request.resource.data.data.size() < 1000000;
+      allow update: if false;
+      allow delete: if galleryEditor();
+    }
+    match /gallerySets/{id} {
+      allow get: if true;           // a client opens their selection by its link
+      allow list: if isOffice();    // but nobody outside can list all selections
+      allow create, update: if galleryEditor() && request.resource.data.ids is list && request.resource.data.ids.size() <= 300;
+      allow delete: if galleryEditor();
+    }
+    match /galleryConfig/{id} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

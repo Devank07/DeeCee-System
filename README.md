@@ -30,8 +30,8 @@ Locked steps show *why* they're locked (e.g. "Waiting for site ready"). Only the
 
 | Role | Sees |
 |---|---|
-| Admin / Owner | Everything |
-| Sales | Dashboard, Enquiries & Quotes, Orders, Clients |
+| Admin / Owner | Everything (incl. Client gallery settings) |
+| Sales | Dashboard, Enquiries & Quotes, Orders, Clients, Client gallery |
 | Drawing team | Dashboard, Orders (uploads drawings) |
 | Material & Dispatch | Dashboard, Orders (advance, dispatch), Material & Stock |
 | Installation manager | Dashboard, Orders (site, team, installation, handover), Service, Staff & Teams, Field App |
@@ -52,6 +52,22 @@ Clients log in at the same address with the login you create (**Clients → open
 
 **What clients send reaches the office** as *From the client* on the client tab and *From clients* on the Dashboard (with a red count on the menu). On the client tab the buttons do the real work: **Record this payment** (pre-filled), **Mark drawing approved**, **Verified — mark site ready**. Any reply typed there shows up in the client's portal.
 Contact cards are copied automatically from the staff record (salesperson) and the team leader of the assigned site team, so keep their phone numbers filled in under Staff & Teams.
+
+## Client gallery (public)
+One link for clients instead of sending 60+ photos on WhatsApp: **https://deecee-elevators.web.app/gallery**. It is the **only** part of the system anyone can open without logging in.
+- **What clients see**:
+  - category tiles with a cover photo and photo count
+  - a grid of photos; tap one to view it full size (swipe on phones)
+  - a code on every photo (CAB-014…)
+  - **♥ shortlist → Send on WhatsApp**, with the codes in the message
+  - links straight to one category, e.g. `/gallery#home`
+- **Client gallery** page (Sales & Admin):
+  - **Add photos**: pick a category, add an optional title (no client names), select many photos. Each is resized in the browser (full photo ≤1800 px under ~900 KB, thumbnail 560 px), stored in Firestore — no paid Storage — and given a code.
+  - **Organise**: **Pin** (shown first and used as the category cover), **Hide** (clients can't see it), change title or category, delete. Every change is in the Audit log.
+  - **Client selections**: *Make a client selection* → tap photos → *Create link*. Send the link on WhatsApp; it shows only those photos, with a button to the full gallery. Edit or delete a selection any time (deleting stops its link).
+  - **Categories & settings** (Admin): rename, reorder or add categories, set code prefixes, the WhatsApp number that shortlists go to, and the intro text.
+- **Security**: `gallery`, `galleryFull` and `galleryConfig` are readable by anyone. For `gallery` and `galleryFull`, only photos not marked hidden. `gallerySets` can be opened only by its exact link, not listed. Only Sales / Admin can write. Public records hold only code, category, title and image; no client, site or staff details.
+- The public page is a separate small bundle (`gallery.html` + `src/gallery/public.js`, Firestore *lite*). It does not load the Company OS code. The app's service worker never caches it.
 
 ## Material (no stock-keeping needed)
 1. **Installation** marks the site ready (*Update site status*, or the site team on the phone) — the same form **requests material** with a *needed by* date and a note. (A separate *Request material* button exists too.)
